@@ -1,16 +1,18 @@
 # Coupon Codes
 
+> **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
+
 ## Coupon Rules
 
-| Rule | Description |
-|---|---|
-| Discount types | Percentage (%) or Fixed (₹) |
-| Min cart value | Coupon only applies if cart subtotal ≥ min value |
-| Max discount cap | For % coupons, max ₹ discount (e.g., 20% off up to ₹500) |
-| Usage limit | Max number of times coupon can be used globally |
-| Per-user limit | Max once per customer (optional) |
-| Valid date range | `valid_from` to `valid_till` |
-| Active toggle | Enable/disable without deleting |
+| Rule | Description | Status |
+|---|---|---|
+| Discount types | Percentage (%) or Fixed (₹) | ✅ |
+| Min cart value | Coupon only applies if cart subtotal ≥ min value | ✅ |
+| Max discount cap | For % coupons, max ₹ discount | ✅ |
+| Usage limit | Max number of times coupon can be used globally | ✅ |
+| Per-user limit | Max once per customer | ✅ |
+| Valid date range | `valid_from` to `valid_till` | ✅ (backend stores fields) |
+| Active toggle | Enable/disable without deleting | ✅ |
 
 ## How It Works (User Flow)
 
@@ -76,7 +78,7 @@ class Coupon(models.Model):
 { "success": true, "message": "Coupon removed" }
 ```
 
-## Admin — Coupon Management
+## Admin — Coupon Management 🚧
 
 In the custom dashboard (`/admin/coupons`):
 

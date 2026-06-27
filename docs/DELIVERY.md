@@ -1,18 +1,20 @@
 # Delivery & Logistics (Tamilnadu)
 
+> **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
+
 ## Delivery Options
 
-| Type | Availability | Cost |
-|---|---|---|
-| Same Day Delivery | Chennai pincodes only | ₹49 |
-| Standard Delivery | All Tamilnadu pincodes | ₹79 |
-| Free Delivery | Orders above ₹999 | ₹0 |
-| Store Pickup | Select pickup locations | ₹0 |
+| Type | Availability | Cost | Status |
+|---|---|---|---|
+| Same Day Delivery | Chennai pincodes only | ₹49 | ✅ |
+| Standard Delivery | All Tamilnadu pincodes | ₹79 | ✅ |
+| Free Delivery | Orders above ₹999 | ₹0 | ✅ |
+| Store Pickup | Select pickup locations | ₹0 | ✅
 
 ## Pincode-Based Logic
 
 1. Customer enters pincode on product page or checkout
-2. API: `GET /api/delivery/check/{pincode}/`
+2. API: `GET /api/delivery/check/{pincode}/` ✅
 3. Returns:
 ```json
 {
@@ -33,14 +35,40 @@
 
 | Field | Description |
 |---|---|
-| pincode | 6-digit pincode |
+| pincode | 6-digit pincode (unique) |
 | city | City name |
 | state | Default: Tamilnadu |
 | delivery_type | `same_day`, `standard`, or `none` |
 | estimated_days_text | "Today", "1-2 days", "2-3 days" |
 | store_pickup | Boolean |
 | cod_available | Boolean |
-| delivery_charge | Decimal (override) |
+| delivery_charge | Decimal (override, null by default) |
+
+### Management Commands
+
+```bash
+# Seed 388 Tamilnadu pincodes
+python manage.py seed_pincodes
+
+# Import from government CSV
+python manage.py import_pincodes path/to/pincodes.csv
+
+# Generate sample CSV template
+python manage.py import_pincodes --sample
+
+# Clear and re-import
+python manage.py import_pincodes path/to/file.csv --clear
+```
+
+## Delivery Charge Logic
+
+- Same Day: ₹49
+- Standard: ₹79
+- Free: subtotal > ₹999
+- Store Pickup: ₹0
+
+### 🚧 Charge Calculation
+Delivery charge logic is documented but not implemented in backend code. Currently, `delivery_charge` is stored per-pincode but not calculated dynamically.
 
 ## Store Pickup Locations
 
@@ -51,14 +79,14 @@
 | Coimbatore | 78, Cross Cut Road | 9876543212 |
 | Madurai | 12, North Veli Street | 9876543213 |
 
-## Shipping Partners (to integrate)
+## Shipping Partners (to integrate) 🚧
 
 1. Delhivery
 2. Blue Dart
 3. DTDC
 4. India Post (for remote pincodes)
 
-## Tracking Flow
+## Tracking Flow 🚧
 
 ```
 Order Placed → Confirmed → Packed → Shipped (tracking# assigned) → In Transit → Out for Delivery → Delivered
@@ -73,10 +101,10 @@ At each stage:
 ```
 Customer requests refund (within policy window)
   → Admin approves
-  → Razorpay refund API called (auto to source)
-  → Customer notified
-  → Stock restored
-  → Loyalty points adjusted (deduct if earned from this order)
+  → Razorpay refund API called (auto to source) ✅
+  → Customer notified 🚧
+  → Stock restored ✅
+  → Loyalty points adjusted (deduct if earned from this order) ✅
 ```
 
 ## Return Policy

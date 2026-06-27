@@ -1,11 +1,13 @@
 # WhatsApp Integration
 
+> **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
+
 ## Use Cases
 
-1. **Product Enquiry** — Customer clicks "WhatsApp Enquiry" on product page → opens WhatsApp with pre-filled message containing product name + URL
-2. **Order Confirmation** — WhatsApp notification when order is placed
-3. **Order Updates** — Status change notifications (packed, shipped, delivered)
-4. **Refund Update** — Refund processed notification
+1. **Product Enquiry** — Customer clicks "WhatsApp Enquiry" on product page → opens WhatsApp with pre-filled message. ✅ Built (wa.me link on product page)
+2. **Order Confirmation** — WhatsApp notification when order is placed. 🚧
+3. **Order Updates** — Status change notifications. 🚧
+4. **Refund Update** — Refund processed notification. 🚧
 
 ## Implementation
 

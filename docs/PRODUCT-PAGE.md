@@ -1,15 +1,17 @@
 # Product Detail Page — Full Specification
 
+> **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented (spec reference)
+
 ## Layout (Top → Bottom)
 
 ### 1. Product Header
-- Product images gallery (carousel/zoom)
-- Product name
-- Brand name (linked to brand page)
-- Star rating (average) + review count
-- SKU display
+- Product images gallery ✅ (static, no zoom/carousel yet)
+- Product name ✅
+- Brand name ✅
+- Star rating + review count ✅
+- SKU display ✅
 
-### 2. Pricing Section
+### 2. Pricing Section ✅
 ```
 MRP:         ₹1,999
 Selling:     ₹1,299
@@ -17,23 +19,23 @@ Discount:   35% OFF
 GST:        GST Included
 ```
 
-### 3. Variant Selection
+### 3. Variant Selection ✅
 - **Color** — swatch circles, clicking updates available sizes
 - **Size** — button group, unavailable sizes disabled
 - Changing variant updates: SKU, stock status, price (if override exists)
 
-### 4. Stock Status
+### 4. Stock Status ✅
 | Condition | Display |
 |---|---|
 | stock > 10 | ✅ In Stock |
 | stock ≤ 5 | ⚠ Only X Left |
 | stock = 0 | ❌ Out of Stock |
 
-### 5. Product Description
+### 5. Product Description ✅
 - Short description (1-2 lines)
 - Full description (expandable)
 
-### 6. Product Highlights
+### 6. Product Highlights ✅
 Bullet list:
 ```
 ✔ Premium Cotton
@@ -43,32 +45,28 @@ Bullet list:
 ✔ Wrinkle Resistant
 ```
 
-### 7. Delivery Information
-- Delivery available to your pincode (input to check)
-- Estimated delivery: Same Day (Chennai) / 2-3 Days (Tamilnadu)
-- Store pickup available
+### 7. Delivery Information ✅ (partial)
+- Delivery info displayed ✅
+- Pincode input to check 🚧 (not built — API exists but no UI component)
+- Estimated delivery displayed ✅
+- Store pickup available ✅
 
-### 8. Return Policy
-- 7-Day Easy Exchange
-- Size Replacement Available
+### 8. Return Policy ✅
 
-### 9. Customer Reviews
-- Average rating display
-- Verified reviews list (with customer photos)
-- "Write a Review" button
+### 9. Customer Reviews ✅ (partial)
+- Average rating display ✅
+- Verified reviews list ✅
+- "Write a Review" button 🚧 (not built — API exists)
 
-### 10. Related Products
-Three sections:
-- Similar Products
-- Frequently Bought Together
-- Recommended Products
+### 10. Related Products ✅ (basic)
 
-### 11. Action Buttons (Sticky bottom on mobile)
-- **Add to Cart** — adds selected variant
-- **Buy Now** — adds + redirects to checkout
-- **Wishlist ❤️** — toggle
-- **Share Product** — copy link / native share
-- **WhatsApp Enquiry** — opens WhatsApp with product link
+### 11. Action Buttons ✅
+- **Add to Cart** ✅
+- **Buy Now** ✅
+- **Wishlist ❤️** ✅
+- **Share Product** ✅ (copy link)
+- **WhatsApp Enquiry** ✅ (wa.me link)
+- **Sticky bottom on mobile** 🚧 (not built)
 
 ---
 
@@ -105,11 +103,11 @@ Three sections:
   - name, category, brand, mrp, selling_price, short_description, description, color, size, stock, images (comma-separated URLs or local paths)
 
 ### Performance
-- Server-side render (SSR) product page
-- Images lazy-loaded with blur placeholder
-- Pre-generated thumbnails from S3
-- Cache product API response (Redis, 5min TTL)
-- Mobile-first responsive design
+- Server-side render (SSR) product page 🚧 (currently CSR)
+- Images lazy-loaded with blur placeholder 🚧
+- Pre-generated thumbnails from S3 🚧
+- Cache product API response (Redis, 5min TTL) 🚧
+- Mobile-first responsive design ✅
 
 ---
 
@@ -153,10 +151,10 @@ ProductDetailPage (SSR)
     └── Recommended (carousel)
 ```
 
-## Mobile Considerations
+## Mobile Considerations 🚧
 
-- Sticky bottom bar: [Add to Cart] [Buy Now] [Wishlist]
-- Gallery: swipeable, pinch-to-zoom
-- Variant selector: horizontal scroll
-- Filters: slide-in drawer
-- Share: native share API
+- Sticky bottom bar 🚧
+- Gallery: swipeable, pinch-to-zoom 🚧
+- Variant selector: horizontal scroll ✅
+- Filters: slide-in drawer 🚧
+- Share: native share API 🚧

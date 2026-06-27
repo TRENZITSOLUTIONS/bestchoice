@@ -1,5 +1,7 @@
 # Inventory Setup Guide
 
+> **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
+
 ## Inventory Flow (Detailed)
 
 ```
@@ -80,7 +82,7 @@ def cancel_order(order):
 - Displayed on admin dashboard: "⚠ 12 products are running low on stock"
 - Email notification to admin (optional, can add later)
 
-## Bulk Upload Format (CSV/Excel)
+## Bulk Upload Format (CSV/Excel) 🚧
 
 | Column | Required | Description |
 |---|---|---|
@@ -98,7 +100,7 @@ def cancel_order(order):
 | highlights | No | Pipe-separated (e.g., "Cotton|Slim Fit|Soft") |
 | is_active | No | 1 or 0 |
 
-## Reorder Logic (Future Enhancement)
+## Reorder Logic (Future Enhancement) 🚧
 
 Once order volume justifies it:
 - Set `reorder_level` per variant

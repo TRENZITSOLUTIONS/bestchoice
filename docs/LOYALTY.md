@@ -1,28 +1,32 @@
 # Loyalty Points System
 
+> **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
+
 ## Rules
 
-| Action | Points Earned/Spent |
-|---|---|
-| Registration | 50 points |
-| Order placed (per ₹100) | 5 points (e.g., ₹1299 order → 65 points) |
-| Review with photo | 20 points |
-| First order bonus | 100 points |
-| Birthday bonus | 100 points |
-| Redeem | 1 point = ₹1 |
-| Max redeem per order | 20% of order value |
+| Action | Points Earned/Spent | Status |
+|---|---|---|
+| Registration welcome bonus | 50 points | ✅ |
+| Order placed (per ₹100) | 5 points (e.g., ₹1299 order → 65 points) | ✅ |
+| Points reversed on cancellation | Deducted | ✅ |
+| Review with photo | 20 points | 🚧 |
+| First order bonus | 100 points | 🚧 |
+| Birthday bonus | 100 points | 🚧 |
+| Redeem during checkout | 1 point = ₹1 | 🚧 |
+| Max redeem per order | 20% of order value | 🚧 |
+| Points expiry | 365 days | 🚧 |
 
-## Redemption
+## Redemption 🚧
 
-- Customer applies points during checkout
+- Customer applies points during checkout — not yet implemented
 - API validates: points ≥ order total × 20% max
 - Points deducted immediately
 - If order cancelled, points restored
 
-## Points Expiry
+## Points Expiry 🚧
 
-- Points valid for 365 days from earning
-- Expired points shown separately on loyalty page
+- Points valid for 365 days from earning — not yet tracked
+- Expired points shown separately on loyalty page — not yet tracked
 
 ## Models
 
