@@ -73,10 +73,13 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         if not self.auto_product_id:
             self.auto_product_id = generate_product_id(self.category.slug if self.category else 'gen')
-        super().save(*args, **kwargs)
         if not self.slug:
-            self.slug = f'{self.auto_product_id.lower()}-{self.name.lower().replace(" ", "-")[:50]}'
-            super().save(update_fields=['slug'])
+            from django.utils.text import slugify
+            base = slugify(self.name)[:50]
+            self.slug = base
+            if Product.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
+                self.slug = f'{base}-{self.auto_product_id.lower()}'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.auto_product_id} - {self.name}'
