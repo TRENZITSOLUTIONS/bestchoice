@@ -19,6 +19,7 @@ from .serializers import (
 from cart.models import Cart
 from loyalty.models import LoyaltyTransaction
 from delivery.utils import calculate_delivery_charge
+from notifications.utils import send_order_confirmation
 
 
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
@@ -196,6 +197,8 @@ def verify_payment(request):
     )
     order.user.loyalty_points += points_earned
     order.user.save()
+
+    send_order_confirmation(order)
 
     return Response({
         'success': True,
@@ -392,5 +395,7 @@ def payment_webhook(request):
     )
     order.user.loyalty_points += points_earned
     order.user.save()
+
+    send_order_confirmation(order)
 
     return Response({'status': 'ok'})
