@@ -1,4 +1,14 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'BestChoice - Fashion & Cosmetics',
+  description: 'Shop premium fashion and cosmetics in Tamilnadu. Free delivery above ₹999, 7-day exchange, same-day delivery in Chennai.',
+  openGraph: {
+    title: 'BestChoice - Fashion & Cosmetics',
+    description: 'Shop premium fashion and cosmetics in Tamilnadu',
+  },
+};
 
 const heroCategories = [
   { name: "Men's Wear", slug: 'mens-wear', image: '/images/mens.jpg', count: 'Shirts, T-Shirts, Jeans & more' },

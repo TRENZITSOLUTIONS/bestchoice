@@ -6,8 +6,23 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'BestChoice - Fashion & Cosmetics',
-  description: 'Premium fashion and cosmetics store across Tamilnadu',
+  title: {
+    default: 'BestChoice - Fashion & Cosmetics',
+    template: '%s | BestChoice',
+  },
+  description: 'Premium fashion and cosmetics store across Tamilnadu. Shop men\'s wear, women\'s wear, kids clothing, and cosmetics with home delivery.',
+  keywords: ['fashion', 'cosmetics', 'Tamilnadu', 'online shopping', 'clothing', 'Chennai'],
+  openGraph: {
+    title: 'BestChoice - Fashion & Cosmetics',
+    description: 'Premium fashion and cosmetics store across Tamilnadu',
+    type: 'website',
+    locale: 'en_IN',
+    siteName: 'BestChoice',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
