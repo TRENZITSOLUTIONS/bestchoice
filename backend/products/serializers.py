@@ -97,6 +97,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     pricing = serializers.SerializerMethodField()
     stock_status = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
+    related = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -105,7 +106,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'description', 'category', 'brand', 'images', 'variants',
             'highlights', 'available_colors', 'available_sizes',
             'pricing', 'stock_status', 'gst_included', 'rating',
-            'hide_if_out_of_stock', 'created_at',
+            'related', 'hide_if_out_of_stock', 'created_at',
         )
 
     def get_category(self, obj):
@@ -158,3 +159,41 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'count': len(ratings),
             'distribution': dist,
         }
+
+    def get_related(self, obj):
+        from .models import RelatedProduct
+        curated = RelatedProduct.objects.filter(
+            product=obj, relation_type__in=['similar', 'recommended']
+        ).select_related('related_product')
+        curated_ids = set()
+        results = {'similar': [], 'recommended': []}
+        for r in curated:
+            curated_ids.add(r.related_product_id)
+            serializer = RelatedProductSerializer(r.related_product)
+            results[r.relation_type].append(serializer.data)
+        same_category = Product.objects.filter(
+            is_active=True, category=obj.category
+        ).exclude(id=obj.id).exclude(id__in=curated_ids)[:8]
+        serialized = RelatedProductSerializer(same_category, many=True).data
+        results['similar'].extend(serialized)
+        return results
+
+
+class RelatedProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'name', 'slug', 'selling_price', 'mrp', 'primary_image', 'discount_percent')
+
+    primary_image = serializers.SerializerMethodField()
+    discount_percent = serializers.SerializerMethodField()
+
+    def get_primary_image(self, obj):
+        img = obj.images.filter(is_primary=True).first()
+        if not img:
+            img = obj.images.first()
+        return img.image if img else None
+
+    def get_discount_percent(self, obj):
+        if obj.mrp > 0:
+            return int(((obj.mrp - obj.selling_price) / obj.mrp) * 100)
+        return 0

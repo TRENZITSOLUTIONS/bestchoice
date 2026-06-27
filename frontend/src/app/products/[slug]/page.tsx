@@ -197,14 +197,8 @@ export default function ProductDetailPage() {
             </a>
           </div>
 
-          {/* Delivery */}
-          {product.delivery && (
-            <div className="mt-6 bg-gray-50 rounded-lg p-4 text-sm space-y-2">
-              <p>🚚 Same Day Delivery available in Chennai</p>
-              <p>📦 {product.delivery.tamilnadu_days} days delivery across Tamilnadu</p>
-              {product.delivery.store_pickup && <p>🏪 Store pickup available</p>}
-            </div>
-          )}
+          {/* Pincode Checker */}
+          <PincodeChecker />
 
           {/* Return Policy */}
           {product.return_policy && (
@@ -224,17 +218,119 @@ export default function ProductDetailPage() {
 
       {/* Related Products */}
       {product.related && (
-        <div className="mt-12">
+        <div className="mt-12 pb-24 md:pb-12">
           <h2 className="text-xl font-bold mb-4">Related Products</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...(product.related.similar || []), ...(product.related.recommended || [])].slice(0, 4).map((rel: any) => (
-              <Link key={rel.id} href={`/products/${rel.slug}`} className="bg-gray-50 rounded-lg p-3 hover:shadow-md">
-                <div className="bg-gray-200 rounded-lg h-32 mb-2" />
-                <p className="text-sm font-medium">{rel.name}</p>
-                <p className="text-blue-600 font-bold">₹{rel.selling_price}</p>
+              <Link key={rel.id} href={`/products/${rel.slug}`} className="bg-gray-50 rounded-lg p-3 hover:shadow-md group">
+                {rel.primary_image ? (
+                  <img src={rel.primary_image} alt={rel.name} className="w-full h-32 object-cover rounded-lg mb-2 group-hover:opacity-90" />
+                ) : (
+                  <div className="bg-gray-200 rounded-lg h-32 mb-2" />
+                )}
+                <p className="text-sm font-medium truncate">{rel.name}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-blue-600 font-bold">₹{rel.selling_price}</p>
+                  {rel.mrp > rel.selling_price && (
+                    <p className="text-xs text-gray-400 line-through">₹{rel.mrp}</p>
+                  )}
+                </div>
+                {rel.discount_percent > 0 && (
+                  <p className="text-xs text-green-600">{rel.discount_percent}% OFF</p>
+                )}
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Sticky Bottom Bar */}
+      {stockDisplay !== 'Out of Stock' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 md:hidden z-50">
+          <div className="flex items-center gap-3 max-w-7xl mx-auto">
+            <div className="flex-1">
+              <p className="text-lg font-bold text-blue-600">₹{product.pricing.selling_price}</p>
+              <p className="text-xs text-gray-400 line-through">₹{product.pricing.mrp}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="w-8 h-8 rounded-full border text-lg leading-none"
+              >−</button>
+              <span className="w-6 text-center font-medium">{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                className="w-8 h-8 rounded-full border text-lg leading-none"
+              >+</button>
+            </div>
+            <button
+              onClick={handleAddToCart}
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700"
+            >
+              Add to Cart
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PincodeChecker() {
+  const [pincode, setPincode] = useState('');
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  const handleCheck = async () => {
+    if (pincode.length !== 6) return;
+    setLoading(true);
+    setChecked(true);
+    try {
+      const res = await api.get(`/delivery/check/${pincode}/`);
+      setResult(res.data);
+    } catch {
+      setResult({ delivery_available: false, message: 'Could not check pincode' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 bg-gray-50 rounded-lg p-4">
+      <p className="text-sm font-medium mb-2">Check Delivery Availability</p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          maxLength={6}
+          value={pincode}
+          onChange={(e) => { setPincode(e.target.value.replace(/\D/g, '')); setChecked(false); }}
+          placeholder="Enter pincode"
+          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onKeyDown={(e) => e.key === 'Enter' && handleCheck()}
+        />
+        <button
+          onClick={handleCheck}
+          disabled={pincode.length !== 6 || loading}
+          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
+        >
+          {loading ? '...' : 'Check'}
+        </button>
+      </div>
+      {checked && result && (
+        <div className={`mt-2 text-sm ${result.delivery_available ? 'text-green-600' : 'text-red-500'}`}>
+          {result.delivery_available ? (
+            <div className="space-y-1">
+              <p>✅ Delivery available</p>
+              {result.delivery_type === 'same_day' && <p>🚚 Same Day Delivery</p>}
+              {result.estimated_days && <p>📦 {result.estimated_days}</p>}
+              {result.store_pickup && <p>🏪 Store pickup available</p>}
+              {result.cod_available && <p>💵 Cash on Delivery available</p>}
+              {result.delivery_charge && <p>Delivery charge: ₹{result.delivery_charge}</p>}
+            </div>
+          ) : (
+            <p>❌ {result.message || 'Delivery not available at this pincode'}</p>
+          )}
         </div>
       )}
     </div>
