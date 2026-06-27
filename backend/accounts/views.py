@@ -13,6 +13,16 @@ def register(request):
     user = serializer.save()
 
     from rest_framework_simplejwt.tokens import RefreshToken
+    from loyalty.models import LoyaltyTransaction
+
+    # Welcome bonus
+    user.loyalty_points = 50
+    user.save()
+    LoyaltyTransaction.objects.create(
+        user=user, points=50, type='earned',
+        description='Welcome bonus'
+    )
+
     refresh = RefreshToken.for_user(user)
 
     return Response({
