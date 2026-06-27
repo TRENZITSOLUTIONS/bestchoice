@@ -50,20 +50,30 @@ def checkout(request):
         return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
 
     subtotal = sum(item.price * item.quantity for item in cart.items.all())
-    total = int(subtotal * 100)  # Convert to paise for Razorpay
+    points_used = serializer.validated_data.get('loyalty_points_used', 0)
+    points_discount = Decimal(0)
+    if points_used > 0:
+        if points_used > request.user.loyalty_points:
+            return Response({'error': 'Insufficient loyalty points'}, status=status.HTTP_400_BAD_REQUEST)
+        points_discount = Decimal(str(points_used))
+        if points_discount > subtotal:
+            points_discount = subtotal
+    total_before_round = subtotal - points_discount
+    total = int(total_before_round * 100)  # Convert to paise for Razorpay
 
     order = Order.objects.create(
         order_id=generate_order_id(),
         user=request.user,
         subtotal=subtotal,
-        discount=0,
-        total=subtotal,
+        discount=points_discount,
+        total=total_before_round,
         status='pending',
         payment_status='pending',
         shipping_address=serializer.validated_data['shipping_address'],
         delivery_type=serializer.validated_data['delivery_type'],
         notes=serializer.validated_data.get('notes', ''),
         estimated_delivery=timezone.now().date() + timedelta(days=3),
+        loyalty_points_used=points_used,
     )
 
     for cart_item in cart.items.all():
@@ -146,6 +156,18 @@ def verify_payment(request):
     order.status = 'confirmed'
     order.save()
 
+    # Deduct used loyalty points
+    if order.loyalty_points_used > 0:
+        order.user.loyalty_points -= order.loyalty_points_used
+        order.user.save(update_fields=['loyalty_points'])
+        LoyaltyTransaction.objects.create(
+            user=order.user,
+            points=-order.loyalty_points_used,
+            type='spent',
+            order=order,
+            description=f'Redeemed for order {order.order_id}',
+        )
+
     # Earn loyalty points
     points_earned = int(order.subtotal / 100) * 5
     order.loyalty_points_earned = points_earned
@@ -226,7 +248,19 @@ def cancel_order(request, order_id):
             description=f'Cancelled {order.order_id}',
         )
         request.user.loyalty_points = max(0, request.user.loyalty_points - order.loyalty_points_earned)
-        request.user.save()
+
+    if order.loyalty_points_used > 0 and order.payment_status == 'paid':
+        request.user.loyalty_points += order.loyalty_points_used
+        LoyaltyTransaction.objects.create(
+            user=request.user,
+            points=order.loyalty_points_used,
+            type='refund',
+            order=order,
+            description=f'Points refunded for cancelled {order.order_id}',
+        )
+
+    if order.loyalty_points_earned > 0 or order.loyalty_points_used > 0:
+        request.user.save(update_fields=['loyalty_points'])
 
     return Response({'status': 'cancelled', 'message': 'Order cancelled successfully'})
 
@@ -301,6 +335,18 @@ def payment_webhook(request):
     order.razorpay_payment_id = razorpay_payment_id
     order.status = 'confirmed'
     order.save()
+
+    # Deduct used loyalty points
+    if order.loyalty_points_used > 0:
+        order.user.loyalty_points -= order.loyalty_points_used
+        order.user.save(update_fields=['loyalty_points'])
+        LoyaltyTransaction.objects.create(
+            user=order.user,
+            points=-order.loyalty_points_used,
+            type='spent',
+            order=order,
+            description=f'Redeemed for order {order.order_id}',
+        )
 
     points_earned = int(order.subtotal / 100) * 5
     order.loyalty_points_earned = points_earned

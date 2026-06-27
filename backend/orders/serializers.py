@@ -75,3 +75,4 @@ class CheckoutSerializer(serializers.Serializer):
     shipping_address = serializers.JSONField()
     delivery_type = serializers.ChoiceField(choices=['home', 'store_pickup'])
     notes = serializers.CharField(required=False, allow_blank=True)
+    loyalty_points_used = serializers.IntegerField(min_value=0, required=False, default=0)

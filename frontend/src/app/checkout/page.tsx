@@ -43,7 +43,17 @@ export default function CheckoutPage() {
     state: 'Tamilnadu',
   });
   const [deliveryType, setDeliveryType] = useState('home');
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [processing, setProcessing] = useState(false);
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => api.get('/auth/me/').then((r) => r.data),
+  });
+
+  const maxPoints = profile?.loyalty_points || 0;
+  const pointsDiscount = Math.min(loyaltyPoints, maxPoints, cart?.subtotal || 0);
+  const discountedTotal = (cart?.subtotal || 0) - pointsDiscount;
 
   const handlePayment = async () => {
     setProcessing(true);
@@ -59,6 +69,7 @@ export default function CheckoutPage() {
       const checkoutRes = await api.post('/checkout/', {
         shipping_address: address,
         delivery_type: deliveryType,
+        loyalty_points_used: loyaltyPoints,
       });
 
       const { razorpay_order_id, razorpay_key_id, amount_in_paise, order_id } = checkoutRes.data;
@@ -169,14 +180,39 @@ export default function CheckoutPage() {
                 <span>₹{item.total_price}</span>
               </div>
             ))}
+            {/* Loyalty Points */}
+            {maxPoints > 0 && (
+              <div className="bg-yellow-50 rounded-lg p-3 text-sm">
+                <p className="font-medium text-yellow-800">You have {maxPoints} loyalty points</p>
+                <p className="text-xs text-yellow-600 mb-2">1 point = ₹1 discount</p>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number" min={0} max={maxPoints}
+                    value={loyaltyPoints}
+                    onChange={(e) => setLoyaltyPoints(Math.min(Number(e.target.value) || 0, maxPoints))}
+                    className="w-24 px-2 py-1.5 border rounded text-sm"
+                  />
+                  <span className="text-xs text-gray-500">= -₹{pointsDiscount}</span>
+                  {loyaltyPoints > 0 && (
+                    <button onClick={() => setLoyaltyPoints(0)} className="text-xs text-red-500 hover:underline">Clear</button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="border-t pt-3 space-y-1">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
                 <span>₹{cart.subtotal}</span>
               </div>
+              {pointsDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Loyalty Discount</span>
+                  <span>-₹{pointsDiscount}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold">
                 <span>Total</span>
-                <span>₹{cart.total}</span>
+                <span>₹{Math.max(discountedTotal, 0)}</span>
               </div>
             </div>
           </div>
@@ -186,7 +222,7 @@ export default function CheckoutPage() {
             disabled={processing || !address.full_name || !address.phone || !address.address_line1}
             className="w-full bg-orange-500 text-white py-3 rounded-lg font-medium mt-4 hover:bg-orange-600 disabled:bg-gray-300"
           >
-            {processing ? 'Processing...' : `Pay ₹${cart.total} via Razorpay`}
+            {processing ? 'Processing...' : `Pay ₹${Math.max(discountedTotal, 0)} via Razorpay`}
           </button>
 
           <p className="text-xs text-gray-500 mt-3 text-center">
