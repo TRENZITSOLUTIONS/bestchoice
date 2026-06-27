@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 export default function AdminInventoryPage() {
   const { data, isLoading } = useQuery({
@@ -12,9 +13,24 @@ export default function AdminInventoryPage() {
   const outOfStock = data?.results?.filter((p: any) => !p.in_stock) || [];
   const inStock = data?.results?.filter((p: any) => p.in_stock) || [];
 
+  const exportCSV = () => {
+    if (!data?.results) return;
+    const headers = ['Product ID', 'Name', 'Stock Status'];
+    const rows = data.results.map((p: any) => [p.auto_product_id, p.name, p.in_stock ? 'In Stock' : 'Out of Stock']);
+    const csv = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Inventory exported');
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Inventory</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Inventory</h1>
+        <button onClick={exportCSV} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Export CSV</button>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-5">

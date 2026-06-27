@@ -15,8 +15,8 @@ export default function AdminOrdersPage() {
 
   const handleStatusUpdate = async (orderId: string, status: string) => {
     try {
-      await api.post(`/orders/${orderId}/cancel/`, { reason: `Admin: ${status}` });
-      toast.success(`Order ${orderId} updated`);
+      await api.post(`/admin/orders/${orderId}/status/`, { status });
+      toast.success(`Order ${orderId} → ${status}`);
       refetch();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed');
@@ -77,14 +77,23 @@ export default function AdminOrdersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {order.status === 'pending' && (
-                      <button
-                        onClick={() => handleStatusUpdate(order.order_id, 'cancelled')}
-                        className="text-red-600 text-xs hover:underline"
-                      >
-                        Cancel
-                      </button>
-                    )}
+                    <div className="flex gap-1">
+                      {order.status === 'pending' && (
+                        <>
+                          <button onClick={() => handleStatusUpdate(order.order_id, 'confirmed')} className="text-blue-600 text-xs hover:underline">Confirm</button>
+                          <button onClick={() => handleStatusUpdate(order.order_id, 'cancelled')} className="text-red-600 text-xs hover:underline">Cancel</button>
+                        </>
+                      )}
+                      {order.status === 'confirmed' && (
+                        <button onClick={() => handleStatusUpdate(order.order_id, 'packed')} className="text-blue-600 text-xs hover:underline">Pack</button>
+                      )}
+                      {order.status === 'packed' && (
+                        <button onClick={() => handleStatusUpdate(order.order_id, 'shipped')} className="text-blue-600 text-xs hover:underline">Ship</button>
+                      )}
+                      {order.status === 'shipped' && (
+                        <button onClick={() => handleStatusUpdate(order.order_id, 'delivered')} className="text-green-600 text-xs hover:underline">Deliver</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -279,6 +279,23 @@ def cancel_order(request, order_id):
     return Response({'status': 'cancelled', 'message': 'Order cancelled successfully'})
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_update_order_status(request, order_id):
+    try:
+        order = Order.objects.get(order_id=order_id)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    new_status = request.data.get('status')
+    if new_status not in dict(Order.STATUS_CHOICES):
+        return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+
+    order.status = new_status
+    order.save()
+    return Response({'status': order.status})
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def order_tracking(request, order_id):

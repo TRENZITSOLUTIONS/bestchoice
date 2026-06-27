@@ -1,4 +1,7 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Brand, Product
 from .serializers import (
@@ -62,3 +65,21 @@ class ProductByCategoryViewSet(viewsets.ReadOnlyModelViewSet):
             is_active=True,
             category__slug=self.kwargs['category_slug'],
         )
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def admin_update_product(request, pk):
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    allowed = ('name', 'slug', 'mrp', 'selling_price', 'total_stock', 'is_active', 'weight_g',
+               'short_description', 'description', 'category_id', 'brand_id', 'hide_if_out_of_stock')
+    data = {k: v for k, v in request.data.items() if k in allowed}
+
+    for attr, value in data.items():
+        setattr(product, attr, value)
+    product.save()
+    return Response({'updated': list(data.keys()), 'name': product.name})

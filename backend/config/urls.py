@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/', include('wishlist.urls')),
     path('api/', include('loyalty.urls')),
     path('api/', include('delivery.urls')),
+    path('api/admin/', include('config.admin_urls')),
 ]
 
 if settings.DEBUG:
