@@ -1,14 +1,17 @@
+import hmac
+import json
 import razorpay
 from decimal import Decimal
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.conf import settings
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Refund, Refund
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer,
     CheckoutSerializer, RefundSerializer,
@@ -246,3 +249,60 @@ def request_refund(request, order_id):
         status='requested',
     )
     return Response(RefundSerializer(refund).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@csrf_exempt
+def payment_webhook(request):
+    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
+    if not webhook_secret:
+        return Response({'error': 'Webhook not configured'}, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+    received_sig = request.headers.get('X-Razorpay-Signature', '')
+    body = request.body
+
+    try:
+        client.utility.verify_webhook_signature(body, received_sig, webhook_secret)
+    except razorpay.errors.SignatureVerificationError:
+        return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+
+    event = json.loads(body)
+    if event.get('event') != 'payment.captured':
+        return Response({'status': 'ignored'})
+
+    payload = event.get('payload', {}).get('payment', {}).get('entity', {})
+    razorpay_order_id = payload.get('order_id')
+    razorpay_payment_id = payload.get('id')
+
+    if not razorpay_order_id:
+        return Response({'error': 'Missing order_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        order = Order.objects.get(razorpay_order_id=razorpay_order_id)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if order.payment_status == 'paid':
+        return Response({'status': 'already_processed'})
+
+    order.payment_status = 'paid'
+    order.razorpay_payment_id = razorpay_payment_id
+    order.status = 'confirmed'
+    order.save()
+
+    points_earned = int(order.subtotal / 100) * 5
+    order.loyalty_points_earned = points_earned
+    order.save()
+
+    LoyaltyTransaction.objects.create(
+        user=order.user,
+        points=points_earned,
+        type='earned',
+        order=order,
+        description=f'Order {order.order_id}',
+    )
+    order.user.loyalty_points += points_earned
+    order.user.save()
+
+    return Response({'status': 'ok'})
