@@ -7,12 +7,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useCartStore } from '@/store/cart';
+import { useAuthStore } from '@/store/auth';
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const { addItem } = useCartStore();
 
   const { data: product, isLoading } = useQuery({
@@ -63,20 +65,28 @@ export default function ProductDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Gallery */}
         <div>
-          <div className="bg-gray-100 rounded-xl h-96 flex items-center justify-center mb-4">
+          <div
+            className="bg-gray-100 rounded-xl h-96 flex items-center justify-center mb-4 cursor-zoom-in overflow-hidden"
+            onClick={() => product.images?.length > 0 && setLightboxIndex(0)}
+          >
             {product.images?.[0] ? (
-              <img src={product.images[0].medium || product.images[0].image} alt={product.name} className="w-full h-full object-cover rounded-xl" />
+              <img src={product.images[0].image} alt={product.name}
+                className="w-full h-full object-cover rounded-xl hover:scale-105 transition-transform duration-300" />
             ) : (
               <span className="text-6xl">📷</span>
             )}
           </div>
-          <div className="flex gap-2">
-            {product.images?.slice(0, 4).map((img: any) => (
-              <div key={img.id} className="bg-gray-100 rounded-lg h-20 w-20 flex items-center justify-center cursor-pointer border-2 border-transparent hover:border-blue-500">
-                <img src={img.thumb || img.image} alt={img.alt_text} className="w-full h-full object-cover rounded-lg" />
-              </div>
-            ))}
-          </div>
+          {product.images?.length > 1 && (
+            <div className="flex gap-2">
+              {product.images.slice(0, 6).map((img: any, i: number) => (
+                <div key={img.id}
+                  onClick={() => setLightboxIndex(i)}
+                  className={`bg-gray-100 rounded-lg h-20 w-20 flex-shrink-0 flex items-center justify-center cursor-pointer border-2 overflow-hidden ${lightboxIndex === i ? 'border-blue-500' : 'border-transparent hover:border-gray-300'}`}>
+                  <img src={img.thumb || img.image} alt={img.alt_text} className="w-full h-full object-cover rounded-lg" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Product Info */}
@@ -244,6 +254,23 @@ export default function ProductDetailPage() {
         </div>
       )}
 
+      {/* Lightbox */}
+      {lightboxIndex !== null && product.images?.[lightboxIndex] && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          onClick={() => setLightboxIndex(null)}>
+          <button className="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 z-10" onClick={() => setLightboxIndex(null)}>✕</button>
+          <button className="absolute left-4 top-1/2 -translate-y-1/2 text-white text-3xl hover:text-gray-300 z-10 disabled:opacity-30"
+            disabled={lightboxIndex === 0}
+            onClick={(e) => { e.stopPropagation(); setLightboxIndex(Math.max(0, lightboxIndex - 1)); }}>‹</button>
+          <img src={product.images[lightboxIndex].image} alt={product.images[lightboxIndex].alt_text || product.name}
+            className="max-w-[90vw] max-h-[90vh] object-contain" onClick={(e) => e.stopPropagation()} />
+          <button className="absolute right-4 top-1/2 -translate-y-1/2 text-white text-3xl hover:text-gray-300 z-10 disabled:opacity-30"
+            disabled={lightboxIndex === product.images.length - 1}
+            onClick={(e) => { e.stopPropagation(); setLightboxIndex(Math.min(product.images.length - 1, lightboxIndex + 1)); }}>›</button>
+          <p className="absolute bottom-4 text-white text-sm">{lightboxIndex + 1} / {product.images.length}</p>
+        </div>
+      )}
+
       {/* Sticky Bottom Bar */}
       {stockDisplay !== 'Out of Stock' && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 md:hidden z-50">
@@ -337,8 +364,54 @@ function PincodeChecker() {
   );
 }
 
+function WriteReview({ productSlug, onSubmitted }: { productSlug: string; onSubmitted: () => void }) {
+  const [rating, setRating] = useState(0);
+  const [text, setText] = useState('');
+  const [hover, setHover] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+
+  const handleSubmit = async () => {
+    if (rating === 0) { toast.error('Please select a rating'); return; }
+    setSubmitting(true);
+    try {
+      await api.post(`/products/${productSlug}/reviews/`, { rating, text });
+      toast.success('Review submitted!');
+      setRating(0); setText(''); setSubmitting(false);
+      onSubmitted();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to submit review');
+      setSubmitting(false);
+    }
+  };
+
+  if (!isAuthenticated) return null;
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-4 mb-6">
+      <h3 className="font-medium text-sm mb-3">Write a Review</h3>
+      <div className="flex items-center gap-1 mb-3">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button key={star} type="button" onClick={() => setRating(star)}
+            onMouseEnter={() => setHover(star)} onMouseLeave={() => setHover(0)}
+            className={`text-2xl ${star <= (hover || rating) ? 'text-yellow-400' : 'text-gray-300'} hover:scale-110 transition`}>
+            ★
+          </button>
+        ))}
+      </div>
+      <textarea value={text} onChange={(e) => setText(e.target.value)}
+        placeholder="Share your experience with this product..."
+        className="w-full border rounded-lg px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3" />
+      <button onClick={handleSubmit} disabled={submitting}
+        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-300">
+        {submitting ? 'Submitting...' : 'Submit Review'}
+      </button>
+    </div>
+  );
+}
+
 function ReviewSection({ productSlug, product }: { productSlug: string; product: any }) {
-  const { data: reviewsData } = useQuery({
+  const { data: reviewsData, refetch } = useQuery({
     queryKey: ['reviews', productSlug],
     queryFn: () => api.get(`/products/${productSlug}/reviews/`).then((r) => r.data),
   });
@@ -347,6 +420,7 @@ function ReviewSection({ productSlug, product }: { productSlug: string; product:
 
   return (
     <div>
+      <WriteReview productSlug={productSlug} onSubmitted={() => refetch()} />
       <div className="flex items-center gap-4 mb-4">
         <span className="text-3xl font-bold">{reviewsData.average_rating}</span>
         <div>
