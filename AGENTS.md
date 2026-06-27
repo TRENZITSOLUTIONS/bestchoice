@@ -80,7 +80,7 @@ bestchoice/
 
 ## Git Commits (16 total)
 ```
-58c1a7e Update docs for all new features (product page, delivery, loyalty, admin)
+ca16cc7 Update all docs to reflect current implementation
 4345e41 S3 image pipeline — process_images management command
 523645b Notifications — email on payment verify/webhook, HTML template, settings
 b7dbb79 Admin APIs — order status flow, inline product edit, CSV export
