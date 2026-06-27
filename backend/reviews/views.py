@@ -45,6 +45,7 @@ def product_reviews(request, product_slug):
         rating=serializer.validated_data['rating'],
         text=serializer.validated_data.get('text', ''),
         images=serializer.validated_data.get('images', []),
+        is_approved=True,
     )
     return Response(ReviewSerializer(review).data, status=status.HTTP_201_CREATED)
 
