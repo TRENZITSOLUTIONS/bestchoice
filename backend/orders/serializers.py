@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, Refund
+from .models import Order, OrderItem, Refund, OrderStatusHistory
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -50,6 +50,25 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                 'url': obj.tracking_url,
             }
         return None
+
+
+class OrderStatusHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderStatusHistory
+        fields = ('status', 'note', 'created_at')
+
+
+class OrderTrackingSerializer(serializers.ModelSerializer):
+    status_history = OrderStatusHistorySerializer(many=True, read_only=True)
+    estimated_delivery = serializers.DateField(format='%d %b %Y', allow_null=True)
+
+    class Meta:
+        model = Order
+        fields = (
+            'order_id', 'status', 'payment_status',
+            'estimated_delivery', 'tracking_provider',
+            'tracking_id', 'tracking_url', 'status_history',
+        )
 
 
 class CheckoutSerializer(serializers.Serializer):

@@ -11,10 +11,10 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta
 
-from .models import Order, OrderItem, Refund, Refund
+from .models import Order, OrderItem, Refund, Refund, OrderStatusHistory
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer,
-    CheckoutSerializer, RefundSerializer,
+    CheckoutSerializer, RefundSerializer, OrderTrackingSerializer,
 )
 from cart.models import Cart
 from loyalty.models import LoyaltyTransaction
@@ -229,6 +229,17 @@ def cancel_order(request, order_id):
         request.user.save()
 
     return Response({'status': 'cancelled', 'message': 'Order cancelled successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def order_tracking(request, order_id):
+    try:
+        order = Order.objects.get(order_id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = OrderTrackingSerializer(order)
+    return Response(serializer.data)
 
 
 @api_view(['POST'])

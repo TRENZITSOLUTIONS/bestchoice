@@ -23,6 +23,12 @@ export default function OrderDetailPage() {
     enabled: isAuthenticated,
   });
 
+  const { data: tracking } = useQuery({
+    queryKey: ['order-tracking', id],
+    queryFn: () => api.get(`/orders/${id}/track/`).then((r) => r.data),
+    enabled: isAuthenticated,
+  });
+
   const handleCancel = async () => {
     try {
       await api.post(`/orders/${id}/cancel/`, { reason: 'Customer requested' });
@@ -64,14 +70,39 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {order.tracking && (
-        <div className="bg-blue-50 rounded-lg p-4 mb-6">
-          <p className="font-medium text-sm">Tracking: {order.tracking.provider}</p>
-          <p className="text-sm">ID: {order.tracking.tracking_id}</p>
-          {order.tracking.url && (
-            <a href={order.tracking.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
-              Track Order
-            </a>
+      {tracking && (
+        <div className="mb-6">
+          {/* Tracking Timeline */}
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+            {tracking.estimated_delivery && (
+              <p className="text-sm text-gray-500 mb-3">Estimated delivery by {tracking.estimated_delivery}</p>
+            )}
+            <h2 className="font-semibold mb-4">Order Status</h2>
+            <div className="relative">
+              {tracking.status_history?.slice().reverse().map((entry: any, i: number) => (
+                <div key={i} className="flex gap-3 pb-4 last:pb-0">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-3 h-3 rounded-full mt-1.5 ${i === tracking.status_history.length - 1 ? 'bg-blue-600 ring-2 ring-blue-200' : 'bg-gray-300'}`} />
+                    {i < tracking.status_history.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 mt-1" />}
+                  </div>
+                  <div className="flex-1 -mt-0.5">
+                    <p className="text-sm font-medium capitalize">{entry.status}</p>
+                    <p className="text-xs text-gray-500">{entry.created_at?.split('T')[0]} {entry.created_at?.split('T')[1]?.split('.')[0]}</p>
+                    {entry.note && <p className="text-xs text-gray-400 mt-0.5">{entry.note}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {order.tracking && (
+            <div className="bg-blue-50 rounded-lg p-4">
+              <p className="font-medium text-sm">Tracking: {order.tracking.provider}</p>
+              <p className="text-sm">ID: {order.tracking.tracking_id}</p>
+              {order.tracking.url && (
+                <a href={order.tracking.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">Track Order</a>
+              )}
+            </div>
           )}
         </div>
       )}

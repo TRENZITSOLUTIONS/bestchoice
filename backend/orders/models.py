@@ -48,8 +48,42 @@ class Order(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        old = None
+        if not is_new:
+            try:
+                old = Order.objects.get(pk=self.pk)
+            except Order.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old and old.status != self.status:
+            OrderStatusHistory.objects.create(
+                order=self, status=self.status,
+                note=f'Status changed from {old.status} to {self.status}',
+            )
+        if is_new:
+            OrderStatusHistory.objects.create(
+                order=self, status=self.status,
+                note='Order created',
+            )
+
     def __str__(self):
         return self.order_id
+
+
+class OrderStatusHistory(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_history')
+    status = models.CharField(max_length=20, choices=Order.STATUS_CHOICES)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = 'order status histories'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.order.order_id} → {self.status}'
 
 
 class OrderItem(models.Model):
