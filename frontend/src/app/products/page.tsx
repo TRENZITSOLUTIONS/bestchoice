@@ -13,6 +13,7 @@ function ProductGrid() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [sort, setSort] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const params = new URLSearchParams();
   if (category) params.set('category', category);
@@ -26,38 +27,66 @@ function ProductGrid() {
     queryFn: () => api.get(`/products/?${params.toString()}`).then((r) => r.data),
   });
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">
-        {category ? category.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : 'All Products'}
-      </h1>
-
-      <div className="flex flex-wrap gap-4 mb-6">
-        <input
-          type="number"
-          placeholder="Min price"
-          value={priceMin}
-          onChange={(e) => setPriceMin(e.target.value)}
-          className="border rounded px-3 py-1.5 text-sm w-28"
-        />
-        <input
-          type="number"
-          placeholder="Max price"
-          value={priceMax}
-          onChange={(e) => setPriceMax(e.target.value)}
-          className="border rounded px-3 py-1.5 text-sm w-28"
-        />
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="border rounded px-3 py-1.5 text-sm"
-        >
-          <option value="">Sort by</option>
+  const filterContent = (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium mb-2">Price Range</p>
+        <div className="flex gap-2">
+          <input type="number" placeholder="Min" value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm w-full" />
+          <input type="number" placeholder="Max" value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm w-full" />
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium mb-2">Sort By</p>
+        <select value={sort} onChange={(e) => setSort(e.target.value)}
+          className="border rounded px-2 py-1.5 text-sm w-full">
+          <option value="">Default</option>
           <option value="selling_price">Price: Low to High</option>
           <option value="-selling_price">Price: High to Low</option>
           <option value="-created_at">Newest First</option>
           <option value="name">Name A-Z</option>
         </select>
+      </div>
+      {(priceMin || priceMax || sort) && (
+        <button onClick={() => { setPriceMin(''); setPriceMax(''); setSort(''); }}
+          className="text-red-500 text-sm hover:underline">Clear Filters</button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">
+          {category ? category.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : 'All Products'}
+        </h1>
+        <button onClick={() => setDrawerOpen(!drawerOpen)}
+          className="md:hidden bg-gray-100 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200">
+          Filters {(priceMin || priceMax || sort) ? '●' : ''}
+        </button>
+      </div>
+
+      {/* Mobile filter drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute right-0 top-0 bottom-0 w-72 bg-white shadow-xl p-5 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-semibold">Filters</h2>
+              <button onClick={() => setDrawerOpen(false)} className="text-xl">✕</button>
+            </div>
+            {filterContent}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop filters */}
+      <div className="hidden md:flex gap-4 mb-6 items-start">
+        {filterContent}
       </div>
 
       {isLoading ? (
@@ -76,7 +105,7 @@ function ProductGrid() {
             >
               <div className="bg-gray-100 rounded-lg h-48 mb-3 flex items-center justify-center text-gray-400">
                 {product.primary_image ? (
-                  <img src={product.primary_image} alt={product.name} className="w-full h-full object-cover rounded-lg" />
+                  <img loading="lazy" src={product.primary_image} alt={product.name} className="w-full h-full object-cover rounded-lg" />
                 ) : (
                   <span className="text-4xl">📷</span>
                 )}

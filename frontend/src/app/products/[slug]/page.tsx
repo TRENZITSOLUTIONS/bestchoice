@@ -70,7 +70,7 @@ export default function ProductDetailPage() {
             onClick={() => product.images?.length > 0 && setLightboxIndex(0)}
           >
             {product.images?.[0] ? (
-              <img src={product.images[0].image} alt={product.name}
+              <img loading="lazy" src={product.images[0].image} alt={product.name}
                 className="w-full h-full object-cover rounded-xl hover:scale-105 transition-transform duration-300" />
             ) : (
               <span className="text-6xl">📷</span>
@@ -82,7 +82,7 @@ export default function ProductDetailPage() {
                 <div key={img.id}
                   onClick={() => setLightboxIndex(i)}
                   className={`bg-gray-100 rounded-lg h-20 w-20 flex-shrink-0 flex items-center justify-center cursor-pointer border-2 overflow-hidden ${lightboxIndex === i ? 'border-blue-500' : 'border-transparent hover:border-gray-300'}`}>
-                  <img src={img.thumb || img.image} alt={img.alt_text} className="w-full h-full object-cover rounded-lg" />
+                  <img loading="lazy" src={img.thumb || img.image} alt={img.alt_text} className="w-full h-full object-cover rounded-lg" />
                 </div>
               ))}
             </div>
@@ -195,7 +195,20 @@ export default function ProductDetailPage() {
               Buy Now
             </button>
             <button className="p-2.5 border rounded-lg hover:bg-gray-50" title="Wishlist">❤️</button>
-            <button className="p-2.5 border rounded-lg hover:bg-gray-50" title="Share">📤</button>
+            <button
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({ title: product.name, text: product.short_description || '', url: window.location.href });
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copied!');
+                }
+              }}
+              className="p-2.5 border rounded-lg hover:bg-gray-50"
+              title="Share"
+            >
+              📤
+            </button>
             <a
               href={`https://wa.me/919876543210?text=Hi%2C%20I%27m%20interested%20in%20${product.name}%20-%20${typeof window !== 'undefined' ? window.location.href : ''}`}
               target="_blank"
@@ -234,7 +247,7 @@ export default function ProductDetailPage() {
             {[...(product.related.similar || []), ...(product.related.recommended || [])].slice(0, 4).map((rel: any) => (
               <Link key={rel.id} href={`/products/${rel.slug}`} className="bg-gray-50 rounded-lg p-3 hover:shadow-md group">
                 {rel.primary_image ? (
-                  <img src={rel.primary_image} alt={rel.name} className="w-full h-32 object-cover rounded-lg mb-2 group-hover:opacity-90" />
+                  <img loading="lazy" src={rel.primary_image} alt={rel.name} className="w-full h-32 object-cover rounded-lg mb-2 group-hover:opacity-90" />
                 ) : (
                   <div className="bg-gray-200 rounded-lg h-32 mb-2" />
                 )}
@@ -262,7 +275,7 @@ export default function ProductDetailPage() {
           <button className="absolute left-4 top-1/2 -translate-y-1/2 text-white text-3xl hover:text-gray-300 z-10 disabled:opacity-30"
             disabled={lightboxIndex === 0}
             onClick={(e) => { e.stopPropagation(); setLightboxIndex(Math.max(0, lightboxIndex - 1)); }}>‹</button>
-          <img src={product.images[lightboxIndex].image} alt={product.images[lightboxIndex].alt_text || product.name}
+          <img loading="lazy" src={product.images[lightboxIndex].image} alt={product.images[lightboxIndex].alt_text || product.name}
             className="max-w-[90vw] max-h-[90vh] object-contain" onClick={(e) => e.stopPropagation()} />
           <button className="absolute right-4 top-1/2 -translate-y-1/2 text-white text-3xl hover:text-gray-300 z-10 disabled:opacity-30"
             disabled={lightboxIndex === product.images.length - 1}

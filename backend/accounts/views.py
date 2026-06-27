@@ -17,11 +17,28 @@ def register(request):
 
     # Welcome bonus
     user.loyalty_points = 50
-    user.save()
+    user.save(update_fields=['loyalty_points'])
     LoyaltyTransaction.objects.create(
         user=user, points=50, type='earned',
         description='Welcome bonus'
     )
+
+    # Referral bonus
+    if user.referred_by:
+        REFERRAL_BONUS = 50
+        user.referred_by.loyalty_points += REFERRAL_BONUS
+        user.referred_by.save(update_fields=['loyalty_points'])
+        LoyaltyTransaction.objects.create(
+            user=user.referred_by, points=REFERRAL_BONUS, type='earned',
+            description=f'Referral bonus for {user.email}'
+        )
+        # Also give referrer bonus to the new user
+        user.loyalty_points += REFERRAL_BONUS
+        user.save(update_fields=['loyalty_points'])
+        LoyaltyTransaction.objects.create(
+            user=user, points=REFERRAL_BONUS, type='earned',
+            description='Referred by friend'
+        )
 
     refresh = RefreshToken.for_user(user)
 
