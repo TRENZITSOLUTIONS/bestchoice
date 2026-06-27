@@ -18,10 +18,12 @@
 
 ### POST /auth/register/
 ```json
-{ "email": "user@example.com", "phone": "9876543210", "password": "securepass123", "first_name": "John", "last_name": "Doe" }
+{ "email": "user@example.com", "phone": "9876543210", "password": "securepass123", "first_name": "John", "last_name": "Doe", "referral_code": "ABC123DEFG" }
 // 201
 { "id": "uuid", "email": "user@example.com", "phone": "9876543210", "access": "jwt_token", "refresh": "refresh_token" }
 ```
+
+If `referral_code` is valid, both referrer and new user get 50 bonus loyalty points.
 
 ### POST /auth/login/
 ```json
@@ -141,7 +143,13 @@ Headers: Authorization: Bearer <token>
   "has_variants": true,
   "average_rating": 4.3,
   "review_count": 28,
-  "rating_distribution": { "5": 15, "4": 8, "3": 3, "2": 1, "1": 1 }
+  "rating_distribution": { "5": 15, "4": 8, "3": 3, "2": 1, "1": 1 },
+  "related": {
+    "similar": [
+      { "id": 2, "name": "Casual Cotton Shirt", "slug": "casual-cotton-shirt", "selling_price": "999.00", "mrp": "1499.00", "primary_image": "cdn.url/...", "discount_percent": 33 }
+    ],
+    "recommended": []
+  }
 }
 ```
 
@@ -165,8 +173,8 @@ Headers: Authorization: Bearer <token>
 ]
 ```
 
-### 🚧 GET /products/{slug}/related/
-Documented but endpoint not wired in URLs yet.
+### ✅ GET /products/{slug}/related/
+Now included inline in the product detail response under `related.similar` and `related.recommended`. Uses manually curated RelatedProduct entries first, then falls back to same-category products.
 
 ---
 
@@ -241,15 +249,19 @@ Documented but endpoint not wired in URLs yet.
     "address_line2": "", "city": "Chennai", "pincode": "600001", "state": "Tamilnadu"
   },
   "delivery_type": "home",
-  "notes": "Leave at door"
+  "notes": "Leave at door",
+  "loyalty_points_used": 100
 }
 // 201
 {
   "order_id": "BC-ORD-20260627-0001",
-  "total": "2598.00",
+  "subtotal": "2598.00",
+  "delivery_charge": "80.00",
+  "discount": "100.00",
+  "total": "2578.00",
   "razorpay_order_id": "order_xxxxxxxx",
   "razorpay_key_id": "rzp_live_xxxx",
-  "amount_in_paise": 259800
+  "amount_in_paise": 257800
 }
 ```
 
@@ -290,11 +302,15 @@ Documented but endpoint not wired in URLs yet.
   "items": [...],
   "subtotal": "2598.00",
   "discount": "0.00",
-  "total": "2598.00",
+  "delivery_charge": "80.00",
+  "total": "2678.00",
   "shipping_address": {...},
   "delivery_type": "home",
-  "created_at": "2026-06-27T10:00:00Z",
-  "razorpay_payment_id": "pay_xxxx"
+  "estimated_delivery": "2026-06-30",
+  "tracking": { "provider": "Delhivery", "tracking_id": "DLV12345", "url": "https://delhivery.com/track/DLV12345" },
+  "refunds": [],
+  "notes": "Leave at door",
+  "created_at": "2026-06-27T10:00:00Z"
 }
 ```
 
@@ -311,11 +327,27 @@ Documented but endpoint not wired in URLs yet.
 // 200 { "status": "requested", "message": "Refund requested" }
 ```
 
-### 🚧 GET /orders/tracking/{order_id}/
-Documented but not yet implemented.
+### ✅ GET /orders/{id}/track/
+```json
+{
+  "order_id": "BC-ORD-...",
+  "status": "shipped",
+  "payment_status": "paid",
+  "estimated_delivery": "30 Jun 2026",
+  "tracking_provider": "Delhivery",
+  "tracking_id": "DLV12345",
+  "tracking_url": "https://delhivery.com/track/DLV12345",
+  "status_history": [
+    { "status": "confirmed", "note": "Status changed from pending to confirmed", "created_at": "2026-06-27T10:05:00Z" },
+    { "status": "packed", "note": "Status changed from confirmed to packed", "created_at": "2026-06-27T12:00:00Z" },
+    { "status": "shipped", "note": "Status changed from packed to shipped", "created_at": "2026-06-28T09:00:00Z" }
+  ]
+}
+```
+Status history is automatically logged on every `Order.save()` status change.
 
-### 🚧 POST /payment/webhook/
-Razorpay webhook for server-side payment confirmation (not yet built — recommended for production).
+### ✅ POST /payment/webhook/
+Razorpay webhook with signature verification. Credits loyalty points and sends confirmation email on `payment.captured` event.
 
 ---
 
@@ -405,6 +437,24 @@ Bearer required. Returns current user's reviews.
 
 ---
 
+## ✅ Admin
+
+### POST /admin/orders/{id}/status/
+```json
+{ "status": "packed" }
+// 200 { "status": "packed" }
+```
+Valid statuses: pending, confirmed, packed, shipped, delivered, cancelled.
+
+### PUT /admin/products/{id}/
+```json
+{ "name": "Updated Name", "selling_price": "999.00", "total_stock": 25, "is_active": true }
+// 200 { "updated": ["name", "selling_price", "total_stock"], "name": "Updated Name" }
+```
+Allowed fields: name, slug, mrp, selling_price, total_stock, is_active, weight_g, short_description, description, category_id, brand_id, hide_if_out_of_stock.
+
+---
+
 ## Complete Endpoint Table
 
 | # | Method | Path | Auth | Status |
@@ -441,8 +491,9 @@ Bearer required. Returns current user's reviews.
 | 30 | GET | /delivery/check/{pincode}/ | — | ✅ |
 | 31 | POST | /auth/otp/ | — | 🚧 |
 | 32 | POST | /auth/otp/verify/ | — | 🚧 |
-| 33 | GET | /products/{slug}/related/ | — | 🚧 |
-| 34 | GET | /orders/tracking/{id}/ | Bearer | 🚧 |
-| 35 | POST | /payment/webhook/ | — | 🚧 |
+| 33 | GET | /orders/{id}/track/ | Bearer | ✅ |
+| 34 | POST | /payment/webhook/ | — | ✅ |
+| 35 | POST | /admin/orders/{id}/status/ | Bearer | ✅ |
+| 36 | PUT | /admin/products/{id}/ | Bearer | ✅ |
 
 * = session-based cart works without auth for guest users

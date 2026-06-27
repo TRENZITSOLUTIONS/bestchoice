@@ -109,6 +109,9 @@ python manage.py createsuperuser
 
 # (Optional) Seed sample products
 python manage.py seed_products
+
+# Run tests
+python manage.py test
 ```
 
 ## 5. Start Development Servers
@@ -186,6 +189,12 @@ python manage.py import_pincodes --sample
 
 # Clear and re-import pincodes
 python manage.py import_pincodes path/to/file.csv --clear
+
+# Award birthday bonus (100 points to users whose birthday is today)
+python manage.py give_birthday_bonus
+
+# Process all product images into 4 sizes (thumb/small/medium/large)
+python manage.py process_images
 ```
 
 ### Django

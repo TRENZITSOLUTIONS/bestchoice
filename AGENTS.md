@@ -78,8 +78,22 @@ bestchoice/
 4. Frontend POST `/payment/verify/` → Backend verifies signature
 5. Order → confirmed, payment → paid, loyalty points credited
 
-## Git Commits (7 total)
+## Git Commits (16 total)
 ```
+58c1a7e Update docs for all new features (product page, delivery, loyalty, admin)
+4345e41 S3 image pipeline — process_images management command
+523645b Notifications — email on payment verify/webhook, HTML template, settings
+b7dbb79 Admin APIs — order status flow, inline product edit, CSV export
+59aa2a4 Filters drawer — mobile filter slide-in on product listing page
+e929909 Loyalty referral/birthday — DOB, referral_code, birthday bonus command
+cf25604 Delivery charge — weight_g, delivery/utils.py, charge in checkout
+0fed7add Order tracking — OrderStatusHistory, auto-log, timeline UI
+520965a Product page — write review, gallery lightbox, share API, lazy images
+0450e6b Related products + pincode checker + sticky bottom bar
+c7d8e4c Fix all 47 backend tests (15 were failing)
+5ea9e28 Production: Docker, nginx, deploy script, SSL, SEO, error pages, webhook
+387aabc Production: security settings, whitenoise, gunicorn, next.config
+1111234 Remote: pushed to github.com/TRENZITSOLUTIONS/bestchoice.git
 e915512 Phase 10: Razorpay, S3/CloudFront, pincodes, coupon API
 4cf7b11 Phase 9: Custom admin dashboard complete
 08d544a Cleanup: remove unused imagekit, add welcome loyalty bonus
@@ -95,13 +109,6 @@ e915512 Phase 10: Razorpay, S3/CloudFront, pincodes, coupon API
 - Good: "Added Product model with admin", "Built product listing API with filters"
 - Bad: "Added models, APIs, frontend components, and fixed bugs"
 
-## Next Steps for Production
-1. Production security settings (SECURE_SSL_REDIRECT, etc.)
-2. Gunicorn + whitenoise + sentry in requirements
-3. Razorpay webhook endpoint (server-side payment fallback)
-4. next.config.ts production optimizations
-5. SEO metadata per page, sitemap, robots.txt
-6. Custom 404 + error boundary
-7. Docker + nginx + deploy script + DB backups
-8. Write tests (currently zero)
-9. Build documented features not yet implemented (OTP auth, image pipeline, pincode checker, etc.)
+## Next Steps
+1. Write backend tests for new features (order tracking, delivery charge, loyalty redemption, admin APIs, notifications, referral/birthday bonuses)
+2. Low-priority: OTP auth, shipping partner integration, bulk product upload, points expiry

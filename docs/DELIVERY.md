@@ -6,9 +6,9 @@
 
 | Type | Availability | Cost | Status |
 |---|---|---|---|
-| Same Day Delivery | Chennai pincodes only | ₹49 | ✅ |
-| Standard Delivery | All Tamilnadu pincodes | ₹79 | ✅ |
-| Free Delivery | Orders above ₹999 | ₹0 | ✅ |
+| Same Day Delivery | Chennai pincodes only | ₹30 | ✅ |
+| Standard Delivery | All Tamilnadu pincodes | ₹80 | ✅ |
+| Free Delivery | Orders above ₹500 | ₹0 | ✅ |
 | Store Pickup | Select pickup locations | ₹0 | ✅
 
 ## Pincode-Based Logic
@@ -45,6 +45,38 @@
 | delivery_charge | Decimal (override, null by default) |
 
 ### Management Commands
+
+## Delivery Charge Calculation
+
+Calculated in `delivery/utils.py` at checkout time:
+
+| Factor | Detail |
+|---|---|
+| Base charge | ₹30 (same_day) / ₹80 (standard) |
+| Weight surcharge | ₹10 per 500g over 1kg (based on `product.weight_g`) |
+| Free threshold | Orders above ₹500 get free delivery |
+| Store pickup | ₹0 |
+
+```python
+def calculate_delivery_charge(pincode, items, delivery_type, order_total):
+    # 1. Free over ₹500
+    if order_total >= Decimal("500"):
+        return Decimal("0")
+    # 2. Store pickup = free
+    if delivery_type == "pickup":
+        return Decimal("0")
+    # 3. Base charge by type
+    if delivery_type == "same_day":
+        charge = Decimal("30")
+    else:
+        charge = Decimal("80")
+    # 4. Weight surcharge
+    total_weight_g = sum(item.product.weight_g * item.quantity for item in items)
+    if total_weight_g > 1000:
+        extra_kg = (total_weight_g - 1000 + 499) // 500
+        charge += Decimal("10") * extra_kg
+    return charge
+```
 
 ```bash
 # Seed 388 Tamilnadu pincodes

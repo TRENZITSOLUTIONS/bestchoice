@@ -30,34 +30,29 @@
                    └──────────┘  └──────────┘  └──────────┘
 ```
 
-## Data Flow
-
-### Checkout & Payment Flow
+## Checkout & Payment Flow
 
 ```
-User clicks "Pay"
+User fills address + loyalty points → clicks "Pay"
     │
     ▼
-Frontend POST /checkout/
+Frontend POST /checkout/ { shipping_address, delivery_type, loyalty_points_used }
     │
     ▼
-Backend:                                                Razorpay API
-  1. Validate cart ──────────────────────────────────────────┐
-  2. Create Order (status=pending)                            │
-  3. Deduct stock                                              │
-  4. Create Razorpay order ◄──────────────── client.order.create()
-  5. Save razorpay_order_id                                    │
-  6. Clear cart                                                │
-    │                                                          │
-    ▼                                                          │
-Frontend receives { razorpay_order_id, key_id, amount }        │
-    │                                                          │
-    ▼                                                          │
-Load checkout.razorpay.com/v1/checkout.js                      │
-    │                                                          │
-    ▼                                                          │
-Razorpay Checkout Modal ──────────────────────────────────────┘
-  User pays via UPI/Card/Netbanking
+Backend:
+  1. Validate cart + stock
+  2. Calculate delivery_charge (weight × pincode)
+  3. Calculate points discount (1pt = ₹1)
+  4. Create Order with all fields
+  5. Create Razorpay order ◄── client.order.create()
+  6. Save razorpay_order_id
+  7. Clear cart
+    │
+    ▼
+Frontend receives { order_id, razorpay_order_id, key_id, amount, delivery_charge }
+    │
+    ▼
+Load Razorpay Checkout → User pays via UPI/Card/Netbanking
     │
     ├── Success → handler(response) ──┐
     │    razorpay_payment_id          │
@@ -66,25 +61,22 @@ Razorpay Checkout Modal ──────────────────�
     │                    Frontend POST /payment/verify/
     │                                 │
     │                                 ▼
-    │                    Backend: signature verification
-    │                      • client.utility.verify_payment_signature()
+    │                    Backend: verify signature
+    │                      • Deduct loyalty points if used
+    │                      • Credit earned loyalty points
+    │                      • Send order confirmation email
     │                      • Order → status=confirmed, payment=paid
-    │                      • Credit loyalty points
     │                                 │
     │                                 ▼
-    │                    Response { success, order_id }
-    │                                 │
-    │                                 ▼
-    │                    Frontend redirects to /account/orders/{id}
+    │                    Redirect to /account/orders/{id}
     │
     └── Cancel → modal.ondismiss()
                          │
                          ▼
-              Frontend shows "Payment cancelled"
-              Order stays pending (will be cleaned up)
+              Order stays pending (cleanup scheduled)
 ```
 
-### Cancellation & Refund Flow
+## Cancellation & Refund Flow
 
 ```
 User clicks "Cancel Order"
@@ -94,32 +86,24 @@ Frontend POST /orders/{id}/cancel/
     │
     ▼
 Backend:
-  1. Validate order can be cancelled
+  1. Validate order can be cancelled (not shipped/delivered)
   2. Restore stock for each item
   3. If paid → call Razorpay refund API
   4. Mark payment_status = refunded
-  5. Reverse loyalty points
-  6. Order status = cancelled
+  5. Reverse earned loyalty points
+  6. Refund used loyalty points
+  7. Order status = cancelled
 ```
 
-### Inventory Flow
+## Status History Tracking
+
+Every status change on Order triggers automatic `OrderStatusHistory` creation via `Order.save()`. The history powers the timeline UI on `/account/orders/[id]`.
 
 ```
-Supplier → Receive Stock → SKU Created → Upload to Site
-                                              │
-                                    Customer Orders
-                                              │
-                                    Auto Stock Deduct
-                                              │
-                                    ┌─────────┴─────────┐
-                                    ▼                   ▼
-                              Packing            Cancellation
-                                    │                   │
-                                    ▼                   ▼
-                           Shipping/Pickup      Stock Restored
-                                    │
-                                    ▼
-                              Delivered
+Order created        → status_history: [{ status: "pending", note: "Order created" }]
+Admin confirms       → status_history: [{ status: "confirmed", note: "Status changed from pending to confirmed" }]
+Admin ships          → status_history: [{ status: "shipped", note: "..." }]
+...
 ```
 
 ## Database Relationships
@@ -128,12 +112,11 @@ Supplier → Receive Stock → SKU Created → Upload to Site
 User ──▶ Cart ──▶ CartItem ──▶ ProductVariant ──▶ Product
   │                                                     │
   ├──▶ Order ──▶ OrderItem ───▶ ProductVariant          │
-  │       │                                            │
-  │       ├──▶ Refund                                  │
-  │       └──▶ LoyaltyTransaction                      │
+  │       │                      │                      │
+  │       ├──▶ Refund            └── OrderStatusHistory  │
+  │       └──▶ LoyaltyTransaction                       │
   │                                                     │
   ├──▶ WishlistItem ──▶ Product                        │
-  │                                                     │
   ├──▶ Review ──▶ Product                             │
   │                                                     │
   └──▶ LoyaltyTransaction                              │
@@ -146,25 +129,68 @@ User ──▶ Cart ──▶ CartItem ──▶ ProductVariant ──▶ Produc
                                                         │
                                                         ├──▶ ProductHighlight
                                                         │
-                                                        └──▶ RelatedProduct
+                                                        ├──▶ RelatedProduct
+                                                        │
+                                                        └── weight_g (grams)
 ```
 
-## Image Storage
+## User Model Extensions
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `date_of_birth` | DateField | null | Birthday (for bonus) |
+| `referral_code` | CharField(20) | UUID hex | Unique referral code |
+| `referred_by` | FK(User) | null | Referring user |
+| `loyalty_points` | IntegerField | 0 | Points balance |
+
+## Image Pipeline
 
 ```
-Upload → S3 Bucket (ap-south-1)
-           │
-           ▼
-    CloudFront CDN Distribution
-           │
-           ▼
-    {cloudfront_url}/media/products/{id}/thumb/001.jpg
-    {cloudfront_url}/media/products/{id}/small/001.jpg
-    {cloudfront_url}/media/products/{id}/medium/001.jpg
-    {cloudfront_url}/media/products/{id}/large/001.jpg
+┌──────────┐    ┌────────────────┐    ┌────────────────────┐
+│  Upload   │───▶│ process_images │───▶│ 4 sizes generated  │
+│  (URL)    │    │  (management   │    │ thumb 150px         │
+│           │    │   command)     │    │ small 400px         │
+│           │    │                │    │ medium 800px        │
+│           │    │                │    │ large 1200px        │
+└──────────┘    └────────────────┘    └─────────┬──────────┘
+                                                 │
+                                      ┌──────────┴──────────┐
+                                      ▼                     ▼
+                               ┌──────────┐         ┌──────────────┐
+                               │   S3 +   │   or    │  Local media  │
+                               │ CloudFront│         │    folder     │
+                               └──────────┘         └──────────────┘
 ```
 
-S3 activated when `AWS_STORAGE_BUCKET_NAME` is set. Falls back to local `media/` folder in development.
+S3 activated when `AWS_STORAGE_BUCKET_NAME` is set. Falls back to local `media/` folder.
+
+## Notifications
+
+```
+Payment Verified ──▶ notifications/utils.py ──▶ send_order_confirmation(order)
+                      │
+                      ├── Renders HTML template (notifications/order_confirmation.html)
+                      ├── Sends via Django Email framework
+                      ├── Console backend in dev (prints to terminal)
+                      └── SMTP in prod (EMAIL_HOST, EMAIL_HOST_USER, etc.)
+```
+
+The `send_order_shipped()` function is also available for integration when the admin marks an order as shipped.
+
+## Delivery Charge Calculation
+
+```
+delivery/utils.py:
+
+  FREE_DELIVERY_THRESHOLD = ₹500
+  BASE_CHARGES = { same_day: ₹30, standard: ₹80 }
+  WEIGHT_SURCHARGE = ₹10 per 500g over 1kg
+
+  calculate_delivery_charge(pincode, total_weight_g, order_total)
+      → Free if order_total >= ₹500
+      → Uses pincode's delivery_charge if set, else base charge by delivery_type
+      → Adds weight surcharge for orders > 1kg
+```
 
 ## Tech Decisions
 
@@ -185,27 +211,23 @@ S3 activated when `AWS_STORAGE_BUCKET_NAME` is set. Falls back to local `media/`
 ┌────────────────────────────────────────────────────────┐
 │                   Zustand Stores                        │
 │                                                         │
-│  cartStore:                                             │
-│    - items, coupon, subtotal, total                     │
-│    - addItem, updateQty, removeItem, applyCoupon        │
-│                                                         │
-│  authStore:                                             │
-│    - user, accessToken, refreshToken, isAuthenticated   │
-│    - login, register, logout, refreshToken               │
+│  cartStore: items, coupon, subtotal, total              │
+│  authStore: user, tokens, isAuthenticated               │
 │                                                         │
 ├────────────────────────────────────────────────────────┤
 │                   React Query                           │
 │                                                         │
-│  Query Keys:                                            │
-│    ['products', { filters }]     → Product listing      │
-│    ['product', slug]             → Product detail       │
-│    ['cart']                      → Cart (refetched)     │
-│    ['orders']                    → Order list           │
-│    ['order', id]                 → Order detail         │
-│    ['wishlist']                  → Wishlist             │
-│    ['loyalty-balance']           → Points balance       │
-│    ['loyalty-transactions']      → Points history       │
-│    ['reviews', slug]             → Product reviews      │
+│  ['products', filters]    → Product listing             │
+│  ['product', slug]        → Product detail              │
+│  ['cart']                 → Cart                        │
+│  ['orders']               → Order list                  │
+│  ['order', id]            → Order detail                │
+│  ['order-tracking', id]   → Order timeline              │
+│  ['wishlist']             → Wishlist                    │
+│  ['profile']              → User profile                │
+│  ['loyalty-balance']      → Points balance              │
+│  ['loyalty-transactions'] → Points history              │
+│  ['reviews', slug]        → Product reviews             │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -213,31 +235,33 @@ S3 activated when `AWS_STORAGE_BUCKET_NAME` is set. Falls back to local `media/`
 
 | App | Responsibility | Key Models |
 |---|---|---|
-| `accounts` | User management, JWT auth | User |
-| `products` | Catalog: categories, brands, products, variants, images | Category, Brand, Product, ProductVariant, ProductImage |
+| `accounts` | User management, JWT auth | User (+ referral_code, date_of_birth) |
+| `products` | Catalog: categories, brands, products, variants, images | Category, Brand, Product (+ weight_g), ProductVariant, ProductImage, ProductHighlight, RelatedProduct |
 | `cart` | Shopping cart (auth + guest sessions) | Cart, CartItem |
-| `orders` | Checkout, payment, orders, refunds | Order, OrderItem, Refund |
+| `orders` | Checkout, payment, orders, refunds, tracking | Order, OrderItem, Refund, OrderStatusHistory |
 | `coupons` | Coupon codes, validation, usage tracking | Coupon, CouponUsage |
 | `reviews` | Product reviews, ratings, moderation | Review |
 | `wishlist` | Save-for-later products | WishlistItem |
 | `loyalty` | Points earn/spend/expire tracking | LoyaltyTransaction |
-| `delivery` | Pincode-based delivery availability | DeliveryPincode |
+| `delivery` | Pincode-based delivery + charge calculation | DeliveryPincode |
+| `notifications` | Email sending (utility + templates) | — (utils only) |
 
 ## URL Routing
 
 ```
-api/auth/       → accounts.urls (register, login, token refresh, me)
-api/products/   → products.urls (list, detail)
-api/categories/ → products.urls (category tree)
-api/cart/       → cart.urls (get, add, update, remove, coupon)
-api/checkout/   → orders.urls (create order + payment)
-api/payment/    → orders.urls (verify, webhook)
-api/orders/     → orders.urls (list, detail, cancel, refund)
-api/coupons/    → coupons.urls (apply, validate)
-api/reviews/    → reviews.urls (product reviews, my reviews)
-api/wishlist/   → wishlist.urls (add, remove, list)
-api/loyalty/    → loyalty.urls (balance, transactions)
-api/delivery/   → delivery.urls (pincode check)
+api/auth/                           → accounts.urls
+api/products/                       → products.urls (list, detail, categories, brands)
+api/cart/                           → cart.urls
+api/checkout/   api/payment/        → orders.urls
+api/orders/<id>/                    → detail, track, cancel, refund
+api/admin/orders/<id>/status/       → admin order status update
+api/admin/products/<id>/            → admin product update
+api/coupons/                        → coupons.urls
+api/reviews/                        → reviews.urls
+api/wishlist/                       → wishlist.urls
+api/loyalty/                        → loyalty.urls
+api/delivery/                       → delivery.urls
+api/health/                         → health check
 ```
 
 ## Security Model
@@ -248,3 +272,4 @@ api/delivery/   → delivery.urls (pincode check)
 - **CORS**: Whitelist of allowed origins (configurable via env)
 - **Payments**: Signature verification server-side (never trust client-only)
 - **Storage**: S3 bucket with `public-read` ACL, CloudFront for edge delivery
+- **Email**: Console backend in dev, SMTP in prod (configured via env)

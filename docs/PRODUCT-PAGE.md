@@ -5,7 +5,10 @@
 ## Layout (Top → Bottom)
 
 ### 1. Product Header
-- Product images gallery ✅ (static, no zoom/carousel yet)
+- Product images gallery with lightbox zoom ✅
+- Click image to open fullscreen lightbox ✅
+- Previous/next navigation in lightbox ✅
+- Thumbnail strip for image selection ✅
 - Product name ✅
 - Brand name ✅
 - Star rating + review count ✅
@@ -45,28 +48,33 @@ Bullet list:
 ✔ Wrinkle Resistant
 ```
 
-### 7. Delivery Information ✅ (partial)
-- Delivery info displayed ✅
-- Pincode input to check 🚧 (not built — API exists but no UI component)
+### 7. Delivery Information ✅
+- Pincode checker component with input + check button ✅
+- Shows: delivery available, type (same_day/standard), estimated days, store pickup, COD, delivery charge ✅
 - Estimated delivery displayed ✅
-- Store pickup available ✅
 
 ### 8. Return Policy ✅
 
-### 9. Customer Reviews ✅ (partial)
+### 9. Customer Reviews ✅
 - Average rating display ✅
+- Rating distribution bar ✅
 - Verified reviews list ✅
-- "Write a Review" button 🚧 (not built — API exists)
+- "Write a Review" form: star rating selector + text input ✅
+- Review submission: `POST /api/products/{slug}/reviews/` ✅
+- New review appended to list on submit ✅
 
-### 10. Related Products ✅ (basic)
+### 10. Related Products ✅
+- Manually curated via `RelatedProduct` model ✅
+- Falls back to same-category products ✅
+- Displayed in product detail response under `related.similar` and `related.recommended` ✅
 
 ### 11. Action Buttons ✅
 - **Add to Cart** ✅
 - **Buy Now** ✅
 - **Wishlist ❤️** ✅
-- **Share Product** ✅ (copy link)
+- **Share Product** ✅ (Web Share API + clipboard fallback)
 - **WhatsApp Enquiry** ✅ (wa.me link)
-- **Sticky bottom on mobile** 🚧 (not built)
+- **Sticky bottom on mobile** ✅ (quantity selector + add to cart)
 
 ---
 
@@ -151,10 +159,10 @@ ProductDetailPage (SSR)
     └── Recommended (carousel)
 ```
 
-## Mobile Considerations 🚧
+## Mobile Considerations ✅
 
-- Sticky bottom bar 🚧
-- Gallery: swipeable, pinch-to-zoom 🚧
+- Sticky bottom bar with quantity selector + add to cart ✅
+- Gallery: lightbox zoom with prev/next ✅
 - Variant selector: horizontal scroll ✅
-- Filters: slide-in drawer 🚧
-- Share: native share API 🚧
+- Filters: slide-in drawer on product listing page ✅
+- Share: Web Share API with clipboard fallback ✅

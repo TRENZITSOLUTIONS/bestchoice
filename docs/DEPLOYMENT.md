@@ -11,6 +11,7 @@
 | Images | AWS S3 + CloudFront | Image storage + CDN |
 | Domain | Cloudflare DNS | DNS, SSL, DDoS protection |
 | Monitoring | Sentry | Error tracking |
+| Email | SendGrid / AWS SES / Mailgun | Transactional emails |
 | Uptime | Better Uptime / UptimeRobot | Health checks |
 
 ## Prerequisites
@@ -300,7 +301,39 @@ aws cloudfront create-distribution \
 
 ---
 
-## 5. Monitoring
+## 5. Email Configuration
+
+Set these env vars in production:
+
+```bash
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.sendgrid.net
+EMAIL_PORT=587
+EMAIL_HOST_USER=apikey
+EMAIL_HOST_PASSWORD=<sendgrid-api-key>
+EMAIL_USE_TLS=True
+DEFAULT_FROM_EMAIL=noreply@bestchoice.in
+```
+
+Dev uses console backend (prints to terminal).
+
+## 6. Image Processing
+
+```bash
+python manage.py process_images
+```
+
+Generates 4 sizes (thumb/small/medium/large) for all product images. Works with S3/CloudFront or local storage.
+
+## 7. Birthday Bonus Automation
+
+Run daily via cron:
+
+```bash
+0 8 * * * cd /app && python manage.py give_birthday_bonus
+```
+
+## 8. Monitoring
 
 ### Health Check Endpoint
 

@@ -13,19 +13,14 @@ cd backend
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# Create PostgreSQL database
 createdb bestchoice_db
-
-# Copy and edit env vars
 cp .env.example .env
 
-# Run migrations and seed data
 python manage.py migrate
 python manage.py seed_categories
 python manage.py seed_pincodes
 python manage.py createsuperuser
 
-# Start dev server
 python manage.py runserver
 ```
 
@@ -34,11 +29,7 @@ python manage.py runserver
 ```bash
 cd frontend
 npm install
-
-# Copy env vars
 cp .env.example .env.local
-
-# Start dev server
 npm run dev
 ```
 
@@ -57,10 +48,15 @@ Open http://localhost:3000 — backend at http://localhost:8000
 | `DB_PASSWORD` | Yes | — | Database password |
 | `RAZORPAY_KEY_ID` | Yes | — | Razorpay API key |
 | `RAZORPAY_KEY_SECRET` | Yes | — | Razorpay secret |
+| `RAZORPAY_WEBHOOK_SECRET` | No | — | Razorpay webhook secret |
 | `AWS_ACCESS_KEY_ID` | No | — | S3 access key |
 | `AWS_SECRET_ACCESS_KEY` | No | — | S3 secret key |
 | `AWS_STORAGE_BUCKET_NAME` | No | — | S3 bucket name |
 | `AWS_CLOUDFRONT_DOMAIN` | No | — | CloudFront URL |
+| `EMAIL_HOST` | No | — | SMTP server |
+| `EMAIL_HOST_USER` | No | — | SMTP user |
+| `EMAIL_HOST_PASSWORD` | No | — | SMTP password |
+| `DEFAULT_FROM_EMAIL` | No | `noreply@bestchoice.in` | From address |
 
 ### Frontend (`.env.local`)
 
@@ -69,56 +65,27 @@ Open http://localhost:3000 — backend at http://localhost:8000
 | `NEXT_PUBLIC_API_URL` | Yes | `http://localhost:8000/api` | Backend API base URL |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Yes | — | Razorpay key (from dashboard) |
 
-## Project Structure
-
-```
-bestchoice/
-├── backend/                     # Django project
-│   ├── config/                  # Settings, URLs, WSGI
-│   ├── accounts/                # User model + JWT auth
-│   ├── products/                # Categories, brands, products, variants
-│   ├── cart/                    # Cart + cart items
-│   ├── orders/                  # Orders, checkout, payments, refunds
-│   ├── coupons/                 # Coupon codes
-│   ├── reviews/                 # Product reviews
-│   ├── wishlist/                # User wishlist
-│   ├── loyalty/                 # Loyalty points system
-│   └── delivery/                # Pincode delivery check
-├── frontend/                    # Next.js project
-│   ├── src/app/                 # App router pages
-│   │   ├── products/            # Listing + detail
-│   │   ├── cart/                # Shopping cart
-│   │   ├── checkout/            # Checkout + Razorpay payment
-│   │   ├── account/             # Orders, wishlist, loyalty
-│   │   ├── auth/                # Login / register
-│   │   └── admin/               # Business dashboard
-│   ├── src/components/          # Reusable UI components
-│   ├── src/lib/                 # API client, utilities
-│   └── src/store/               # Zustand state
-└── docs/                        # Specifications & guides
-```
-
 ## Pages
 
 | Route | Type | Description |
 |---|---|---|
 | `/` | Home | Hero banner, categories, featured products |
-| `/products` | Listing | Filterable product grid with search, sort, pagination |
-| `/products/[slug]` | Detail | Gallery, variants, pricing, reviews, delivery check |
+| `/products` | Listing | Filterable product grid with search, sort, mobile filters drawer |
+| `/products/[slug]` | Detail | Gallery with lightbox zoom, variants, pricing, pincode checker, reviews (write + read), sticky bottom bar on mobile, related products, share via Web Share API |
 | `/cart` | Cart | Items, quantity controls, coupon input, summary |
-| `/checkout` | Checkout | Address form, delivery type, Razorpay payment |
+| `/checkout` | Checkout | Address form, delivery type, loyalty points redemption, Razorpay payment |
 | `/auth/login` | Login | Email/password login |
-| `/auth/register` | Register | New user registration |
+| `/auth/register` | Register | New user registration (supports referral codes) |
 | `/account` | Dashboard | Order history, wishlist, loyalty points |
 | `/account/orders` | Orders | Order list |
-| `/account/orders/[id]` | Order detail | Status, items, tracking, cancel/refund |
+| `/account/orders/[id]` | Order detail | Status timeline, items, tracking, cancel/refund |
 | `/account/wishlist` | Wishlist | Saved products |
 | `/account/loyalty` | Loyalty | Points balance & history |
 | `/admin` | Dashboard | Business stats, recent orders, low stock |
-| `/admin/orders` | Admin | Order management |
-| `/admin/products` | Admin | Product management |
-| `/admin/inventory` | Admin | Stock tracking |
-| `/admin/coupons` | Admin | Coupon management |
+| `/admin/orders` | Admin | Order management with full status flow (confirm→pack→ship→deliver) |
+| `/admin/products` | Admin | Product table with inline editing + CSV export |
+| `/admin/inventory` | Admin | Stock tracking with CSV export |
+| `/admin/coupons` | Admin | Coupon creation form |
 | `/admin/reviews` | Admin | Review approval |
 | `/admin/refunds` | Admin | Refund processing |
 | `/admin/reports` | Admin | Sales reports |
@@ -129,55 +96,76 @@ Base: `http://localhost:8000/api/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register/` | — | Register new user |
+| POST | `/auth/register/` | — | Register new user (accepts `referral_code`) |
 | POST | `/auth/login/` | — | Login, get JWT tokens |
 | POST | `/auth/token/refresh/` | — | Refresh JWT |
-| GET | `/auth/me/` | Bearer | Current user profile |
-| GET | `/products/` | — | Product listing with filters |
-| GET | `/products/{slug}/` | — | Product detail |
+| GET/PUT | `/auth/me/` | Bearer | Current user profile |
+| GET | `/products/` | — | Product listing with filters (search, price range, discount, color, size) |
+| GET | `/products/{slug}/` | — | Product detail with related products |
 | GET | `/categories/` | — | Category tree |
+| GET | `/brands/` | — | Brand listing |
 | GET | `/cart/` | Bearer/* | Get cart |
 | POST | `/cart/items/` | Bearer/* | Add to cart |
 | POST | `/cart/apply-coupon/` | Bearer/* | Apply coupon code |
-| POST | `/checkout/` | Bearer | Create order + Razorpay order |
+| POST | `/checkout/` | Bearer | Create order + Razorpay order (accepts `loyalty_points_used`) |
 | POST | `/payment/verify/` | Bearer | Verify Razorpay payment |
+| POST | `/payment/webhook/` | — | Razorpay webhook (signature verified) |
 | GET | `/orders/` | Bearer | User orders list |
-| GET | `/orders/{id}/` | Bearer | Order detail |
-| POST | `/orders/{id}/cancel/` | Bearer | Cancel order |
+| GET | `/orders/{id}/` | Bearer | Order detail with tracking info |
+| GET | `/orders/{id}/track/` | Bearer | Order status history timeline |
+| POST | `/orders/{id}/cancel/` | Bearer | Cancel order (auto-refund + stock restore) |
 | POST | `/orders/{id}/refund/` | Bearer | Request refund |
-| GET | `/products/{slug}/reviews/` | — | Product reviews |
-| POST | `/products/{slug}/reviews/` | Bearer | Write review |
-| GET | `/wishlist/` | Bearer | List wishlist |
-| POST | `/wishlist/` | Bearer | Add to wishlist |
+| GET/POST | `/products/{slug}/reviews/` | * | Product reviews (write requires auth) |
+| GET | `/reviews/mine/` | Bearer | My reviews |
+| GET/POST | `/wishlist/` | Bearer | List/add to wishlist |
+| DELETE | `/wishlist/{id}/` | Bearer | Remove from wishlist |
 | GET | `/loyalty/balance/` | Bearer | Points balance |
 | GET | `/loyalty/transactions/` | Bearer | Points history |
-| GET | `/delivery/check/{pincode}/` | — | Check delivery availability |
+| GET | `/delivery/check/{pincode}/` | — | Check delivery availability with charge |
+| POST | `/admin/orders/{id}/status/` | Bearer | Admin: update order status |
+| PUT | `/admin/products/{id}/` | Bearer | Admin: update product |
+| GET | `/api/health/` | — | Health check endpoint |
 
 * = session-based cart works without auth for guest users
 
 ## Payment Flow (Razorpay)
 
-1. User fills address → clicks Pay
-2. Frontend POSTs to `/checkout/` → backend creates Order + Razorpay order
+1. User fills address → optionally redeems loyalty points → clicks Pay
+2. Frontend POSTs to `/checkout/` (includes `loyalty_points_used`) → backend calculates delivery charge, creates Order + Razorpay order
 3. Backend returns `razorpay_order_id` + `key_id`
-4. Frontend loads `checkout.razorpay.com/v1/checkout.js` → opens Razorpay modal
+4. Frontend loads checkout.razorpay.com → opens Razorpay modal
 5. User pays via UPI / card / netbanking / wallet
-6. Razorpay calls `handler` callback with `payment_id` + `signature`
-7. Frontend POSTs to `/payment/verify/` → backend verifies signature
-8. On success: order → `confirmed`, payment → `paid`, loyalty points credited
-9. On cancel: auto-refund via Razorpay API + stock restored + loyalty reversed
+6. Razorpay calls handler with `payment_id` + `signature`
+7. Frontend POSTs to `/payment/verify/` → backend verifies signature, deducts loyalty points if used
+8. On success: order → confirmed, notification email sent, loyalty points credited
+9. On cancel: auto-refund via Razorpay API + stock restored + loyalty points reversed
 
 ## Key Features
 
-- **JWT Auth** — email/password login, 24h access tokens, 30d refresh
+- **JWT Auth** — email/password login, 24h access tokens, 30d refresh, referral code on register
 - **Product Variants** — color + size combos with per-variant stock and SKU
-- **Image Pipeline** — 4 sizes (thumb/small/medium/large) on S3 via CloudFront CDN
-- **Delivery** — 388 Tamilnadu pincodes, same-day Chennai, standard 2-3 days, store pickup
+- **Image Pipeline** — `python manage.py process_images` generates 4 sizes (thumb/small/medium/large) for S3/CloudFront or local storage
+- **Related Products** — auto-suggested same-category products, plus manually curated via RelatedProduct model
+- **Delivery** — 388 Tamilnadu pincodes, same-day Chennai, weight-based charge, free over ₹500
+- **Pincode Checker** — real-time delivery check on product detail page
 - **Coupons** — percentage or fixed discount, min cart, per-user limits, max discount cap
-- **Loyalty** — 5 pts per ₹100 spent, earn on payment, reverse on cancel
-- **Orders** — status flow: pending → confirmed → packed → shipped → delivered
-- **Refunds** — automatic Razorpay refund on cancellation
-- **Admin Dashboard** — custom business dashboard with orders, inventory, coupons, reports
+- **Loyalty** — 5 pts per ₹100 spent, redeem at checkout (1 pt = ₹1), referral bonuses (50 pts each), birthday bonus command
+- **Order Tracking** — automatic status history logging, timeline UI in order detail
+- **Notifications** — order confirmation email with HTML template (console backend in dev, SMTP in prod)
+- **Reviews** — write with star rating + text, read with average rating + distribution
+- **Admin Dashboard** — order status flow, inline product editing, CSV export, coupon creation, review moderation
+- **Gallery** — clickable zoom, lightbox with prev/next navigation
+- **Share** — Web Share API with clipboard fallback
+- **Sticky Bottom Bar** — mobile add-to-cart with quantity selector
+
+## Management Commands
+
+| Command | Description |
+|---|---|
+| `seed_categories` | Seed 14 category hierarchy |
+| `seed_pincodes` | Import Tamilnadu pincodes from government CSV |
+| `process_images` | Generate 4 image sizes (thumb/small/medium/large) |
+| `give_birthday_bonus` | Award 100 loyalty points to users with birthday today |
 
 ## Category Hierarchy
 
@@ -200,21 +188,6 @@ BC-{category_code}-{product_id}-{COLOR}-{SIZE}
 ```
 
 Example: `BC-SHT-000001-RED-M`
-
-## Build Phases
-
-| Phase | What | Status |
-|---|---|---|
-| 1 | Django + DRF + PostgreSQL setup | ✅ Done |
-| 2 | Core models: User, Category, Product, Variant | ✅ Done |
-| 3 | DRF API endpoints | ✅ Done |
-| 4 | Next.js frontend scaffolding | ✅ Done |
-| 5 | Product listing + detail page | ✅ Done |
-| 6 | Cart, checkout, Razorpay | ✅ Done |
-| 7 | Orders, tracking, refunds, loyalty | ✅ Done |
-| 8 | Reviews, wishlist, coupons | ✅ Done |
-| 9 | Admin dashboard (custom) | ✅ Done |
-| 10 | Delivery, polish, deploy prep | ✅ Done |
 
 ## Docs
 

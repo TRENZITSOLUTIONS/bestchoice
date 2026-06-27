@@ -21,9 +21,14 @@ Used for full backend management. Access at `/admin/`.
 
 ### Custom Admin Actions 🚧
 - **Duplicate Product** — copies product + all variants + images + highlights 🚧
-- **Export Products** — CSV of all products 🚧
 - **Bulk Upload** — upload Excel/CSV to create/update products 🚧
 - **Mark Orders Shipped** — bulk action with tracking number input 🚧
+
+### Image Processing
+```
+python manage.py process_images
+```
+Generates 4 sizes (thumb/small/medium/large) for all product images.
 
 ---
 
@@ -47,17 +52,18 @@ For the business owner/client. Access at `/admin/`.
 
 ### Products Management (`/admin/products`) ✅
 - Table of all products with stock, price, status ✅
-- Quick edit: price, stock, active toggle 🚧
+- Quick edit: price, stock, active toggle ✅
+- CSV Export button ✅
 - Add new product form 🚧
 - Bulk upload button 🚧
 
 ### Inventory (`/admin/inventory`) ✅
-- Stock view: product, variant, SKU, current stock ✅
-- Low stock filter (≤5 items) ✅
-- Export inventory report 🚧
+- Stock view: product, in stock/out of stock counts ✅
+- Out of stock alerts ✅
+- CSV Export ✅
 
-### Coupons (`/admin/coupons`) 🚧
-- Create new coupon 🚧
+### Coupons (`/admin/coupons`) ✅
+- Create new coupon (code, type, value, min cart, max discount, usage limit) ✅
 - List all coupons with usage count 🚧
 - Toggle active/inactive 🚧
 
