@@ -64,6 +64,7 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     hide_if_out_of_stock = models.BooleanField(default=False)
     total_stock = models.IntegerField(default=0)
+    weight_g = models.IntegerField(default=500, help_text='Weight in grams')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

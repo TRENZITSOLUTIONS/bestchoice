@@ -18,6 +18,7 @@ from .serializers import (
 )
 from cart.models import Cart
 from loyalty.models import LoyaltyTransaction
+from delivery.utils import calculate_delivery_charge
 
 
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
@@ -50,6 +51,15 @@ def checkout(request):
         return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
 
     subtotal = sum(item.price * item.quantity for item in cart.items.all())
+    total_weight_g = sum(
+        (item.product.weight_g if item.product else 500) * item.quantity
+        for item in cart.items.all()
+    )
+    delivery_type = serializer.validated_data.get('delivery_type', 'home')
+    shipping_address = serializer.validated_data.get('shipping_address', {})
+    delivery_charge = calculate_delivery_charge(
+        shipping_address.get('pincode', ''), total_weight_g, subtotal,
+    )
     points_used = serializer.validated_data.get('loyalty_points_used', 0)
     points_discount = Decimal(0)
     if points_used > 0:
@@ -58,7 +68,7 @@ def checkout(request):
         points_discount = Decimal(str(points_used))
         if points_discount > subtotal:
             points_discount = subtotal
-    total_before_round = subtotal - points_discount
+    total_before_round = subtotal - points_discount + delivery_charge
     total = int(total_before_round * 100)  # Convert to paise for Razorpay
 
     order = Order.objects.create(
@@ -66,11 +76,12 @@ def checkout(request):
         user=request.user,
         subtotal=subtotal,
         discount=points_discount,
+        delivery_charge=delivery_charge,
         total=total_before_round,
         status='pending',
         payment_status='pending',
         shipping_address=serializer.validated_data['shipping_address'],
-        delivery_type=serializer.validated_data['delivery_type'],
+        delivery_type=delivery_type,
         notes=serializer.validated_data.get('notes', ''),
         estimated_delivery=timezone.now().date() + timedelta(days=3),
         loyalty_points_used=points_used,
@@ -124,6 +135,9 @@ def checkout(request):
 
     return Response({
         'order_id': order.order_id,
+        'subtotal': str(subtotal),
+        'delivery_charge': str(delivery_charge),
+        'discount': str(points_discount),
         'total': str(order.total),
         'razorpay_order_id': order.razorpay_order_id,
         'razorpay_key_id': settings.RAZORPAY_KEY_ID,

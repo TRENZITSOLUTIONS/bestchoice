@@ -210,9 +210,15 @@ export default function CheckoutPage() {
                   <span>-₹{pointsDiscount}</span>
                 </div>
               )}
+              <div className="flex justify-between text-sm">
+                <span>Delivery</span>
+                <span className={discountedTotal >= 500 ? 'text-green-600' : ''}>
+                  {discountedTotal >= 500 ? 'Free' : '₹80'}
+                </span>
+              </div>
               <div className="flex justify-between font-bold">
                 <span>Total</span>
-                <span>₹{Math.max(discountedTotal, 0)}</span>
+                <span>₹{Math.max(discountedTotal + (discountedTotal >= 500 ? 0 : 80), 0)}</span>
               </div>
             </div>
           </div>
@@ -222,7 +228,7 @@ export default function CheckoutPage() {
             disabled={processing || !address.full_name || !address.phone || !address.address_line1}
             className="w-full bg-orange-500 text-white py-3 rounded-lg font-medium mt-4 hover:bg-orange-600 disabled:bg-gray-300"
           >
-            {processing ? 'Processing...' : `Pay ₹${Math.max(discountedTotal, 0)} via Razorpay`}
+            {processing ? 'Processing...' : `Pay ₹${Math.max(discountedTotal + (discountedTotal >= 500 ? 0 : 80), 0)} via Razorpay`}
           </button>
 
           <p className="text-xs text-gray-500 mt-3 text-center">
