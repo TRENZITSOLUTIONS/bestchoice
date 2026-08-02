@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -122,7 +123,13 @@ STATIC_URL = f'{AWS_CLOUDFRONT_DOMAIN}/static/' if AWS_CLOUDFRONT_DOMAIN else 's
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = f'{AWS_CLOUDFRONT_DOMAIN}/media/' if AWS_CLOUDFRONT_DOMAIN else 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+if 'test' in sys.argv:
+    # Uploaded/compressed images are real file writes (not rolled back with the test
+    # DB transaction) - keep them out of the repo's media/ dir.
+    import tempfile
+    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='bestchoice_test_media_'))
+else:
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
