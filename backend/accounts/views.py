@@ -13,32 +13,16 @@ def register(request):
     user = serializer.save()
 
     from rest_framework_simplejwt.tokens import RefreshToken
-    from loyalty.models import LoyaltyTransaction
+    from loyalty.models import LoyaltyConfig
+    from loyalty.utils import earn_points
 
-    # Welcome bonus
-    user.loyalty_points = 50
-    user.save(update_fields=['loyalty_points'])
-    LoyaltyTransaction.objects.create(
-        user=user, points=50, type='earned',
-        description='Welcome bonus'
-    )
+    config = LoyaltyConfig.get_config()
+    earn_points(user, config.welcome_bonus_points, description='Welcome bonus')
 
-    # Referral bonus
     if user.referred_by:
-        REFERRAL_BONUS = 50
-        user.referred_by.loyalty_points += REFERRAL_BONUS
-        user.referred_by.save(update_fields=['loyalty_points'])
-        LoyaltyTransaction.objects.create(
-            user=user.referred_by, points=REFERRAL_BONUS, type='earned',
-            description=f'Referral bonus for {user.email}'
-        )
-        # Also give referrer bonus to the new user
-        user.loyalty_points += REFERRAL_BONUS
-        user.save(update_fields=['loyalty_points'])
-        LoyaltyTransaction.objects.create(
-            user=user, points=REFERRAL_BONUS, type='earned',
-            description='Referred by friend'
-        )
+        earn_points(user.referred_by, config.referral_bonus_points,
+                    description=f'Referral bonus for {user.email}')
+        earn_points(user, config.referral_bonus_points, description='Referred by friend')
 
     refresh = RefreshToken.for_user(user)
 

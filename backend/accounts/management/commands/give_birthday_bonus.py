@@ -1,10 +1,8 @@
 from datetime import date
 from django.core.management.base import BaseCommand
 from accounts.models import User
-from loyalty.models import LoyaltyTransaction
-
-
-BIRTHDAY_BONUS_POINTS = 100
+from loyalty.models import LoyaltyConfig
+from loyalty.utils import earn_points
 
 
 class Command(BaseCommand):
@@ -17,15 +15,9 @@ class Command(BaseCommand):
             date_of_birth__day=today.day,
             is_active=True,
         )
+        bonus_points = LoyaltyConfig.get_config().birthday_bonus_points
         given = 0
         for user in users:
-            user.loyalty_points += BIRTHDAY_BONUS_POINTS
-            user.save(update_fields=['loyalty_points'])
-            LoyaltyTransaction.objects.create(
-                user=user,
-                points=BIRTHDAY_BONUS_POINTS,
-                type='earned',
-                description='Birthday bonus',
-            )
+            earn_points(user, bonus_points, description='Birthday bonus')
             given += 1
         self.stdout.write(self.style.SUCCESS(f'Birthday bonus given to {given} user(s)'))

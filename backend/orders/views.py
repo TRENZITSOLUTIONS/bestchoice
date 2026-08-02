@@ -17,14 +17,15 @@ from .serializers import (
     CheckoutSerializer, RefundSerializer, OrderTrackingSerializer,
 )
 from cart.models import Cart
-from loyalty.utils import earn_points, consume_points, reverse_earned_points, restore_used_points
+from loyalty.utils import (
+    earn_points, consume_points, reverse_earned_points, restore_used_points,
+    points_for_order_subtotal, rupee_value_of_points, max_redeemable_points,
+)
 from delivery.utils import get_delivery_quote
 from notifications.utils import send_order_confirmation
 
 
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-
-LOYALTY_POINTS_PER_100 = 1  # 1 Best Choice Reward Point per Rs.100 spent
 
 
 def generate_order_id():
@@ -77,7 +78,12 @@ def checkout(request):
     if points_used > 0:
         if points_used > request.user.loyalty_points:
             return Response({'error': 'Insufficient loyalty points'}, status=status.HTTP_400_BAD_REQUEST)
-        points_discount = Decimal(str(points_used))
+        if points_used > max_redeemable_points(subtotal):
+            return Response(
+                {'error': 'Points used exceed the maximum redeemable for this order'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        points_discount = rupee_value_of_points(points_used)
         if points_discount > subtotal:
             points_discount = subtotal
     total_before_round = subtotal - points_discount + delivery_charge
@@ -186,7 +192,7 @@ def verify_payment(request):
         consume_points(order.user, order.loyalty_points_used, order=order,
                        description=f'Redeemed for order {order.order_id}')
 
-    points_earned = int(order.subtotal / 100) * LOYALTY_POINTS_PER_100
+    points_earned = points_for_order_subtotal(order.subtotal)
     order.loyalty_points_earned = points_earned
     order.save()
     earn_points(order.user, points_earned, order=order, description=f'Order {order.order_id}')
@@ -351,7 +357,7 @@ def payment_webhook(request):
         consume_points(order.user, order.loyalty_points_used, order=order,
                        description=f'Redeemed for order {order.order_id}')
 
-    points_earned = int(order.subtotal / 100) * LOYALTY_POINTS_PER_100
+    points_earned = points_for_order_subtotal(order.subtotal)
     order.loyalty_points_earned = points_earned
     order.save()
     earn_points(order.user, points_earned, order=order, description=f'Order {order.order_id}')

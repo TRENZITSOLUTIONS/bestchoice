@@ -1,7 +1,28 @@
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import LoyaltyTransaction
+from .models import LoyaltyTransaction, LoyaltyConfig
+
+
+def points_for_order_subtotal(subtotal):
+    """How many points an order subtotal earns, per the configured rate."""
+    config = LoyaltyConfig.get_config()
+    return int(subtotal / 100) * config.points_per_100_spent
+
+
+def rupee_value_of_points(points):
+    """Rupee discount `points` are worth when redeemed, per the configured rate."""
+    return LoyaltyConfig.get_config().point_value_rupees * points
+
+
+def max_redeemable_points(subtotal):
+    """Max points spendable on a single order (config'd % of subtotal), in points -
+    not rupees, so it can be compared directly against a user's points balance."""
+    config = LoyaltyConfig.get_config()
+    max_rupees = subtotal * config.max_redeem_percent / 100
+    if config.point_value_rupees <= 0:
+        return 0
+    return int(max_rupees / config.point_value_rupees)
 
 
 def earn_points(user, amount, order=None, description=''):

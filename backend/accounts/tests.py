@@ -307,6 +307,37 @@ class OrderTest(BaseTestCase):
         self.variant.refresh_from_db()
         self.assertEqual(self.variant.stock, 7)
 
+    def test_checkout_rejects_points_over_max_redeem_percent(self):
+        self.user.loyalty_points = 1000
+        self.user.save(update_fields=['loyalty_points'])
+        self.add_cart_item(qty=1)  # subtotal 1299 -> 20% cap = 259 points
+        res = self.client.post('/api/checkout/', {
+            'shipping_address': {
+                'full_name': 'Test User', 'phone': '9876543210',
+                'address_line1': '123 Main St', 'city': 'Chennai',
+                'pincode': '600001', 'state': 'Tamilnadu',
+            },
+            'delivery_type': 'home',
+            'loyalty_points_used': 500,
+        }, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_checkout_accepts_points_within_max_redeem_percent(self):
+        self.user.loyalty_points = 1000
+        self.user.save(update_fields=['loyalty_points'])
+        self.add_cart_item(qty=1)
+        res = self.client.post('/api/checkout/', {
+            'shipping_address': {
+                'full_name': 'Test User', 'phone': '9876543210',
+                'address_line1': '123 Main St', 'city': 'Chennai',
+                'pincode': '600001', 'state': 'Tamilnadu',
+            },
+            'delivery_type': 'home',
+            'loyalty_points_used': 100,
+        }, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data['discount'], '100.00')
+
     def test_cancel_order_restores_stock(self):
         self.add_cart_item(qty=2)
         checkout = self.checkout().data

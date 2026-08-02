@@ -2,20 +2,37 @@
 
 > **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
 
+## Configuration ✅
+
+Every rate/threshold in the program is admin-editable at runtime via the `LoyaltyConfig` singleton (Django Admin → Loyalty → Loyalty program configuration) — no code change or deploy needed to retune the program:
+
+| Field | Default | Controls |
+|---|---|---|
+| `points_per_100_spent` | 1 | Points earned per ₹100 of order subtotal |
+| `point_value_rupees` | ₹1.00 | Rupee value of 1 point when redeemed |
+| `validity_days` | 365 | Days after earning before a batch of points expires |
+| `max_redeem_percent` | 20 | Max % of order subtotal payable with points, per order |
+| `welcome_bonus_points` | 50 | Registration welcome bonus |
+| `referral_bonus_points` | 50 | Given to both referrer and new user |
+| `birthday_bonus_points` | 100 | Birthday bonus |
+| `expiring_soon_window_days` | 30 | Window for the "expiring soon" balance warning |
+
+Changing a rate only affects points earned/redeemed *after* the change — already-earned batches keep whatever `expires_at` they were given at the time (see `loyalty/models.py: LoyaltyConfig`, `loyalty/utils.py`).
+
 ## Rules
 
 | Action | Points Earned/Spent | Status |
 |---|---|---|
-| Registration welcome bonus | 50 points | ✅ |
-| Order placed (per ₹100) | 1 point (e.g., ₹1299 order → 12 points) | ✅ |
+| Registration welcome bonus | `welcome_bonus_points` (default 50) | ✅ |
+| Order placed (per ₹100) | `points_per_100_spent` (default 1; e.g., ₹1299 order → 12 points) | ✅ |
 | Points reversed on cancellation | Deducted | ✅ |
-| Referral bonus (both referrer & new user) | 50 points each | ✅ |
-| Birthday bonus | 100 points | ✅ |
-| Redeem during checkout | 1 point = ₹1 | ✅ |
-| Max redeem per order | 20% of order value | 🚧 (not currently enforced - checkout only caps redemption at the order subtotal) |
+| Referral bonus (both referrer & new user) | `referral_bonus_points` (default 50) each | ✅ |
+| Birthday bonus | `birthday_bonus_points` (default 100) | ✅ |
+| Redeem during checkout | `point_value_rupees` (default 1 point = ₹1) | ✅ |
+| Max redeem per order | `max_redeem_percent` (default 20%) of order subtotal - enforced, checkout returns 400 if exceeded | ✅ |
 | Review with photo | 20 points | 🚧 |
 | First order bonus | 100 points | 🚧 |
-| Points expiry | 365 days | ✅ |
+| Points expiry | `validity_days` (default 365) | ✅ |
 
 ## Referral Bonus
 
@@ -36,9 +53,9 @@
 
 ## Redemption ✅
 
-- Customer enters points on checkout page (max 20% of order value)
+- Customer enters points on checkout page (max `max_redeem_percent` of order value, default 20%)
 - Points passed as `loyalty_points_used` in checkout request
-- API validates: user has enough points, ≤ 20% of order subtotal
+- API validates: user has enough points, ≤ `max_redeemable_points(subtotal)` (400 if exceeded)
 - Points NOT deducted at checkout creation — deducted on payment verification
 - On payment verify (`POST /payment/verify/`): points deducted + `LoyaltyTransaction(spent)` created
 - On payment webhook (`payment.captured`): same deduction logic

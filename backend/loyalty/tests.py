@@ -4,10 +4,13 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
+from decimal import Decimal
+
 from orders.models import Order
-from .models import LoyaltyTransaction, POINTS_VALIDITY_DAYS
+from .models import LoyaltyTransaction, LoyaltyConfig
 from .utils import (
     earn_points, consume_points, reverse_earned_points, restore_used_points, expire_lapsed_points,
+    points_for_order_subtotal, rupee_value_of_points, max_redeemable_points,
 )
 
 User = get_user_model()
@@ -32,7 +35,7 @@ class EarnPointsTest(LoyaltyTestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 50)
         self.assertEqual(txn.remaining, 50)
-        expected_expiry = txn.created_at + timedelta(days=POINTS_VALIDITY_DAYS)
+        expected_expiry = txn.created_at + timedelta(days=LoyaltyConfig.get_config().validity_days)
         self.assertAlmostEqual(txn.expires_at, expected_expiry, delta=timedelta(seconds=5))
 
     def test_zero_or_negative_amount_is_noop(self):
@@ -150,3 +153,55 @@ class ExpireLapsedPointsTest(LoyaltyTestCase):
     def test_no_lapsed_batches_is_noop(self):
         earn_points(self.user, 10, description='fresh')
         self.assertEqual(expire_lapsed_points(), 0)
+
+
+class LoyaltyConfigTest(LoyaltyTestCase):
+    def test_defaults_match_documented_program(self):
+        config = LoyaltyConfig.get_config()
+        self.assertEqual(config.points_per_100_spent, 1)
+        self.assertEqual(config.point_value_rupees, Decimal('1.00'))
+        self.assertEqual(config.validity_days, 365)
+        self.assertEqual(config.max_redeem_percent, 20)
+        self.assertEqual(config.welcome_bonus_points, 50)
+        self.assertEqual(config.referral_bonus_points, 50)
+        self.assertEqual(config.birthday_bonus_points, 100)
+
+    def test_get_config_is_a_singleton(self):
+        first = LoyaltyConfig.get_config()
+        second = LoyaltyConfig.get_config()
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(LoyaltyConfig.objects.count(), 1)
+
+    def test_earn_rate_changes_with_config(self):
+        config = LoyaltyConfig.get_config()
+        config.points_per_100_spent = 5
+        config.save()
+        self.assertEqual(points_for_order_subtotal(Decimal('1000')), 50)
+
+    def test_redemption_rate_changes_with_config(self):
+        config = LoyaltyConfig.get_config()
+        config.point_value_rupees = Decimal('2.00')
+        config.save()
+        self.assertEqual(rupee_value_of_points(10), Decimal('20.00'))
+
+    def test_max_redeemable_changes_with_config(self):
+        config = LoyaltyConfig.get_config()
+        config.max_redeem_percent = 50
+        config.point_value_rupees = Decimal('1.00')
+        config.save()
+        self.assertEqual(max_redeemable_points(Decimal('1000')), 500)
+
+    def test_validity_days_changes_new_batch_expiry(self):
+        config = LoyaltyConfig.get_config()
+        config.validity_days = 30
+        config.save()
+        txn = earn_points(self.user, 10, description='short-lived batch')
+        self.assertAlmostEqual(
+            txn.expires_at, txn.created_at + timedelta(days=30), delta=timedelta(seconds=5),
+        )
+
+    def test_bonus_amounts_change_with_config(self):
+        config = LoyaltyConfig.get_config()
+        config.welcome_bonus_points = 200
+        config.save()
+        self.assertEqual(LoyaltyConfig.get_config().welcome_bonus_points, 200)
