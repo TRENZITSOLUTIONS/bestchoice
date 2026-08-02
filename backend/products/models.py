@@ -32,6 +32,14 @@ FIT_CHOICES = [
     ('regular', 'Regular'), ('slim', 'Slim'), ('oversized', 'Oversized'), ('relaxed', 'Relaxed'),
 ]
 
+SLEEVE_TYPE_CHOICES = [
+    ('half_sleeve', 'Half Sleeve'), ('full_sleeve', 'Full Sleeve'),
+]
+
+OCCASION_CHOICES = [
+    ('casual', 'Casual'), ('formal', 'Formal'), ('party', 'Party'), ('ethnic', 'Ethnic'),
+]
+
 
 def generate_product_id(category_slug):
     code = CATEGORY_CODES.get(category_slug, 'GEN')
@@ -181,10 +189,13 @@ class ProductVariant(models.Model):
     fabric = models.CharField(max_length=20, blank=True, default='', choices=FABRIC_CHOICES)
     fit = models.CharField(max_length=20, blank=True, default='', choices=FIT_CHOICES)
     age_group = models.CharField(max_length=30, blank=True, default='', help_text='Kids\' Wear only, e.g. "2-4Y"')
+    sleeve_type = models.CharField(max_length=20, blank=True, default='', choices=SLEEVE_TYPE_CHOICES)
+    occasion = models.CharField(max_length=20, blank=True, default='', choices=OCCASION_CHOICES)
 
     # Cosmetics-specific
     shade = models.CharField(max_length=50, blank=True, default='')
     volume = models.CharField(max_length=30, blank=True, default='', help_text='e.g. "30ml", "100ml"')
+    skin_type = models.CharField(max_length=30, blank=True, default='', help_text='Optional, e.g. "Oily", "Dry", "All"')
 
     sku = models.CharField(max_length=50, unique=True, blank=True)
     stock = models.IntegerField(default=0)

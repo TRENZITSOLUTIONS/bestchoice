@@ -4,6 +4,7 @@ from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from rest_framework.test import APIClient
 from PIL import Image
 
 from .models import Category, Brand, Product, ProductVariant, ProductImage
@@ -159,3 +160,109 @@ class ProductImageCompressionTest(TestCase):
         image.save()
         image.refresh_from_db()
         self.assertNotEqual(image.thumb.name, thumb_name_before)
+
+
+class ProductVisibilityTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.category = Category.objects.create(name='Visibility Test', slug='visibility-test')
+
+    def test_out_of_stock_hidden_when_configured(self):
+        Product.objects.create(
+            name='Hidden Product', category=self.category, mrp=999, selling_price=699,
+            total_stock=0, hide_if_out_of_stock=True,
+        )
+        res = self.client.get('/api/products/')
+        names = [p['name'] for p in res.data['results']]
+        self.assertNotIn('Hidden Product', names)
+
+    def test_out_of_stock_visible_when_not_configured(self):
+        Product.objects.create(
+            name='Visible Out Of Stock', category=self.category, mrp=999, selling_price=699,
+            total_stock=0, hide_if_out_of_stock=False,
+        )
+        res = self.client.get('/api/products/')
+        names = [p['name'] for p in res.data['results']]
+        self.assertIn('Visible Out Of Stock', names)
+
+    def test_in_stock_never_hidden_even_if_configured(self):
+        Product.objects.create(
+            name='In Stock Product', category=self.category, mrp=999, selling_price=699,
+            total_stock=5, hide_if_out_of_stock=True,
+        )
+        res = self.client.get('/api/products/')
+        names = [p['name'] for p in res.data['results']]
+        self.assertIn('In Stock Product', names)
+
+
+class ProductFilterTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.category = Category.objects.create(name='Filter Test', slug='filter-test')
+
+        self.shirt = Product.objects.create(
+            name='Cotton Slim Shirt', category=self.category, mrp=999, selling_price=699, total_stock=5,
+        )
+        ProductVariant.objects.create(
+            product=self.shirt, color='Blue', size='M', fabric='cotton', fit='slim',
+            sleeve_type='full_sleeve', occasion='formal', stock=5,
+        )
+
+        self.lipstick = Product.objects.create(
+            name='Matte Lipstick', category=self.category, mrp=499, selling_price=399, total_stock=3,
+        )
+        ProductVariant.objects.create(
+            product=self.lipstick, shade='Ruby Red', skin_type='All', stock=3,
+        )
+
+        self.charger = Product.objects.create(
+            name='Fast Charger', category=self.category, mrp=799, selling_price=599, total_stock=0,
+            compatible_devices='iPhone 12, iPhone 13, Samsung S21',
+        )
+
+    def _names(self, res):
+        return [p['name'] for p in res.data['results']]
+
+    def test_filter_by_fabric(self):
+        res = self.client.get('/api/products/', {'fabric': 'cotton'})
+        self.assertIn('Cotton Slim Shirt', self._names(res))
+        self.assertNotIn('Matte Lipstick', self._names(res))
+
+    def test_filter_by_fit(self):
+        res = self.client.get('/api/products/', {'fit': 'slim'})
+        self.assertIn('Cotton Slim Shirt', self._names(res))
+
+    def test_filter_by_sleeve_type(self):
+        res = self.client.get('/api/products/', {'sleeve_type': 'full_sleeve'})
+        self.assertIn('Cotton Slim Shirt', self._names(res))
+        self.assertNotIn('Matte Lipstick', self._names(res))
+
+    def test_filter_by_occasion(self):
+        res = self.client.get('/api/products/', {'occasion': 'formal'})
+        self.assertIn('Cotton Slim Shirt', self._names(res))
+
+    def test_filter_by_shade(self):
+        res = self.client.get('/api/products/', {'shade': 'Ruby Red'})
+        self.assertIn('Matte Lipstick', self._names(res))
+        self.assertNotIn('Cotton Slim Shirt', self._names(res))
+
+    def test_filter_by_skin_type(self):
+        res = self.client.get('/api/products/', {'skin_type': 'All'})
+        self.assertIn('Matte Lipstick', self._names(res))
+
+    def test_filter_by_compatible_device(self):
+        res = self.client.get('/api/products/', {'compatible_device': 'iPhone 12'})
+        self.assertIn('Fast Charger', self._names(res))
+        self.assertNotIn('Cotton Slim Shirt', self._names(res))
+
+    def test_filter_by_availability_in_stock(self):
+        res = self.client.get('/api/products/', {'availability': 'in_stock'})
+        names = self._names(res)
+        self.assertIn('Cotton Slim Shirt', names)
+        self.assertNotIn('Fast Charger', names)
+
+    def test_filter_by_availability_out_of_stock(self):
+        res = self.client.get('/api/products/', {'availability': 'out_of_stock'})
+        names = self._names(res)
+        self.assertIn('Fast Charger', names)
+        self.assertNotIn('Cotton Slim Shirt', names)

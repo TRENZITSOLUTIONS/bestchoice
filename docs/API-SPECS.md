@@ -78,6 +78,14 @@ Headers: Authorization: Bearer <token>
 | color | string | Filter by color |
 | size | string | Filter by size |
 | discount | int | Min discount % (e.g., 30) |
+| fabric | string | Clothing - Cotton/Linen/Viscose/Denim/Polyester/Rayon/Blend/Others |
+| fit | string | Clothing - Regular/Slim/Oversized/Relaxed |
+| sleeve_type | string | Clothing - half_sleeve/full_sleeve |
+| occasion | string | Clothing - Casual/Formal/Party/Ethnic |
+| shade | string | Cosmetics |
+| skin_type | string | Cosmetics (optional) |
+| compatible_device | string | Mobile Accessories - substring match against compatible_devices |
+| availability | string | `in_stock` or `out_of_stock` |
 | sort | string | `newest`, `price_low`, `price_high`, `popular`, `discount` |
 | page | int | Page number |
 | page_size | int | Items per page (default 20) |

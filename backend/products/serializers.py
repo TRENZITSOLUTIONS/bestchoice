@@ -35,7 +35,8 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         model = ProductVariant
         fields = (
             'id', 'color', 'size', 'sku', 'stock', 'price_override',
-            'fabric', 'fit', 'age_group', 'shade', 'volume',
+            'fabric', 'fit', 'age_group', 'sleeve_type', 'occasion',
+            'shade', 'volume', 'skin_type',
         )
 
 

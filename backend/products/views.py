@@ -10,6 +10,11 @@ from .serializers import (
 )
 
 
+def visible_to_customers(queryset):
+    """Hide zero-stock products when the admin has opted in via hide_if_out_of_stock."""
+    return queryset.exclude(hide_if_out_of_stock=True, total_stock__lte=0)
+
+
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Category.objects.filter(is_active=True, parent=None)
     serializer_class = CategorySerializer
@@ -40,20 +45,53 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         return ProductListSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        color = self.request.query_params.get('color')
-        size = self.request.query_params.get('size')
-        discount = self.request.query_params.get('discount')
+        qs = visible_to_customers(super().get_queryset())
+        params = self.request.query_params
 
+        color = params.get('color')
+        size = params.get('size')
+        discount = params.get('discount')
+        fabric = params.get('fabric')
+        fit = params.get('fit')
+        sleeve_type = params.get('sleeve_type')
+        occasion = params.get('occasion')
+        shade = params.get('shade')
+        skin_type = params.get('skin_type')
+        compatible_device = params.get('compatible_device')
+        availability = params.get('availability')
+
+        variant_filters = {}
         if color:
-            qs = qs.filter(variants__color__iexact=color, variants__is_active=True).distinct()
+            variant_filters['variants__color__iexact'] = color
         if size:
-            qs = qs.filter(variants__size__iexact=size, variants__is_active=True).distinct()
+            variant_filters['variants__size__iexact'] = size
+        if fabric:
+            variant_filters['variants__fabric__iexact'] = fabric
+        if fit:
+            variant_filters['variants__fit__iexact'] = fit
+        if sleeve_type:
+            variant_filters['variants__sleeve_type__iexact'] = sleeve_type
+        if occasion:
+            variant_filters['variants__occasion__iexact'] = occasion
+        if shade:
+            variant_filters['variants__shade__iexact'] = shade
+        if skin_type:
+            variant_filters['variants__skin_type__iexact'] = skin_type
+        if variant_filters:
+            qs = qs.filter(variants__is_active=True, **variant_filters).distinct()
+
         if discount:
             qs = qs.extra(
                 where=['((mrp - selling_price) * 100.0 / mrp) >= %s'],
                 params=[float(discount)],
             )
+        if compatible_device:
+            qs = qs.filter(compatible_devices__icontains=compatible_device)
+        if availability == 'in_stock':
+            qs = qs.filter(total_stock__gt=0)
+        elif availability == 'out_of_stock':
+            qs = qs.filter(total_stock__lte=0)
+
         return qs
 
 
@@ -61,10 +99,10 @@ class ProductByCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductListSerializer
 
     def get_queryset(self):
-        return Product.objects.filter(
+        return visible_to_customers(Product.objects.filter(
             is_active=True,
             category__slug=self.kwargs['category_slug'],
-        )
+        ))
 
 
 @api_view(['PUT', 'PATCH'])
