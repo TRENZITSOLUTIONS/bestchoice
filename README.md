@@ -162,7 +162,7 @@ Base: `http://localhost:8000/api/`
 
 | Command | Description |
 |---|---|
-| `seed_categories` | Seed 14 category hierarchy |
+| `seed_categories` | Seed the 5-category, 38-node hierarchy (idempotent) |
 | `seed_pincodes` | Import Tamilnadu pincodes from government CSV |
 | `process_images` | Generate 4 image sizes (thumb/small/medium/large) |
 | `give_birthday_bonus` | Award 100 loyalty points to users with birthday today |
@@ -170,10 +170,11 @@ Base: `http://localhost:8000/api/`
 ## Category Hierarchy
 
 ```
-Men's Wear → Shirts, T-Shirts, Jeans, Trousers, Blazers, Ethnic Wear
-Women's Wear → Sarees, Kurtis, Dresses, Tops
-Kids Wear
-Cosmetics
+Men's Wear → Shirts, T-Shirts, Jeans, Trousers, Cargo Pants, Hoodies, Shorts, Blazers, Ethnic Wear, Others
+Women's Wear → Sarees, Kurtis, Tops, Dresses, Leggings, Night Wear, Others
+Kids' Wear → Boys Wear, Girls Wear, Baby Wear, Others
+Cosmetics → Makeup, Skincare, Hair Care, Perfumes, Others
+Mobile Accessories → Chargers, Cases & Covers, Earphones, Neckbands, Smart Watches, Tempered Glass, Others
 ```
 
 ## SKU Format

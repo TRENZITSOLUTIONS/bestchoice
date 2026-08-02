@@ -3,10 +3,34 @@ from django.db import models
 
 
 CATEGORY_CODES = {
+    # Men's Wear
     'shirts': 'SHT', 't-shirts': 'TSH', 'jeans': 'JNS', 'trousers': 'TRS',
-    'blazers': 'BLZ', 'ethnic-wear': 'ETH', 'sarees': 'SAR', 'kurtis': 'KUR',
-    'dresses': 'DRS', 'tops': 'TOP', 'kids-wear': 'KID', 'cosmetics': 'COS',
+    'blazers': 'BLZ', 'ethnic-wear': 'ETH', 'cargo-pants': 'CGP', 'hoodies': 'HOD',
+    'shorts': 'SHR', 'mens-others': 'MSO',
+    # Women's Wear
+    'sarees': 'SAR', 'kurtis': 'KUR', 'dresses': 'DRS', 'tops': 'TOP',
+    'leggings': 'LEG', 'night-wear': 'NGW', 'womens-others': 'WSO',
+    # Kids' Wear
+    'kids-wear': 'KID', 'boys-wear': 'BOY', 'girls-wear': 'GRL', 'baby-wear': 'BBY',
+    'kids-others': 'KSO',
+    # Cosmetics
+    'cosmetics': 'COS', 'makeup': 'MUP', 'skincare': 'SKC', 'hair-care': 'HRC',
+    'perfumes': 'PRF', 'cosmetics-others': 'CSO',
+    # Mobile Accessories
+    'mobile-accessories': 'MAC', 'chargers': 'CHG', 'cases-covers': 'CAS',
+    'earphones': 'EAR', 'neckbands': 'NKB', 'smart-watches': 'SWT',
+    'tempered-glass': 'TMG', 'accessories-others': 'ACO',
 }
+
+FABRIC_CHOICES = [
+    ('cotton', 'Cotton'), ('linen', 'Linen'), ('viscose', 'Viscose'),
+    ('denim', 'Denim'), ('polyester', 'Polyester'), ('rayon', 'Rayon'),
+    ('blend', 'Blend'), ('others', 'Others'),
+]
+
+FIT_CHOICES = [
+    ('regular', 'Regular'), ('slim', 'Slim'), ('oversized', 'Oversized'), ('relaxed', 'Relaxed'),
+]
 
 
 def generate_product_id(category_slug):
@@ -65,6 +89,20 @@ class Product(models.Model):
     hide_if_out_of_stock = models.BooleanField(default=False)
     total_stock = models.IntegerField(default=0)
     weight_g = models.IntegerField(default=500, help_text='Weight in grams')
+
+    # Cosmetics-specific
+    expiry_date = models.DateField(null=True, blank=True)
+    batch_number = models.CharField(max_length=50, blank=True, default='')
+    ingredients = models.TextField(blank=True, default='')
+    usage_instructions = models.TextField(blank=True, default='')
+
+    # Clothing-specific (Men's / Women's / Kids' Wear)
+    care_instructions = models.TextField(blank=True, default='')
+
+    # Mobile Accessories-specific
+    compatible_devices = models.TextField(blank=True, default='', help_text='Comma-separated list of compatible devices')
+    warranty = models.CharField(max_length=100, blank=True, default='', help_text='e.g. "6 months" (optional)')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -104,6 +142,16 @@ class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
     color = models.CharField(max_length=50, blank=True, default='')
     size = models.CharField(max_length=20, blank=True, default='')
+
+    # Clothing-specific (Men's / Women's / Kids' Wear)
+    fabric = models.CharField(max_length=20, blank=True, default='', choices=FABRIC_CHOICES)
+    fit = models.CharField(max_length=20, blank=True, default='', choices=FIT_CHOICES)
+    age_group = models.CharField(max_length=30, blank=True, default='', help_text='Kids\' Wear only, e.g. "2-4Y"')
+
+    # Cosmetics-specific
+    shade = models.CharField(max_length=50, blank=True, default='')
+    volume = models.CharField(max_length=30, blank=True, default='', help_text='e.g. "30ml", "100ml"')
+
     sku = models.CharField(max_length=50, unique=True, blank=True)
     stock = models.IntegerField(default=0)
     price_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

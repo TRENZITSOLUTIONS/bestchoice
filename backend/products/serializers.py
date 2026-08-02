@@ -33,7 +33,10 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
-        fields = ('id', 'color', 'size', 'sku', 'stock', 'price_override')
+        fields = (
+            'id', 'color', 'size', 'sku', 'stock', 'price_override',
+            'fabric', 'fit', 'age_group', 'shade', 'volume',
+        )
 
 
 class ProductHighlightSerializer(serializers.ModelSerializer):
@@ -107,6 +110,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'highlights', 'available_colors', 'available_sizes',
             'pricing', 'stock_status', 'gst_included', 'rating',
             'related', 'hide_if_out_of_stock', 'created_at',
+            'expiry_date', 'batch_number', 'ingredients', 'usage_instructions',
+            'care_instructions', 'compatible_devices', 'warranty',
         )
 
     def get_category(self, obj):

@@ -42,10 +42,13 @@ bestchoice/
 ```
 
 ## Category Hierarchy
-- Men's Wear → Shirts, T-Shirts, Jeans, Trousers, Blazers, Ethnic Wear
-- Women's Wear → Sarees, Kurtis, Dresses, Tops
-- Kids Wear
-- Cosmetics
+- Men's Wear → Shirts, T-Shirts, Jeans, Trousers, Cargo Pants, Hoodies, Shorts, Blazers, Ethnic Wear, Others
+- Women's Wear → Sarees, Kurtis, Tops, Dresses, Leggings, Night Wear, Others
+- Kids' Wear → Boys Wear, Girls Wear, Baby Wear, Others
+- Cosmetics → Makeup, Skincare, Hair Care, Perfumes, Others
+- Mobile Accessories → Chargers, Cases & Covers, Earphones, Neckbands, Smart Watches, Tempered Glass, Others
+
+Seeded via `python manage.py seed_categories` (idempotent, merges — never deletes existing categories).
 
 ## SKU Format
 `BC-{cat_code}-{id}-{COLOR}-{SIZE}` — e.g., `BC-SHT-000001-RED-M`
