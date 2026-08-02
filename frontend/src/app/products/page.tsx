@@ -1,0 +1,118 @@
+'use client';
+
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useProducts } from '@/hooks/useProducts';
+import { ProductCard } from '@/components/ProductCard';
+import { FilterSidebar } from '@/components/products/FilterSidebar';
+
+function ProductsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const filters = {
+    category: searchParams.get('category') ?? undefined,
+    brand: searchParams.get('brand') ?? undefined,
+    selling_price_gte: searchParams.get('price_gte') ?? undefined,
+    selling_price_lte: searchParams.get('price_lte') ?? undefined,
+    color: searchParams.get('color') ?? undefined,
+    size: searchParams.get('size') ?? undefined,
+    discount: searchParams.get('discount') ?? undefined,
+    fabric: searchParams.get('fabric') ?? undefined,
+    fit: searchParams.get('fit') ?? undefined,
+    sleeve_type: searchParams.get('sleeve_type') ?? undefined,
+    occasion: searchParams.get('occasion') ?? undefined,
+    shade: searchParams.get('shade') ?? undefined,
+    skin_type: searchParams.get('skin_type') ?? undefined,
+    compatible_device: searchParams.get('compatible_device') ?? undefined,
+    availability: (searchParams.get('availability') as 'in_stock' | 'out_of_stock' | undefined) ?? undefined,
+    search: searchParams.get('search') ?? undefined,
+    ordering: searchParams.get('ordering') ?? undefined,
+    page: searchParams.get('page') ? Number(searchParams.get('page')) : undefined,
+  };
+
+  const { data, isLoading } = useProducts(filters);
+
+  function setOrdering(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set('ordering', value);
+    else params.delete('ordering');
+    router.push(`/products?${params.toString()}`);
+  }
+
+  const categoryLabel = filters.category
+    ?.split('-')
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ');
+
+  return (
+    <div className="mx-auto max-w-[1180px] px-4 sm:px-7">
+      <p className="text-sm text-ink-soft pt-5">
+        Home {categoryLabel && <> / <span className="text-ink font-semibold">{categoryLabel}</span></>}
+      </p>
+
+      <div className="grid sm:grid-cols-[240px_1fr] gap-9 py-5 pb-16">
+        <FilterSidebar />
+
+        <div>
+          <div className="flex justify-between items-center mb-5.5 text-sm">
+            <span>
+              <b>{data?.count ?? 0}</b> products
+            </span>
+            <select
+              value={filters.ordering ?? ''}
+              onChange={(e) => setOrdering(e.target.value)}
+              className="border border-line rounded px-3 py-2 bg-card text-sm"
+            >
+              <option value="">Sort: Newest</option>
+              <option value="selling_price">Price: Low to High</option>
+              <option value="-selling_price">Price: High to Low</option>
+              <option value="name">Name: A-Z</option>
+            </select>
+          </div>
+
+          {isLoading && <p className="text-sm text-ink-soft">Loading products...</p>}
+          {!isLoading && data?.results.length === 0 && (
+            <p className="text-sm text-ink-soft">No products match these filters.</p>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5.5">
+            {data?.results.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+
+          {data && data.count > 20 && (
+            <div className="flex justify-center gap-2 mt-9">
+              {Array.from({ length: Math.ceil(data.count / 20) }).map((_, i) => {
+                const pageNum = i + 1;
+                const isActive = (filters.page ?? 1) === pageNum;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.set('page', String(pageNum));
+                      router.push(`/products?${params.toString()}`);
+                    }}
+                    className={`w-8 h-8 rounded text-sm ${isActive ? 'bg-kumkum text-white' : 'border border-line'}`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-ink-soft">Loading...</div>}>
+      <ProductsPageContent />
+    </Suspense>
+  );
+}
