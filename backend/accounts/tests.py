@@ -417,6 +417,55 @@ class WishlistTest(BaseTestCase):
         self.assertEqual(res.status_code, 404)
 
 
+class RefundTest(BaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth()
+        from orders.models import Order
+        from loyalty.utils import earn_points
+
+        self.order = Order.objects.create(
+            order_id='BC-ORD-REFUND-0001', user=self.user, subtotal=1000, total=1000,
+            status='delivered', payment_status='paid',
+            shipping_address={'pincode': '600001', 'state': 'Tamil Nadu'},
+            loyalty_points_earned=10,
+        )
+        earn_points(self.user, 10, order=self.order, description='Order BC-ORD-REFUND-0001')
+
+    def request_refund(self):
+        return self.client.post(f'/api/orders/{self.order.order_id}/refund/', {'reason': 'Wrong size'}, format='json')
+
+    def test_request_refund_does_not_reverse_points_yet(self):
+        self.request_refund()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.loyalty_points, 10)
+
+    def test_approving_refund_reverses_points(self):
+        refund_id = self.request_refund().data['id']
+        res = self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'approved'}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.loyalty_points, 0)
+
+    def test_rejecting_refund_does_not_reverse_points(self):
+        refund_id = self.request_refund().data['id']
+        self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'rejected'}, format='json')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.loyalty_points, 10)
+
+    def test_approving_refund_twice_does_not_double_reverse(self):
+        refund_id = self.request_refund().data['id']
+        self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'approved'}, format='json')
+        self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'processed'}, format='json')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.loyalty_points, 0)
+
+    def test_invalid_status_rejected(self):
+        refund_id = self.request_refund().data['id']
+        res = self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'bogus'}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+
 class LoyaltyTest(BaseTestCase):
     def setUp(self):
         super().setUp()

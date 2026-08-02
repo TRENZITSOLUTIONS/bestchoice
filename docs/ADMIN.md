@@ -75,9 +75,9 @@ For the business owner/client. Access at `/admin/`.
 - Approve / reject reviews ✅
 - Delete inappropriate reviews ✅
 
-### Refunds (`/admin/refunds`) ✅ (basic)
+### Refunds (`/admin/refunds`) ✅
 - Pending refund requests ✅ (list view)
-- Process refund 🚧
+- Process refund ✅ — `POST /api/admin/refunds/{id}/status/` (approved/rejected/processed); approving attempts the Razorpay refund, marks the order refunded, and reverses any loyalty points earned on it
 - View refund history ✅
 
 ### Delivery (`/admin/delivery`) 🚧

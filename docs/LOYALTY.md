@@ -61,6 +61,14 @@ Changing a rate only affects points earned/redeemed *after* the change — alrea
 - On payment webhook (`payment.captured`): same deduction logic
 - If order cancelled: points restored + `LoyaltyTransaction(refund)` created
 
+## Exclusions ✅
+
+Points are not earned/kept for:
+- **Shipping charges** — `points_for_order_subtotal` is computed from `order.subtotal`, which excludes `delivery_charge`
+- **Cancelled orders** — `cancel_order` reverses any points earned on that order (`reverse_earned_points`)
+- **Refunded orders** — approving a refund (`POST /admin/refunds/{id}/status/` with `status: approved` or `processed`) reverses whatever points remain from that order's earn batch, same mechanism as cancellation. Merely *requesting* a refund does not reverse points — only an admin approving/processing it does, so a rejected refund request doesn't cost the customer anything
+- **Guest checkout** — not applicable; `/checkout/` requires authentication, so there's no guest order to exclude
+
 ## Points Expiry ✅
 
 Each earn (or restored-on-cancellation credit) is its own independently-expiring batch, not a single running total:

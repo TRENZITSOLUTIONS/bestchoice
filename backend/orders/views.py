@@ -314,6 +314,41 @@ def request_refund(request, order_id):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_update_refund_status(request, refund_id):
+    try:
+        refund = Refund.objects.select_related('order', 'order__user').get(pk=refund_id)
+    except Refund.DoesNotExist:
+        return Response({'error': 'Refund not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    new_status = request.data.get('status')
+    if new_status not in dict(Refund.STATUS_CHOICES):
+        return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+
+    already_finalized = refund.status in ('approved', 'processed')
+    if new_status in ('approved', 'processed') and not already_finalized:
+        order = refund.order
+
+        if order.payment_status == 'paid' and order.razorpay_payment_id:
+            try:
+                client.payment.refund(order.razorpay_payment_id, {
+                    'amount': int(refund.amount * 100),
+                })
+            except Exception:
+                pass  # Refund will be processed manually via Razorpay dashboard
+            order.payment_status = 'refunded'
+            order.save()
+
+        # Rewards program excludes refunded orders - claw back whatever points remain
+        if order.loyalty_points_earned > 0:
+            reverse_earned_points(order.user, order, description=f'Refunded {order.order_id}')
+
+    refund.status = new_status
+    refund.save()
+    return Response(RefundSerializer(refund).data)
+
+
+@api_view(['POST'])
 @permission_classes([AllowAny])
 @csrf_exempt
 def payment_webhook(request):

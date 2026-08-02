@@ -471,6 +471,13 @@ Valid statuses: pending, confirmed, packed, shipped, delivered, cancelled.
 ```
 Allowed fields: name, slug, mrp, selling_price, total_stock, is_active, weight_g, short_description, description, category_id, brand_id, hide_if_out_of_stock.
 
+### POST /admin/refunds/{id}/status/
+```json
+{ "status": "approved" }
+// 200 { "id": 1, "amount": "1299.00", "reason": "Wrong size", "status": "approved", ... }
+```
+Valid statuses: requested, approved, rejected, processed. Transitioning into `approved` or `processed` for the first time (not on a later re-transition between the two) attempts the Razorpay refund, marks the order `payment_status=refunded`, and reverses any loyalty points earned on that order (Rewards program excludes refunded orders) — `rejected` has no side effects.
+
 ---
 
 ## Complete Endpoint Table
