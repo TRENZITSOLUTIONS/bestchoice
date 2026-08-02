@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Bulk upload products (CSV)</h1>
+
+<p>Expected columns (header row required):</p>
+<code>{{ fields|join:", " }}</code>
+
+<p>Required columns: <code>name</code>, <code>category_slug</code>, <code>mrp</code>, <code>selling_price</code>.
+Everything else is optional and category-specific
+(e.g. <code>care_instructions</code> for clothing, <code>expiry_date</code>/<code>batch_number</code>/<code>ingredients</code>/<code>usage_instructions</code>
+for cosmetics, <code>compatible_devices</code>/<code>warranty</code> for mobile accessories).
+This creates base products only — add variants (color/size/fabric/shade/etc.) afterwards on each product's edit page.</p>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <input type="submit" value="Upload" class="default">
+</form>
+{% endblock %}

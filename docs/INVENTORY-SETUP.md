@@ -29,20 +29,27 @@ Order packed → status updated → tracking added
 
 ## Category → SKU Code Mapping
 
+Full mapping lives in `products/models.py: CATEGORY_CODES` (source of truth — 34 codes across all 5 top-level categories). Highlights:
+
 | Category | Code | Example |
 |---|---|---|
 | Men's Shirts | SHT | BC-SHT-001 |
 | Men's T-Shirts | TSH | BC-TSH-001 |
-| Men's Jeans | JNS | BC-JNS-001 |
-| Men's Trousers | TRS | BC-TRS-001 |
-| Men's Blazers | BLZ | BC-BLZ-001 |
-| Men's Ethnic Wear | ETH | BC-ETH-001 |
+| Men's Cargo Pants | CGP | BC-CGP-001 |
+| Men's Hoodies | HOD | BC-HOD-001 |
 | Women's Sarees | SAR | BC-SAR-001 |
-| Women's Kurtis | KUR | BC-KUR-001 |
-| Women's Dresses | DRS | BC-DRS-001 |
-| Women's Tops | TOP | BC-TOP-001 |
-| Kids Wear | KID | BC-KID-001 |
-| Cosmetics | COS | BC-COS-001 |
+| Women's Leggings | LEG | BC-LEG-001 |
+| Women's Night Wear | NGW | BC-NGW-001 |
+| Kids' Boys Wear | BOY | BC-BOY-001 |
+| Kids' Girls Wear | GRL | BC-GRL-001 |
+| Kids' Baby Wear | BBY | BC-BBY-001 |
+| Cosmetics Makeup | MUP | BC-MUP-001 |
+| Cosmetics Skincare | SKC | BC-SKC-001 |
+| Mobile Accessories Chargers | CHG | BC-CHG-001 |
+| Mobile Accessories Cases & Covers | CAS | BC-CAS-001 |
+| Mobile Accessories Earphones | EAR | BC-EAR-001 |
+
+Run `python manage.py seed_categories` to create the full tree (idempotent, additive — safe to re-run).
 
 ## Stock Deduction Logic
 
@@ -82,23 +89,31 @@ def cancel_order(order):
 - Displayed on admin dashboard: "⚠ 12 products are running low on stock"
 - Email notification to admin (optional, can add later)
 
-## Bulk Upload Format (CSV/Excel) 🚧
+## Bulk Upload Format (CSV) ✅
+
+Django Admin → Products → **Upload CSV** button (`/admin/products/product/upload-csv/`). Creates base products only — variants (color/size/fabric/fit/shade/volume/stock), images, and highlights are added afterward on each product's edit page, same as a single manually-created product.
 
 | Column | Required | Description |
 |---|---|---|
 | name | Yes | Product name |
-| category | Yes | Category slug (e.g., shirts) |
-| brand | Yes | Brand slug |
+| category_slug | Yes | Category slug (e.g., `shirts`, `chargers`) |
+| brand_slug | No | Brand slug |
 | mrp | Yes | Max retail price |
 | selling_price | Yes | Selling price |
 | short_description | No | Brief description |
-| description | No | Full description (HTML) |
-| color | Yes | Color name |
-| size | Yes | Size label |
-| stock | Yes | Initial stock quantity |
-| images | No | Comma-separated filenames or URLs |
-| highlights | No | Pipe-separated (e.g., "Cotton|Slim Fit|Soft") |
-| is_active | No | 1 or 0 |
+| description | No | Full description |
+| gst_included | No | true/false |
+| weight_g | No | Grams (default 500) |
+| hide_if_out_of_stock | No | true/false |
+| care_instructions | No | Clothing (Men's/Women's/Kids') |
+| expiry_date | No | Cosmetics, `YYYY-MM-DD` |
+| batch_number | No | Cosmetics |
+| ingredients | No | Cosmetics |
+| usage_instructions | No | Cosmetics |
+| compatible_devices | No | Mobile Accessories |
+| warranty | No | Mobile Accessories |
+
+Rows with an unknown `category_slug`/`brand_slug` or missing required fields are skipped and reported per-row; valid rows still get created. "Duplicate selected products" admin action clones a product (+ its images/variants/highlights) as an inactive draft for quick variant-based product creation.
 
 ## Reorder Logic (Future Enhancement) 🚧
 
