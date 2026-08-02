@@ -113,5 +113,6 @@ e915512 Phase 10: Razorpay, S3/CloudFront, pincodes, coupon API
 - Bad: "Added models, APIs, frontend components, and fixed bugs"
 
 ## Next Steps
-1. Write backend tests for new features (order tracking, delivery charge, loyalty redemption, admin APIs, notifications, referral/birthday bonuses)
-2. Low-priority: OTP auth, shipping partner integration, bulk product upload, points expiry
+1. Low-priority: OTP auth, shipping partner integration, review moderation (currently auto-approves on write), coupon-apply persistence (not attached to cart/order yet), admin analytics dashboard (sales report/top products/revenue by category), cart session→user merge on login
+2. Frontend rebuild (old Next.js frontend was deleted; not yet started)
+3. Legal pages (Privacy/Terms/Refund-Cancellation/Shipping) and WhatsApp bot/Business API automation — explicitly deferred by the client, not urgent
