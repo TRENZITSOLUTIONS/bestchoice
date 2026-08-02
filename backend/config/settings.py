@@ -110,8 +110,11 @@ AWS_QUERYSTRING_AUTH = False
 if AWS_STORAGE_BUCKET_NAME:
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-else:
+elif not DEBUG:
+    # Manifest storage requires `collectstatic` to have run (production deploy step).
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 STATIC_URL = f'{AWS_CLOUDFRONT_DOMAIN}/static/' if AWS_CLOUDFRONT_DOMAIN else 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
