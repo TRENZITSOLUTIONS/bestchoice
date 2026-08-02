@@ -145,24 +145,28 @@ User ──▶ Cart ──▶ CartItem ──▶ ProductVariant ──▶ Produc
 
 ## Image Pipeline
 
+Fully automatic — happens inside `ProductImage.save()`, no manual step:
+
 ```
-┌──────────┐    ┌────────────────┐    ┌────────────────────┐
-│  Upload   │───▶│ process_images │───▶│ 4 sizes generated  │
-│  (URL)    │    │  (management   │    │ thumb 150px         │
-│           │    │   command)     │    │ small 400px         │
-│           │    │                │    │ medium 800px        │
-│           │    │                │    │ large 1200px        │
-└──────────┘    └────────────────┘    └─────────┬──────────┘
-                                                 │
-                                      ┌──────────┴──────────┐
-                                      ▼                     ▼
-                               ┌──────────┐         ┌──────────────┐
-                               │   S3 +   │   or    │  Local media  │
-                               │ CloudFront│         │    folder     │
-                               └──────────┘         └──────────────┘
+┌──────────────┐   ┌─────────────────────┐   ┌───────────────────────────┐
+│ Admin uploads │──▶│ Original compressed  │──▶│ 4 WebP sizes generated     │
+│ a real file    │   │ (capped 2000x2000,   │   │ thumb 150px / small 400px  │
+│ (ImageField)   │   │ JPEG q90) - the      │   │ medium 800px / large 1200px │
+│                │   │ stored "original"    │   │ (q80, mobile-bandwidth-     │
+│                │   │                      │   │ friendly)                  │
+└──────────────┘   └─────────────────────┘   └─────────────┬─────────────┘
+                                                             │
+                                                  ┌──────────┴──────────┐
+                                                  ▼                     ▼
+                                           ┌──────────┐         ┌──────────────┐
+                                           │   S3 +   │   or    │  Local media  │
+                                           │ CloudFront│         │    folder     │
+                                           └──────────┘         └──────────────┘
 ```
 
-S3 activated when `AWS_STORAGE_BUCKET_NAME` is set. Falls back to local `media/` folder.
+S3 activated when `AWS_STORAGE_BUCKET_NAME` is set (via `DEFAULT_FILE_STORAGE`). Falls back to local `media/` folder otherwise — both transparent to `ProductImage`, since Django's storage API handles the difference.
+
+`python manage.py process_images` still exists but is now only an optional backfill/reprocess tool (e.g. after changing compression settings) — not part of the normal upload flow.
 
 ## Notifications
 

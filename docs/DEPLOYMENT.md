@@ -319,11 +319,7 @@ Dev uses console backend (prints to terminal).
 
 ## 6. Image Processing
 
-```bash
-python manage.py process_images
-```
-
-Generates 4 sizes (thumb/small/medium/large) for all product images. Works with S3/CloudFront or local storage.
+Automatic on upload — no deploy-time step needed. `python manage.py process_images` is only for backfilling/reprocessing existing images (e.g. after changing compression settings). Works with S3/CloudFront or local storage either way.
 
 ## 7. Birthday Bonus Automation
 

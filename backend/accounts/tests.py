@@ -1,6 +1,9 @@
+import io
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from PIL import Image
 from products.models import Category, Brand, Product, ProductVariant, ProductImage
 from delivery.models import DeliveryPincode
 from coupons.models import Coupon
@@ -10,6 +13,13 @@ from decimal import Decimal
 import json
 
 User = get_user_model()
+
+
+def make_test_image(name='test.jpg'):
+    buf = io.BytesIO()
+    Image.new('RGB', (20, 20), color='red').save(buf, format='JPEG')
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), content_type='image/jpeg')
 
 
 class BaseTestCase(TestCase):
@@ -43,7 +53,7 @@ class BaseTestCase(TestCase):
         )
         ProductImage.objects.create(
             product=self.product,
-            image='https://cdn.example.com/img.jpg',
+            image=make_test_image(),
             is_primary=True,
         )
 

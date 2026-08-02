@@ -16,7 +16,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     def get_product_image(self, obj):
         img = obj.product.images.filter(is_primary=True).first()
-        return img.image if img else None
+        return (img.small or img.image).url if img else None
 
     def get_variant_label(self, obj):
         if obj.variant:

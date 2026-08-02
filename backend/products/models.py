@@ -126,13 +126,47 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.URLField(max_length=500)
+    image = models.ImageField(upload_to='products/original/')
+    thumb = models.ImageField(upload_to='products/thumb/', blank=True, editable=False)
+    small = models.ImageField(upload_to='products/small/', blank=True, editable=False)
+    medium = models.ImageField(upload_to='products/medium/', blank=True, editable=False)
+    large = models.ImageField(upload_to='products/large/', blank=True, editable=False)
     alt_text = models.CharField(max_length=200, blank=True)
     sort_order = models.IntegerField(default=0)
     is_primary = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['sort_order']
+
+    def _image_changed(self):
+        if not self.image:
+            return False
+        if not self.pk:
+            return True
+        old = ProductImage.objects.filter(pk=self.pk).values_list('image', flat=True).first()
+        return old != self.image.name
+
+    def save(self, *args, **kwargs):
+        from io import BytesIO
+        from .utils.image_utils import compress_original, generate_derived_sizes
+
+        regenerate = self._image_changed()
+        compressed_bytes = None
+        if regenerate:
+            compressed = compress_original(self.image.file, self.image.name)
+            compressed_bytes = compressed.read()
+            compressed.seek(0)
+            self.image = compressed
+
+        super().save(*args, **kwargs)
+
+        if regenerate:
+            # Reuse the already-compressed bytes rather than re-reading self.image from
+            # storage post-save (which would mean a network round trip when using S3).
+            derived = generate_derived_sizes(BytesIO(compressed_bytes), self.image.name)
+            for size_name, content_file in derived.items():
+                getattr(self, size_name).save(content_file.name, content_file, save=False)
+            super().save(update_fields=['thumb', 'small', 'medium', 'large'])
 
     def __str__(self):
         return f'Image {self.sort_order} for {self.product.name}'

@@ -27,7 +27,7 @@ class BrandSerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ('id', 'image', 'alt_text', 'is_primary', 'sort_order')
+        fields = ('id', 'image', 'thumb', 'small', 'medium', 'large', 'alt_text', 'is_primary', 'sort_order')
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -68,7 +68,9 @@ class ProductListSerializer(serializers.ModelSerializer):
         img = obj.images.filter(is_primary=True).first()
         if not img:
             img = obj.images.first()
-        return img.image if img else None
+        if not img:
+            return None
+        return (img.small or img.image).url
 
     def get_discount_percent(self, obj):
         if obj.mrp > 0:
@@ -196,7 +198,9 @@ class RelatedProductSerializer(serializers.ModelSerializer):
         img = obj.images.filter(is_primary=True).first()
         if not img:
             img = obj.images.first()
-        return img.image if img else None
+        if not img:
+            return None
+        return (img.small or img.image).url
 
     def get_discount_percent(self, obj):
         if obj.mrp > 0:

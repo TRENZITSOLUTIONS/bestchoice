@@ -1,81 +1,29 @@
-import os
-import io
-import urllib.request
-from PIL import Image
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
-from django.core.management.base import BaseCommand, CommandError
-from django.conf import settings
+from io import BytesIO
+
+from django.core.management.base import BaseCommand
+from django.db.models import Model
+
 from products.models import ProductImage
-
-
-SIZES = {
-    'thumb': (150, 150),
-    'small': (400, 400),
-    'medium': (800, 800),
-    'large': (1200, 1200),
-}
-
-
-def resize_image(image_data, max_size):
-    img = Image.open(io.BytesIO(image_data))
-    img.thumbnail(max_size, Image.Resampling.LANCZOS)
-    if img.mode in ('RGBA', 'P'):
-        img = img.convert('RGB')
-    buf = io.BytesIO()
-    img.save(buf, format='JPEG', quality=85)
-    return buf.getvalue()
-
-
-def process_product_image(product_image, force=False):
-    source_url = product_image.image
-    if not source_url:
-        return None
-
-    # Download original
-    try:
-        resp = urllib.request.urlopen(source_url)
-        original_data = resp.read()
-    except Exception as e:
-        raise CommandError(f'Failed to download {source_url}: {e}')
-
-    prefix = f'products/{product_image.product.auto_product_id}/{product_image.id}'
-    results = {'original': source_url}
-
-    # If CloudFront is configured, reconstruct S3 path from URL
-    if settings.AWS_CLOUDFRONT_DOMAIN and settings.AWS_STORAGE_BUCKET_NAME:
-        # Already stored on S3; just generate sizes
-        for size_name, (w, h) in SIZES.items():
-            resized = resize_image(original_data, (w, h))
-            path = f'{prefix}/{size_name}.jpg'
-            saved_path = default_storage.save(path, ContentFile(resized))
-            url = f'{settings.AWS_CLOUDFRONT_DOMAIN}/{saved_path}'
-            results[size_name] = url
-    else:
-        # Local storage fallback
-        local_dir = os.path.join(settings.MEDIA_ROOT, prefix)
-        os.makedirs(local_dir, exist_ok=True)
-        for size_name, (w, h) in SIZES.items():
-            resized = resize_image(original_data, (w, h))
-            path = os.path.join(local_dir, f'{size_name}.jpg')
-            with open(path, 'wb') as f:
-                f.write(resized)
-            results[size_name] = f'{settings.MEDIA_URL}{prefix}/{size_name}.jpg'
-
-    return results
+from products.utils.image_utils import compress_original, generate_derived_sizes
 
 
 class Command(BaseCommand):
-    help = 'Generate 4 image sizes (thumb/small/medium/large) for product images'
+    """
+    Maintenance/backfill command. Images are compressed and sized automatically
+    at upload time (see ProductImage.save()) - this is only needed to reprocess
+    existing images, e.g. after changing compression settings.
+    """
+    help = 'Regenerate thumb/small/medium/large sizes for existing product images'
 
     def add_arguments(self, parser):
-        parser.add_argument('--product-id', type=int, help='Process only this product image ID')
-        parser.add_argument('--force', action='store_true', help='Regenerate existing sizes')
+        parser.add_argument('--product-id', type=int, help='Process only this product\'s images')
+        parser.add_argument('--recompress-original', action='store_true',
+                             help='Also re-compress the stored original (not just the derived sizes)')
 
     def handle(self, *args, **options):
         qs = ProductImage.objects.all()
         if options['product_id']:
-            qs = qs.filter(id=options['product_id'])
+            qs = qs.filter(product_id=options['product_id'])
 
         total = qs.count()
         if total == 0:
@@ -85,12 +33,23 @@ class Command(BaseCommand):
         self.stdout.write(f'Processing {total} image(s)...')
         processed = 0
         for pi in qs:
+            if not pi.image:
+                continue
             try:
-                result = process_product_image(pi, force=options['force'])
-                if result:
-                    processed += 1
-                    self.stdout.write(f'  [{processed}/{total}] Image {pi.id}: thumb={result.get("thumb", "?")[:60]}...')
-            except CommandError as e:
+                if options['recompress_original']:
+                    compressed = compress_original(pi.image.file, pi.image.name)
+                    pi.image.save(compressed.name, compressed, save=False)
+
+                pi.image.file.seek(0)
+                derived = generate_derived_sizes(BytesIO(pi.image.file.read()), pi.image.name)
+                for size_name, content_file in derived.items():
+                    getattr(pi, size_name).save(content_file.name, content_file, save=False)
+                # Bypass ProductImage.save()'s own regenerate-on-change logic - we've
+                # already done the (re)processing explicitly above.
+                Model.save(pi, update_fields=['image', 'thumb', 'small', 'medium', 'large'])
+                processed += 1
+                self.stdout.write(f'  [{processed}/{total}] Image {pi.id} reprocessed')
+            except Exception as e:
                 self.stdout.write(self.style.ERROR(f'  Failed Image {pi.id}: {e}'))
 
         self.stdout.write(self.style.SUCCESS(f'Processed {processed}/{total} images'))

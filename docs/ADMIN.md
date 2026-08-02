@@ -19,16 +19,19 @@ Used for full backend management. Access at `/admin/`.
 - Refunds (process)
 - Delivery Pincodes (manage)
 
-### Custom Admin Actions 🚧
-- **Duplicate Product** — copies product + all variants + images + highlights 🚧
-- **Bulk Upload** — upload Excel/CSV to create/update products 🚧
+### Custom Admin Actions
+- **Duplicate Product** — copies product + all variants + images + highlights, as an inactive draft ✅
+- **Bulk Upload** — "Upload CSV" button on the product changelist creates base products from a CSV (variants added afterward) ✅
 - **Mark Orders Shipped** — bulk action with tracking number input 🚧
 
-### Image Processing
+### Image Processing ✅
+
+Automatic — happens when a product image is uploaded (`ProductImage.save()`): the original is compressed (capped 2000x2000, JPEG q90) and thumb/small/medium/large WebP variants are generated (150/400/800/1200px, q80). No manual step needed.
+
 ```
 python manage.py process_images
 ```
-Generates 4 sizes (thumb/small/medium/large) for all product images.
+Optional maintenance/backfill command to reprocess existing images (e.g. after changing compression settings) — not part of the normal upload flow.
 
 ---
 

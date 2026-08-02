@@ -1,12 +1,21 @@
 import io
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from PIL import Image
 
-from .models import Category, Brand, Product, ProductVariant
+from .models import Category, Brand, Product, ProductVariant, ProductImage
 
 User = get_user_model()
+
+
+def make_test_image(name='test.png', size=(1600, 1600), color='blue', fmt='PNG'):
+    buf = io.BytesIO()
+    Image.new('RGB', size, color=color).save(buf, format=fmt)
+    buf.seek(0)
+    return SimpleUploadedFile(name, buf.read(), content_type=f'image/{fmt.lower()}')
 
 
 class SeedCategoriesTest(TestCase):
@@ -105,3 +114,48 @@ class ProductAdminBulkActionsTest(TestCase):
         self.assertEqual(duplicate.total_stock, 0)
         self.assertEqual(duplicate.variants.count(), 1)
         self.assertNotEqual(duplicate.variants.first().sku, product.variants.first().sku)
+
+
+class ProductImageCompressionTest(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name='Compression Test', slug='compression-test')
+        self.product = Product.objects.create(name='Compressed Product', category=self.category, mrp=999, selling_price=699)
+
+    def test_upload_generates_all_derived_sizes(self):
+        image = ProductImage.objects.create(product=self.product, image=make_test_image())
+        self.assertTrue(image.thumb)
+        self.assertTrue(image.small)
+        self.assertTrue(image.medium)
+        self.assertTrue(image.large)
+
+    def test_derived_sizes_are_webp_for_mobile_bandwidth(self):
+        image = ProductImage.objects.create(product=self.product, image=make_test_image())
+        self.assertTrue(image.thumb.name.endswith('.webp'))
+        with Image.open(image.small.file) as img:
+            self.assertEqual(img.format, 'WEBP')
+
+    def test_original_is_compressed_and_capped(self):
+        image = ProductImage.objects.create(product=self.product, image=make_test_image(size=(3000, 3000)))
+        with Image.open(image.image.file) as img:
+            self.assertLessEqual(max(img.size), 2000)
+
+    def test_derived_sizes_are_smaller_than_original(self):
+        image = ProductImage.objects.create(product=self.product, image=make_test_image(size=(1600, 1600)))
+        self.assertLess(image.thumb.size, image.image.size)
+        self.assertLess(image.small.size, image.image.size)
+
+    def test_resaving_without_changing_image_does_not_regenerate(self):
+        image = ProductImage.objects.create(product=self.product, image=make_test_image())
+        thumb_name_before = image.thumb.name
+        image.alt_text = 'Updated alt text'
+        image.save()
+        image.refresh_from_db()
+        self.assertEqual(image.thumb.name, thumb_name_before)
+
+    def test_replacing_image_regenerates_derived_sizes(self):
+        image = ProductImage.objects.create(product=self.product, image=make_test_image(color='red'))
+        thumb_name_before = image.thumb.name
+        image.image = make_test_image(name='replacement.png', color='green')
+        image.save()
+        image.refresh_from_db()
+        self.assertNotEqual(image.thumb.name, thumb_name_before)

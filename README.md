@@ -144,7 +144,7 @@ Base: `http://localhost:8000/api/`
 
 - **JWT Auth** — email/password login, 24h access tokens, 30d refresh, referral code on register
 - **Product Variants** — color + size combos with per-variant stock and SKU
-- **Image Pipeline** — `python manage.py process_images` generates 4 sizes (thumb/small/medium/large) for S3/CloudFront or local storage
+- **Image Pipeline** — automatic on upload: original compressed (capped 2000x2000, JPEG q90), thumb/small/medium/large WebP variants generated (150/400/800/1200px, q80, mobile-bandwidth-friendly), stored to S3/CloudFront or local storage transparently
 - **Related Products** — auto-suggested same-category products, plus manually curated via RelatedProduct model
 - **Delivery** — 388 Tamilnadu pincodes, same-day Chennai, weight-based charge, free over ₹500
 - **Pincode Checker** — real-time delivery check on product detail page
@@ -164,7 +164,7 @@ Base: `http://localhost:8000/api/`
 |---|---|
 | `seed_categories` | Seed the 5-category, 38-node hierarchy (idempotent) |
 | `seed_pincodes` | Import Tamilnadu pincodes from government CSV |
-| `process_images` | Generate 4 image sizes (thumb/small/medium/large) |
+| `process_images` | Optional backfill/reprocess of existing images (new uploads process automatically) |
 | `give_birthday_bonus` | Award 100 loyalty points to users with birthday today |
 
 ## Category Hierarchy

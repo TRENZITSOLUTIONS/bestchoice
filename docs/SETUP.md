@@ -193,7 +193,7 @@ python manage.py import_pincodes path/to/file.csv --clear
 # Award birthday bonus (100 points to users whose birthday is today)
 python manage.py give_birthday_bonus
 
-# Process all product images into 4 sizes (thumb/small/medium/large)
+# Optional: reprocess existing product images (new uploads are processed automatically)
 python manage.py process_images
 ```
 
