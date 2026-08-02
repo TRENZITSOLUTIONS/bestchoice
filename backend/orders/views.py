@@ -18,7 +18,7 @@ from .serializers import (
 )
 from cart.models import Cart
 from loyalty.models import LoyaltyTransaction
-from delivery.utils import calculate_delivery_charge
+from delivery.utils import get_delivery_quote
 from notifications.utils import send_order_confirmation
 
 
@@ -58,9 +58,18 @@ def checkout(request):
     )
     delivery_type = serializer.validated_data.get('delivery_type', 'home')
     shipping_address = serializer.validated_data.get('shipping_address', {})
-    delivery_charge = calculate_delivery_charge(
-        shipping_address.get('pincode', ''), total_weight_g, subtotal,
+    delivery_quote = get_delivery_quote(
+        pincode=shipping_address.get('pincode', ''),
+        state=shipping_address.get('state', ''),
+        total_weight_g=total_weight_g,
+        order_total=subtotal,
     )
+    if delivery_type == 'home' and not delivery_quote['available']:
+        return Response(
+            {'error': 'Delivery is not available for this address'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    delivery_charge = delivery_quote['charge']
     points_used = serializer.validated_data.get('loyalty_points_used', 0)
     points_discount = Decimal(0)
     if points_used > 0:

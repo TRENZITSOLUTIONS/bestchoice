@@ -245,7 +245,7 @@ Now included inline in the product detail response under `related.similar` and `
 {
   "shipping_address": {
     "full_name": "John Doe", "phone": "9876543210",
-    "address_line1": "123, Anna Nagar",
+    "address_line1": "123, Anna Nagar", "landmark": "Near Roundtana",
     "address_line2": "", "city": "Chennai", "pincode": "600001", "state": "Tamilnadu"
   },
   "delivery_type": "home",
@@ -263,7 +263,11 @@ Now included inline in the product detail response under `related.similar` and `
   "razorpay_key_id": "rzp_live_xxxx",
   "amount_in_paise": 257800
 }
+// 400 if the address isn't deliverable (state resolves to a zone with no active rate, e.g. outside-state delivery switched off)
+{ "error": "Delivery is not available for this address" }
 ```
+
+`shipping_address` is a free-form JSON object (no fixed schema server-side) — `state` drives which delivery zone/price applies (see `docs/DELIVERY.md`); `landmark` and any other address fields are stored as-is and are the frontend's responsibility to collect.
 
 ### POST /payment/verify/
 ```json
@@ -429,10 +433,15 @@ Bearer required. Returns current user's reviews.
 
 ### GET /delivery/check/{pincode}/
 ```json
-// Available
-{ "pincode": "600001", "city": "Chennai", "delivery_available": true, "delivery_type": "same_day", "estimated_days": "Today", "store_pickup": true, "cod_available": true, "delivery_charge": null }
+// Available (Tamil Nadu pincode)
+{ "pincode": "600001", "city": "Chennai", "zone": "tamilnadu", "delivery_available": true, "delivery_type": "same_day", "estimated_days": "Today", "store_pickup": true, "cod_available": true, "delivery_charge": null }
 // Not available
 { "pincode": "999999", "delivery_available": false, "message": "Delivery not available at this pincode" }
+```
+Pass `?state=<state>` for an address outside Tamil Nadu — priced via the configurable `OutsideStateDeliveryRate` instead of the pincode table:
+```json
+// GET /delivery/check/560001/?state=Karnataka
+{ "pincode": "560001", "zone": "outside_tamilnadu", "delivery_available": true, "delivery_type": "standard", "estimated_days": "5-8 business days", "store_pickup": false, "cod_available": false, "delivery_charge": "150.00" }
 ```
 
 ---

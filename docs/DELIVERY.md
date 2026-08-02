@@ -1,8 +1,19 @@
-# Delivery & Logistics (Tamilnadu)
+# Delivery & Logistics (Tamil Nadu + Rest of India)
 
 > **Implementation Status**: ✅ = Built · 🚧 = Not yet implemented
 
-## Delivery Options
+## Two Delivery Zones
+
+Delivery is priced differently depending on the `state` in the shipping address (`delivery/utils.py: get_delivery_quote`):
+
+| Zone | Pricing | Status |
+|---|---|---|
+| **Tamil Nadu** (`state` matches "Tamil Nadu" / "Tamilnadu" / "TN", case-insensitive — also the default when no `state` is given) | Per-pincode via `DeliveryPincode` (same-day/standard/none, optional per-pincode override) | ✅ |
+| **Outside Tamil Nadu** (any other `state`) | Single configurable rate card — `delivery.OutsideStateDeliveryRate` (base charge, free-delivery threshold, estimated days, COD availability, on/off switch), editable in Django Admin | ✅ |
+
+Both zones apply the same weight surcharge (₹10 per 500g over 1kg) and go through `POST /checkout/`, which now rejects the order with 400 if `get_delivery_quote(...)['available']` is `False` for `delivery_type: "home"` (store pickup skips this check).
+
+## Delivery Options (Tamil Nadu zone)
 
 | Type | Availability | Cost | Status |
 |---|---|---|---|
@@ -15,19 +26,30 @@
 
 1. Customer enters pincode on product page or checkout
 2. API: `GET /api/delivery/check/{pincode}/` ✅
-3. Returns:
+3. Returns (Tamil Nadu pincode):
 ```json
 {
   "pincode": "600001",
   "city": "Chennai",
+  "zone": "tamilnadu",
   "delivery_available": true,
   "delivery_type": "same_day",
   "estimated_days": "Today",
   "store_pickup": true,
-  "pickup_locations": [
-    { "name": "BestChoice - Anna Nagar", "address": "..." }
-  ],
   "cod_available": true
+}
+```
+Pass `?state=<state>` to check a non-Tamil-Nadu address against the outside-state rate card instead, e.g. `GET /api/delivery/check/560001/?state=Karnataka`:
+```json
+{
+  "pincode": "560001",
+  "zone": "outside_tamilnadu",
+  "delivery_available": true,
+  "delivery_type": "standard",
+  "estimated_days": "5-8 business days",
+  "store_pickup": false,
+  "cod_available": false,
+  "delivery_charge": "150.00"
 }
 ```
 
