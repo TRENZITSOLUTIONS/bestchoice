@@ -414,15 +414,16 @@ Bearer required. Returns current user's reviews.
 
 ### GET /loyalty/balance/
 ```json
-{ "points": 250 }
+{ "points": 250, "lifetime_earned": 1200, "lifetime_spent": 950, "expiring_soon": 40, "next_expiry_date": "2027-01-15" }
 ```
+`expiring_soon` is points lapsing within 30 days; `next_expiry_date` is null if nothing is expiring.
 
 ### GET /loyalty/transactions/
 ```json
 {
   "results": [
-    { "points": 50, "type": "earned", "description": "Welcome bonus", "created_at": "2026-06-15T10:00:00Z" },
-    { "points": 65, "type": "earned", "description": "Order BC-ORD-001", "created_at": "2026-06-20T10:00:00Z" }
+    { "points": 50, "type": "earned", "description": "Welcome bonus", "created_at": "2026-06-15T10:00:00Z", "remaining": 0, "expires_at": "2027-06-15T10:00:00Z" },
+    { "points": 12, "type": "earned", "description": "Order BC-ORD-001", "created_at": "2026-06-20T10:00:00Z", "remaining": 12, "expires_at": "2027-06-20T10:00:00Z" }
   ]
 }
 ```

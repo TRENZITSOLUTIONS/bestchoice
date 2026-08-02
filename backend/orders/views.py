@@ -17,12 +17,14 @@ from .serializers import (
     CheckoutSerializer, RefundSerializer, OrderTrackingSerializer,
 )
 from cart.models import Cart
-from loyalty.models import LoyaltyTransaction
+from loyalty.utils import earn_points, consume_points, reverse_earned_points, restore_used_points
 from delivery.utils import get_delivery_quote
 from notifications.utils import send_order_confirmation
 
 
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+LOYALTY_POINTS_PER_100 = 1  # 1 Best Choice Reward Point per Rs.100 spent
 
 
 def generate_order_id():
@@ -180,32 +182,14 @@ def verify_payment(request):
     order.status = 'confirmed'
     order.save()
 
-    # Deduct used loyalty points
     if order.loyalty_points_used > 0:
-        order.user.loyalty_points -= order.loyalty_points_used
-        order.user.save(update_fields=['loyalty_points'])
-        LoyaltyTransaction.objects.create(
-            user=order.user,
-            points=-order.loyalty_points_used,
-            type='spent',
-            order=order,
-            description=f'Redeemed for order {order.order_id}',
-        )
+        consume_points(order.user, order.loyalty_points_used, order=order,
+                       description=f'Redeemed for order {order.order_id}')
 
-    # Earn loyalty points
-    points_earned = int(order.subtotal / 100) * 5
+    points_earned = int(order.subtotal / 100) * LOYALTY_POINTS_PER_100
     order.loyalty_points_earned = points_earned
     order.save()
-
-    LoyaltyTransaction.objects.create(
-        user=order.user,
-        points=points_earned,
-        type='earned',
-        order=order,
-        description=f'Order {order.order_id}',
-    )
-    order.user.loyalty_points += points_earned
-    order.user.save()
+    earn_points(order.user, points_earned, order=order, description=f'Order {order.order_id}')
 
     send_order_confirmation(order)
 
@@ -266,27 +250,11 @@ def cancel_order(request, order_id):
             pass  # Refund will be processed manually
 
     if order.loyalty_points_earned > 0:
-        LoyaltyTransaction.objects.create(
-            user=request.user,
-            points=-order.loyalty_points_earned,
-            type='refund',
-            order=order,
-            description=f'Cancelled {order.order_id}',
-        )
-        request.user.loyalty_points = max(0, request.user.loyalty_points - order.loyalty_points_earned)
+        reverse_earned_points(request.user, order, description=f'Cancelled {order.order_id}')
 
     if order.loyalty_points_used > 0 and order.payment_status == 'paid':
-        request.user.loyalty_points += order.loyalty_points_used
-        LoyaltyTransaction.objects.create(
-            user=request.user,
-            points=order.loyalty_points_used,
-            type='refund',
-            order=order,
-            description=f'Points refunded for cancelled {order.order_id}',
-        )
-
-    if order.loyalty_points_earned > 0 or order.loyalty_points_used > 0:
-        request.user.save(update_fields=['loyalty_points'])
+        restore_used_points(request.user, order.loyalty_points_used, order=order,
+                            description=f'Points refunded for cancelled {order.order_id}')
 
     return Response({'status': 'cancelled', 'message': 'Order cancelled successfully'})
 
@@ -379,31 +347,14 @@ def payment_webhook(request):
     order.status = 'confirmed'
     order.save()
 
-    # Deduct used loyalty points
     if order.loyalty_points_used > 0:
-        order.user.loyalty_points -= order.loyalty_points_used
-        order.user.save(update_fields=['loyalty_points'])
-        LoyaltyTransaction.objects.create(
-            user=order.user,
-            points=-order.loyalty_points_used,
-            type='spent',
-            order=order,
-            description=f'Redeemed for order {order.order_id}',
-        )
+        consume_points(order.user, order.loyalty_points_used, order=order,
+                       description=f'Redeemed for order {order.order_id}')
 
-    points_earned = int(order.subtotal / 100) * 5
+    points_earned = int(order.subtotal / 100) * LOYALTY_POINTS_PER_100
     order.loyalty_points_earned = points_earned
     order.save()
-
-    LoyaltyTransaction.objects.create(
-        user=order.user,
-        points=points_earned,
-        type='earned',
-        order=order,
-        description=f'Order {order.order_id}',
-    )
-    order.user.loyalty_points += points_earned
-    order.user.save()
+    earn_points(order.user, points_earned, order=order, description=f'Order {order.order_id}')
 
     send_order_confirmation(order)
 

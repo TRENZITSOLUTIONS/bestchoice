@@ -149,7 +149,7 @@ Base: `http://localhost:8000/api/`
 - **Delivery** — 388 Tamilnadu pincodes, same-day Chennai, weight-based charge, free over ₹500
 - **Pincode Checker** — real-time delivery check on product detail page
 - **Coupons** — percentage or fixed discount, min cart, per-user limits, max discount cap
-- **Loyalty** — 5 pts per ₹100 spent, redeem at checkout (1 pt = ₹1), referral bonuses (50 pts each), birthday bonus command
+- **Loyalty** — 1 pt per ₹100 spent, redeem at checkout (1 pt = ₹1), points expire 365 days after earning (FIFO redemption, `expire_loyalty_points` cron command), referral bonuses (50 pts each), birthday bonus command
 - **Order Tracking** — automatic status history logging, timeline UI in order detail
 - **Notifications** — order confirmation email with HTML template (console backend in dev, SMTP in prod)
 - **Reviews** — write with star rating + text, read with average rating + distribution

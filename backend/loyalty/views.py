@@ -1,8 +1,13 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import LoyaltyTransaction
 from .serializers import LoyaltyTransactionSerializer
+
+EXPIRING_SOON_WINDOW_DAYS = 30
 
 
 @api_view(['GET'])
@@ -11,10 +16,20 @@ def loyalty_balance(request):
     user = request.user
     earned = sum(t.points for t in LoyaltyTransaction.objects.filter(user=user, type='earned'))
     spent = sum(abs(t.points) for t in LoyaltyTransaction.objects.filter(user=user, type='spent'))
+
+    soon = timezone.now() + timedelta(days=EXPIRING_SOON_WINDOW_DAYS)
+    expiring_soon_batches = LoyaltyTransaction.objects.filter(
+        user=user, remaining__gt=0, expires_at__isnull=False, expires_at__lte=soon,
+    ).order_by('expires_at')
+    expiring_soon = sum(t.remaining for t in expiring_soon_batches)
+    next_expiry = expiring_soon_batches.first()
+
     return Response({
         'points': user.loyalty_points,
         'lifetime_earned': earned,
         'lifetime_spent': spent,
+        'expiring_soon': expiring_soon,
+        'next_expiry_date': next_expiry.expires_at.date() if next_expiry else None,
     })
 
 

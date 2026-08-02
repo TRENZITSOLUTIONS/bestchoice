@@ -5,4 +5,4 @@ from .models import LoyaltyTransaction
 class LoyaltyTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoyaltyTransaction
-        fields = ('points', 'type', 'description', 'created_at')
+        fields = ('points', 'type', 'description', 'created_at', 'remaining', 'expires_at')
