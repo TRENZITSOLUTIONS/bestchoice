@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+:root {
+  --ivory: #fbf6ef;
+  --ivory-raised: #f3ead9;
+  --ink: #211726;
+  --ink-soft: #4a3f4e;
+  --kumkum: #e14b1f;
+  --kumkum-deep: #b23814;
+  --marigold: #c98d20;
+  --leaf: #3f6b4f;
+  --line: #e3d6c6;
+  --card: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ivory: #17111c;
+    --ivory-raised: #221a28;
+    --ink: #f3ead9;
+    --ink-soft: #cabfc9;
+    --kumkum: #ff6a3d;
+    --kumkum-deep: #ff8a5c;
+    --marigold: #e0ab4a;
+    --leaf: #6fae86;
+    --line: #4a3d4f;
+    --card: #2f2536;
+  }
+}
+
+@theme inline {
+  --color-ivory: var(--ivory);
+  --color-ivory-raised: var(--ivory-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-kumkum: var(--kumkum);
+  --color-kumkum-deep: var(--kumkum-deep);
+  --color-marigold: var(--marigold);
+  --color-leaf: var(--leaf);
+  --color-line: var(--line);
+  --color-card: var(--card);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background: var(--ivory);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.display {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--kumkum-deep);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--kumkum);
+  color: #fff;
+}
