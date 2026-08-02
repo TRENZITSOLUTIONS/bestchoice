@@ -51,7 +51,7 @@ Open http://localhost:3000 — backend at http://localhost:8000
 | `RAZORPAY_WEBHOOK_SECRET` | No | — | Razorpay webhook secret |
 | `AWS_ACCESS_KEY_ID` | No | — | S3 access key |
 | `AWS_SECRET_ACCESS_KEY` | No | — | S3 secret key |
-| `AWS_STORAGE_BUCKET_NAME` | No | — | S3 bucket name |
+| `AWS_STORAGE_BUCKET_NAME` | **Yes in production** (`DJANGO_DEBUG=False`) | — | S3 bucket name — local media/ isn't served outside DEBUG mode, server refuses to start without it |
 | `AWS_CLOUDFRONT_DOMAIN` | No | — | CloudFront URL |
 | `EMAIL_HOST` | No | — | SMTP server |
 | `EMAIL_HOST_USER` | No | — | SMTP user |

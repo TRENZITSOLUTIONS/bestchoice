@@ -119,6 +119,8 @@ environment=
     CORS_ALLOWED_ORIGINS="https://bestchoice.in,https://www.bestchoice.in"
 ```
 
+`AWS_STORAGE_BUCKET_NAME` is not optional here — with `DJANGO_DEBUG=False`, Django refuses to start at all without it (`config/settings.py`, checked via `ImproperlyConfigured`). Local `media/` storage is only ever served through the `/media/` URL in `DEBUG` mode, so without S3 those image URLs would silently 404 in production — this fails fast at startup instead.
+
 ### Nginx Config
 
 Create `/etc/nginx/sites-available/bestchoice`:

@@ -3,6 +3,8 @@ from datetime import timedelta
 import os
 import sys
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get(
@@ -106,6 +108,14 @@ AWS_S3_CUSTOM_DOMAIN = AWS_CLOUDFRONT_DOMAIN.replace('https://', '') if AWS_CLOU
 AWS_DEFAULT_ACL = 'public-read'
 AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 AWS_QUERYSTRING_AUTH = False
+
+if not DEBUG and not AWS_STORAGE_BUCKET_NAME and 'test' not in sys.argv:
+    # Local media/ is only ever served via the /media/ URL in DEBUG mode (see urls.py) -
+    # without S3, uploaded images would silently 404 in production. Fail at startup instead.
+    raise ImproperlyConfigured(
+        'AWS_STORAGE_BUCKET_NAME must be set when DJANGO_DEBUG is False - '
+        'local media/ storage is not served in production.'
+    )
 
 # Use S3 for file storage if bucket is configured, else local media/ (FileSystemStorage default)
 if AWS_STORAGE_BUCKET_NAME:
