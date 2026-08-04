@@ -138,6 +138,8 @@ Used by `docker-compose.yml` itself rather than by application code.
 |---|---|---|
 | `DOMAIN` | `bestchoice.in` | Bare domain, no scheme or trailing slash. Single source of truth: it drives nginx `server_name` and the TLS certificate path, Django's `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`, and the frontend's `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_SITE_URL`. |
 | `WHATSAPP_NUMBER` | *(empty)* | Passed through to `NEXT_PUBLIC_WHATSAPP_NUMBER` |
+| `SERVER_IP` | *(unset)* | Optional. Adds the server's raw IP to `DJANGO_ALLOWED_HOSTS`, so you can reach the site by IP before DNS points at it. Remove once DNS is live — an IP in `ALLOWED_HOSTS` forever is a minor, avoidable attack surface. |
+| `DJANGO_FORCE_HTTPS` | `True` | Only ever set to `False` temporarily. `SECURE_SSL_REDIRECT` normally forces every request to HTTPS in production — correct once TLS is live, but during the gap between pointing DNS at a fresh server and issuing its first certificate, nginx has no HTTPS listener yet, and forcing the redirect just breaks every request. Set back to `True` (or unset) the moment the certificate exists. |
 
 `GOOGLE_OAUTH_CLIENT_ID` and `RAZORPAY_KEY_ID` are each used twice — once as backend runtime env, once as a frontend build arg — so you only set them once in `.env`.
 

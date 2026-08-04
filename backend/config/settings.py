@@ -209,7 +209,12 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Production security settings
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    # DJANGO_FORCE_HTTPS defaults on. Only set it to False for a deliberate,
+    # temporary bring-up window before a TLS certificate exists yet - e.g. the
+    # gap between pointing DNS at a new server and issuing its first
+    # certificate, when nginx has no HTTPS listener and forcing a redirect to
+    # it would just break every request. Turn it back on once TLS is live.
+    SECURE_SSL_REDIRECT = os.environ.get('DJANGO_FORCE_HTTPS', 'True').lower() == 'true'
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

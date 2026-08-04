@@ -30,7 +30,12 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
       REDIS_URL: redis://redis:6379/0
       DJANGO_DEBUG: 'False'
-      DJANGO_ALLOWED_HOSTS: ${DOMAIN:-bestchoice.in},www.${DOMAIN:-bestchoice.in},localhost
+      # See the comment on this in backend/config/settings.py - only ever set
+      # to False for a deliberate pre-TLS bring-up window.
+      DJANGO_FORCE_HTTPS: ${DJANGO_FORCE_HTTPS:-True}
+      # SERVER_IP is optional - set it to reach the site by raw IP before DNS
+      # points at it yet. Django 400s any Host header not in this list.
+      DJANGO_ALLOWED_HOSTS: ${DOMAIN:-bestchoice.in},www.${DOMAIN:-bestchoice.in},localhost${SERVER_IP:+,${SERVER_IP}}
       DB_NAME: bestchoice_db
       DB_USER: bestchoice
       DB_PASSWORD: ${DB_PASSWORD}
