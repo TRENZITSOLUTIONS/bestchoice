@@ -15,17 +15,13 @@ export function useProfile() {
   });
 }
 
-export function useLogin() {
+export function useStaffLogin() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      // /auth/login/ is a stock SimpleJWT view - it only returns {access, refresh}, no user object.
-      const tokens = await api.post('/auth/login/', { email, password });
-      const me = await api.get<User>('/auth/me/', {
-        headers: { Authorization: `Bearer ${tokens.data.access}` },
-      });
-      return { user: me.data, access: tokens.data.access, refresh: tokens.data.refresh };
+    mutationFn: async (payload: { email: string; password: string }) => {
+      const res = await api.post('/auth/staff/login/', payload);
+      return res.data;
     },
     onSuccess: (data) => {
       setAuth(data.user, data.access, data.refresh);
@@ -34,19 +30,12 @@ export function useLogin() {
   });
 }
 
-export function useRegister() {
+export function useGoogleLogin() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: {
-      email: string;
-      phone: string;
-      password: string;
-      first_name: string;
-      last_name?: string;
-      referral_code?: string;
-    }) => {
-      const res = await api.post('/auth/register/', payload);
+    mutationFn: async (payload: { credential: string; referral_code?: string }) => {
+      const res = await api.post('/auth/google/', payload);
       return res.data;
     },
     onSuccess: (data) => {

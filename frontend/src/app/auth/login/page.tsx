@@ -1,64 +1,46 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useLogin } from '@/hooks/useAuth';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
-export default function LoginPage() {
-  const router = useRouter();
-  const login = useLogin();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    login.mutate(
-      { email, password },
-      {
-        onSuccess: () => router.push('/account'),
-        onError: () => setError('Invalid email or password.'),
-      }
-    );
-  }
+function LoginPanel() {
+  const searchParams = useSearchParams();
+  const [referralCode, setReferralCode] = useState(searchParams.get('ref') ?? '');
 
   return (
-    <div className="mx-auto max-w-[420px] px-4 py-16">
-      <h1 className="display text-2xl mb-6 text-center">Sign in to Best Choice</h1>
-      <form onSubmit={handleSubmit} className="grid gap-3.5">
-        <input
-          type="email"
-          required
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border border-line rounded px-3.5 py-2.5 bg-card text-sm"
-        />
-        <input
-          type="password"
-          required
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border border-line rounded px-3.5 py-2.5 bg-card text-sm"
-        />
-        {error && <p className="text-kumkum text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={login.isPending}
-          className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm rounded py-3 disabled:opacity-50"
-        >
-          {login.isPending ? 'Signing in...' : 'Sign In'}
-        </button>
-      </form>
-      <p className="text-sm text-ink-soft text-center mt-5">
-        New here?{' '}
-        <Link href="/auth/register" className="text-kumkum-deep font-semibold">
-          Create an account
-        </Link>
+    <div className="mx-auto max-w-[420px] px-4 py-16 text-center">
+      <h1 className="display text-2xl mb-2">Sign in to Best Choice</h1>
+      <p className="text-sm text-ink-soft mb-8">
+        Continue with Google — no password to remember. New customers get a welcome bonus in Best
+        Choice Rewards.
       </p>
+
+      <GoogleSignInButton referralCode={referralCode} />
+
+      <div className="mt-8 text-left">
+        <label htmlFor="referral" className="eyebrow block mb-1.5">
+          Referral code (optional)
+        </label>
+        <input
+          id="referral"
+          value={referralCode}
+          onChange={(e) => setReferralCode(e.target.value)}
+          placeholder="Enter a friend's code"
+          className="w-full border border-line rounded px-3.5 py-2.5 bg-card text-sm"
+        />
+        <p className="text-xs text-ink-soft mt-1.5">
+          Enter this before signing in and you both earn bonus points.
+        </p>
+      </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPanel />
+    </Suspense>
   );
 }
