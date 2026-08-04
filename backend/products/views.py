@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -29,8 +30,10 @@ class BrandViewSet(viewsets.ReadOnlyModelViewSet):
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Product.objects.filter(is_active=True)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    # category is handled in get_queryset instead of here: an exact match on
+    # category__slug returns nothing for a top-level slug like "mens-wear",
+    # because products are filed under subcategories (shirts, t-shirts, ...).
     filterset_fields = {
-        'category__slug': ['exact'],
         'brand__slug': ['exact'],
         'selling_price': ['gte', 'lte'],
         'mrp': ['gte', 'lte'],
@@ -47,6 +50,15 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = visible_to_customers(super().get_queryset())
         params = self.request.query_params
+
+        # Match the category itself or anything filed beneath it, so the main
+        # nav's top-level slugs work as well as a specific subcategory. Accepts
+        # either `category` or the older `category__slug` spelling.
+        category = params.get('category') or params.get('category__slug')
+        if category:
+            qs = qs.filter(
+                Q(category__slug=category) | Q(category__parent__slug=category)
+            )
 
         color = params.get('color')
         size = params.get('size')
@@ -99,9 +111,9 @@ class ProductByCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductListSerializer
 
     def get_queryset(self):
-        return visible_to_customers(Product.objects.filter(
-            is_active=True,
-            category__slug=self.kwargs['category_slug'],
+        slug = self.kwargs['category_slug']
+        return visible_to_customers(Product.objects.filter(is_active=True).filter(
+            Q(category__slug=slug) | Q(category__parent__slug=slug)
         ))
 
 
