@@ -1,69 +1,46 @@
 # BestChoice E-Commerce
 
-Full-stack e-commerce platform for clothing & cosmetics serving Tamilnadu with home delivery and store pickup.
+Online store for BestChoice Clothing (Spencer Plaza, Chennai) — clothing, cosmetics, and mobile accessories, with home delivery across Tamil Nadu and store pickup.
 
-**Stack:** Django + DRF + PostgreSQL | Next.js + TailwindCSS + React Query + Zustand | AWS S3 + CloudFront | Razorpay
+**Stack:** Django 4.2 + DRF + PostgreSQL 15 · Next.js 16 + Tailwind + React Query + Zustand · S3 + CloudFront · Razorpay
+
+📖 **[Full documentation →](docs/README.md)**
 
 ## Quick Start
 
-### Backend
+Whole stack in Docker — needs a `.env` first (see [ENVIRONMENT.md](docs/ENVIRONMENT.md)):
 
 ```bash
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-
-createdb bestchoice_db
-cp .env.example .env
-
-python manage.py migrate
-python manage.py seed_categories
-python manage.py seed_pincodes
-python manage.py createsuperuser
-
-python manage.py runserver
+cp .env.example .env && docker compose up -d --build
 ```
 
-### Frontend
+Or run the two services directly for hot reload:
 
 ```bash
-cd frontend
-npm install
-cp .env.example .env.local
-npm run dev
+cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
-Open http://localhost:3000 — backend at http://localhost:8000
+```bash
+createdb bestchoice_db && cp .env.example .env
+```
+
+```bash
+python manage.py migrate && python manage.py seed_categories && python manage.py seed_pincodes && python manage.py createsuperuser && python manage.py runserver
+```
+
+```bash
+cd frontend && npm install && cp .env.example .env.local && npm run dev
+```
+
+Storefront at http://localhost:3000, API at http://localhost:8000/api/, Django Admin at http://localhost:8000/admin/.
+
+Customers sign in with Google, so `/auth/login` needs `GOOGLE_OAUTH_CLIENT_ID` (backend) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend) set to the same client ID. Without them the sign-in button shows a "not configured" notice. Full walkthrough in [SETUP.md](docs/SETUP.md).
 
 ## Environment Variables
 
-### Backend (`.env`)
+Every variable — what it does, whether it's required, where to get a real value, and the build-time vs runtime distinction — is in **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)**.
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `DJANGO_SECRET_KEY` | Yes | — | Django secret key |
-| `DJANGO_DEBUG` | No | `True` | Debug mode |
-| `DB_NAME` | Yes | `bestchoice_db` | PostgreSQL database |
-| `DB_USER` | Yes | `bestchoice` | Database user |
-| `DB_PASSWORD` | Yes | — | Database password |
-| `RAZORPAY_KEY_ID` | Yes | — | Razorpay API key |
-| `RAZORPAY_KEY_SECRET` | Yes | — | Razorpay secret |
-| `RAZORPAY_WEBHOOK_SECRET` | No | — | Razorpay webhook secret |
-| `AWS_ACCESS_KEY_ID` | No | — | S3 access key |
-| `AWS_SECRET_ACCESS_KEY` | No | — | S3 secret key |
-| `AWS_STORAGE_BUCKET_NAME` | **Yes in production** (`DJANGO_DEBUG=False`) | — | S3 bucket name — local media/ isn't served outside DEBUG mode, server refuses to start without it |
-| `AWS_CLOUDFRONT_DOMAIN` | No | — | CloudFront URL |
-| `EMAIL_HOST` | No | — | SMTP server |
-| `EMAIL_HOST_USER` | No | — | SMTP user |
-| `EMAIL_HOST_PASSWORD` | No | — | SMTP password |
-| `DEFAULT_FROM_EMAIL` | No | `noreply@bestchoice.in` | From address |
-
-### Frontend (`.env.local`)
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `NEXT_PUBLIC_API_URL` | Yes | `http://localhost:8000/api` | Backend API base URL |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Yes | — | Razorpay key (from dashboard) |
+Templates to copy: [`.env.example`](.env.example) for Docker, [`backend/.env.example`](backend/.env.example) and [`frontend/.env.example`](frontend/.env.example) for local dev.
 
 ## Pages
 
@@ -81,14 +58,11 @@ Open http://localhost:3000 — backend at http://localhost:8000
 | `/account/orders/[id]` | Order detail | Status timeline, items, tracking, cancel/refund |
 | `/account/wishlist` | Wishlist | Saved products |
 | `/account/loyalty` | Loyalty | Points balance & history |
-| `/admin` | Dashboard | Business stats, recent orders, low stock |
-| `/admin/orders` | Admin | Order management with full status flow (confirm→pack→ship→deliver) |
-| `/admin/products` | Admin | Product table with inline editing + CSV export |
-| `/admin/inventory` | Admin | Stock tracking with CSV export |
-| `/admin/coupons` | Admin | Coupon creation form |
-| `/admin/reviews` | Admin | Review approval |
-| `/admin/refunds` | Admin | Refund processing |
-| `/admin/reports` | Admin | Sales reports |
+
+That is every route the storefront serves. **There is no custom admin dashboard** — store
+management happens in Django Admin at `http://localhost:8000/admin/`, which has model CRUD
+for products, categories, orders, coupons, pincodes, and loyalty config. See
+[docs/ADMIN.md](docs/ADMIN.md).
 
 ## API Endpoints
 
@@ -122,9 +96,10 @@ Base: `http://localhost:8000/api/`
 | GET | `/loyalty/balance/` | Bearer | Points balance |
 | GET | `/loyalty/transactions/` | Bearer | Points history |
 | GET | `/delivery/check/{pincode}/` | — | Check delivery availability with charge |
-| POST | `/admin/orders/{id}/status/` | Bearer | Admin: update order status |
-| PUT | `/admin/products/{id}/` | Bearer | Admin: update product |
-| GET | `/api/health/` | — | Health check endpoint |
+| POST | `/admin/orders/{id}/status/` | Bearer (staff) | Admin: update order status |
+| POST | `/admin/refunds/{id}/status/` | Bearer (staff) | Admin: approve/process a refund (reverses loyalty points) |
+| PUT | `/admin/products/{id}/` | Bearer (staff) | Admin: update product |
+| GET | `/health/` | — | Health check |
 
 * = session-based cart works without auth for guest users
 
@@ -142,7 +117,7 @@ Base: `http://localhost:8000/api/`
 
 ## Key Features
 
-- **JWT Auth** — email/password login, 24h access tokens, 30d refresh, referral code on register
+- **Auth** — customers sign in with Google only (ID token verified server-side); staff use email/password at a separate `/staff/login`. JWT: 24h access, 30d refresh. Referral codes apply on first Google sign-in
 - **Product Variants** — color + size combos with per-variant stock and SKU
 - **Image Pipeline** — automatic on upload: original compressed (capped 2000x2000, JPEG q90), thumb/small/medium/large WebP variants generated (150/400/800/1200px, q80, mobile-bandwidth-friendly), stored to S3/CloudFront or local storage transparently
 - **Related Products** — auto-suggested same-category products, plus manually curated via RelatedProduct model
@@ -152,8 +127,8 @@ Base: `http://localhost:8000/api/`
 - **Loyalty** — 1 pt per ₹100 spent, redeem at checkout (1 pt = ₹1), points expire 365 days after earning (FIFO redemption, `expire_loyalty_points` cron command), referral bonuses (50 pts each), birthday bonus command
 - **Order Tracking** — automatic status history logging, timeline UI in order detail
 - **Notifications** — order confirmation email with HTML template (console backend in dev, SMTP in prod)
-- **Reviews** — write with star rating + text, read with average rating + distribution
-- **Admin Dashboard** — order status flow, inline product editing, CSV export, coupon creation, review moderation
+- **Reviews** — write with star rating + text, read with average rating + distribution. Note: new reviews are auto-approved, so the `is_approved` moderation flag doesn't currently hold anything back
+- **Store management** — Django Admin: model CRUD, bulk product upload via CSV, duplicate-product action, and a configurable `LoyaltyConfig` singleton for every rewards rate
 - **Gallery** — clickable zoom, lightbox with prev/next navigation
 - **Share** — Web Share API with clipboard fallback
 - **Sticky Bottom Bar** — mobile add-to-cart with quantity selector
@@ -164,8 +139,13 @@ Base: `http://localhost:8000/api/`
 |---|---|
 | `seed_categories` | Seed the 5-category, 38-node hierarchy (idempotent) |
 | `seed_pincodes` | Import Tamilnadu pincodes from government CSV |
+| `import_pincodes <csv>` | Import pincodes from your own CSV (`--sample` writes a template, `--clear` replaces) |
 | `process_images` | Optional backfill/reprocess of existing images (new uploads process automatically) |
-| `give_birthday_bonus` | Award 100 loyalty points to users with birthday today |
+| `give_birthday_bonus` | Award birthday points (amount from `LoyaltyConfig`, default 100) — run daily |
+| `expire_loyalty_points` | Expire points past their 365-day window — run daily |
+
+The last two are the only ones that need a schedule; nothing sets that up for you. See
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#scheduled-maintenance-commands).
 
 ## Category Hierarchy
 
@@ -192,17 +172,22 @@ Example: `BC-SHT-000001-RED-M`
 
 ## Docs
 
+**Start at [docs/README.md](docs/README.md)** — it maps everything below and suggests a reading order.
+
 | Document | Description |
 |---|---|
-| `docs/ARCHITECTURE.md` | System architecture, data flow, design decisions |
-| `docs/DEPLOYMENT.md` | Production deployment guide |
-| `docs/API-SPECS.md` | Full API reference with request/response examples |
-| `docs/ADMIN.md` | Django admin + custom dashboard guide |
-| `docs/PRODUCT-PAGE.md` | Product detail page spec |
-| `docs/DELIVERY.md` | Tamilnadu delivery & logistics |
-| `docs/LOYALTY.md` | Loyalty points system |
-| `docs/COUPONS.md` | Coupon codes system |
-| `docs/INVENTORY-SETUP.md` | Inventory flow & SKU format |
-| `docs/WHATSAPP.md` | WhatsApp integration |
-| `AGENTS.md` | Agent session memory & rules |
-| `PLAN.md` | Master plan & schema |
+| [docs/README.md](docs/README.md) | Documentation index and current project state |
+| [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Every environment variable, what breaks without it, where to get values |
+| [docs/SETUP.md](docs/SETUP.md) | Local development setup |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment, backups, troubleshooting |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, data flow, design decisions |
+| [docs/API-SPECS.md](docs/API-SPECS.md) | Full API reference with request/response examples |
+| [docs/ADMIN.md](docs/ADMIN.md) | Django Admin guide |
+| [docs/INVENTORY-SETUP.md](docs/INVENTORY-SETUP.md) | Inventory flow & SKU format |
+| [docs/PRODUCT-PAGE.md](docs/PRODUCT-PAGE.md) | Product detail page spec |
+| [docs/DELIVERY.md](docs/DELIVERY.md) | Tamilnadu delivery & logistics |
+| [docs/LOYALTY.md](docs/LOYALTY.md) | Loyalty points system |
+| [docs/COUPONS.md](docs/COUPONS.md) | Coupon codes system |
+| [docs/WHATSAPP.md](docs/WHATSAPP.md) | WhatsApp support link |
+| [AGENTS.md](AGENTS.md) | Agent session memory & rules |
+| [PLAN.md](PLAN.md) | Master plan & schema |
