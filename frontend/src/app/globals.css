@@ -1,48 +1,50 @@
 @import "tailwindcss";
 
+/* Best Choice runs a single, committed dark identity rather than a light/dark
+   pair. The brand crest is a red-and-gold mark that lives on black - putting it
+   on ivory fought it. Token NAMES are kept from the earlier light system so
+   every component picks this up without edits; only the values changed. */
 :root {
-  --ivory: #fbf6ef;
-  --ivory-raised: #f3ead9;
-  --ink: #211726;
-  --ink-soft: #4a3f4e;
-  /* True red + gold, sampled from the real Best Choice crest logo (a red/gold
-     "B" mark on black) - replaces an earlier orange-toned placeholder chosen
-     before a real logo existed. */
-  --kumkum: #d6231f;
-  --kumkum-deep: #ac1a17;
-  --marigold: #c8901d;
-  --leaf: #3f6b4f;
-  --line: #e3d6c6;
-  --card: #ffffff;
-}
+  color-scheme: dark;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ivory: #17111c;
-    --ivory-raised: #221a28;
-    --ink: #f3ead9;
-    --ink-soft: #cabfc9;
-    --kumkum: #ff4d4d;
-    --kumkum-deep: #ff7373;
-    --marigold: #e0ab4a;
-    --leaf: #6fae86;
-    --line: #4a3d4f;
-    --card: #2f2536;
-  }
+  --ivory: #08080a;          /* page ground */
+  --ivory-raised: #17151b;   /* lifted surfaces: footer, tiles, hovers */
+  --card: #121016;           /* cards, inputs */
+  --sunken: #050506;         /* ticker, footer floor */
+
+  --ink: #f2ece1;            /* primary text (bone) */
+  --ink-soft: #8f8880;       /* secondary text (ash) */
+  --ink-faint: #5d5854;      /* tertiary / meta */
+
+  /* Sampled from the crest: a true red, and the laurel's gold. */
+  --kumkum: #e0261c;
+  --kumkum-deep: #a81a12;
+  --marigold: #c9993f;
+  --marigold-lit: #efd08c;
+
+  --leaf: #5fa87a;           /* in-stock / success, tuned for dark ground */
+  --line: #241f26;
 }
 
 @theme inline {
   --color-ivory: var(--ivory);
   --color-ivory-raised: var(--ivory-raised);
+  --color-card: var(--card);
+  --color-sunken: var(--sunken);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
   --color-kumkum: var(--kumkum);
   --color-kumkum-deep: var(--kumkum-deep);
   --color-marigold: var(--marigold);
+  --color-marigold-lit: var(--marigold-lit);
   --color-leaf: var(--leaf);
   --color-line: var(--line);
-  --color-card: var(--card);
+
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* A couture serif answers the crest's classical laurel. Didot and Bodoni ship
+     on macOS/Windows respectively; Georgia is the universal floor. */
+  --font-serif: "Didot", "Bodoni MT", "Hoefler Text", Garamond, Georgia, serif;
 }
 
 body {
@@ -52,22 +54,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Fine grain keeps large flat black fields from reading as dead space. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Display type is the serif, at a real weight contrast to the sans body. */
 .display {
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
   text-wrap: balance;
+  line-height: 1.06;
 }
 
 .eyebrow {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--kumkum-deep);
+  color: var(--marigold-lit);
 }
 
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Hairline divider that fades at both ends - structural gold, used sparingly. */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line) 12%, var(--line) 88%, transparent);
 }
 
 /* Announcement ticker: two copies of the message list sit side by side and
@@ -83,15 +105,39 @@ body {
 }
 
 .ticker-viewport {
-  animation: ticker-scroll 28s linear infinite;
+  animation: ticker-scroll 34s linear infinite;
 }
 
 .group:hover .ticker-viewport {
   animation-play-state: paused;
 }
 
+/* Slow shimmer for the promotional band. */
+@keyframes band-sweep {
+  0%, 100% { background-position: 130% 0; }
+  50%      { background-position: -30% 0; }
+}
+
+.band-shimmer {
+  background: linear-gradient(115deg, transparent 30%, rgba(239, 208, 140, 0.09) 45%, rgba(224, 38, 28, 0.07) 55%, transparent 70%);
+  background-size: 300% 100%;
+  animation: band-sweep 9s ease-in-out infinite;
+}
+
+/* The crest breathing behind the hero. */
+@keyframes crest-breathe {
+  0%, 100% { transform: translateY(-50%) scale(1); opacity: 0.085; }
+  50%      { transform: translateY(-50%) scale(1.035); opacity: 0.11; }
+}
+
+.crest-breathe {
+  animation: crest-breathe 14s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ticker-viewport {
+  .ticker-viewport,
+  .band-shimmer,
+  .crest-breathe {
     animation: none;
   }
 

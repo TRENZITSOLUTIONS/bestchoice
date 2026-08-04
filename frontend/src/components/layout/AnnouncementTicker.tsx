@@ -16,13 +16,11 @@ const FALLBACK_MESSAGES = [
 
 function TickerContent({ messages, hidden }: { messages: string[]; hidden?: boolean }) {
   return (
-    <div className="ticker-track" aria-hidden={hidden}>
+    <div className="ticker-track flex items-center" aria-hidden={hidden}>
       {messages.map((msg, i) => (
-        <span key={i} className="inline-flex items-center">
-          <span className="px-6">{msg}</span>
-          <span aria-hidden className="text-white/40">
-            ✦
-          </span>
+        <span key={i} className="inline-flex items-center gap-4 px-7 whitespace-nowrap">
+          {msg}
+          <span aria-hidden className="w-[3px] h-[3px] rotate-45 bg-marigold shrink-0" />
         </span>
       ))}
     </div>
@@ -36,8 +34,8 @@ export function AnnouncementTicker() {
   if (messages.length === 0) return null;
 
   return (
-    <div className="bg-kumkum-deep text-white text-xs sm:text-sm font-medium tracking-wide overflow-hidden py-2 group">
-      <div className="ticker-viewport flex w-max">
+    <div className="bg-sunken border-b border-line overflow-hidden py-2.5 group relative z-30">
+      <div className="ticker-viewport flex w-max text-[0.7rem] tracking-[0.16em] uppercase text-ink-soft">
         {/* Real copy, readable once by screen readers. The duplicate below is
             purely visual (seamless loop) and hidden from assistive tech. */}
         <TickerContent messages={messages} />

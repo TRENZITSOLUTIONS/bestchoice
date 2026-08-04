@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useProducts } from '@/hooks/useProducts';
+import { useCategories, useProducts } from '@/hooks/useProducts';
 import { ProductCard } from '@/components/ProductCard';
 import { FilterSidebar } from '@/components/products/FilterSidebar';
 
@@ -32,6 +32,7 @@ function ProductsPageContent() {
   };
 
   const { data, isLoading } = useProducts(filters);
+  const { data: categories } = useCategories();
 
   function setOrdering(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -40,10 +41,13 @@ function ProductsPageContent() {
     router.push(`/products?${params.toString()}`);
   }
 
+  // Use the real category name from the API - title-casing the slug can't
+  // recover punctuation, so "womens-wear" came out as "Womens Wear".
   const categoryLabel = filters.category
-    ?.split('-')
-    .map((w) => w[0].toUpperCase() + w.slice(1))
-    .join(' ');
+    ? (categories
+        ?.flatMap((c) => [c, ...c.children])
+        .find((c) => c.slug === filters.category)?.name ?? filters.category)
+    : undefined;
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 sm:px-7">

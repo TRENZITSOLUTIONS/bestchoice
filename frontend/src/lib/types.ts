@@ -21,8 +21,11 @@ export interface ProductListItem {
   name: string;
   slug: string;
   short_description: string;
+  /** Display names. Use *_slug for links and filtering. */
   category: string | null;
+  category_slug: string | null;
   brand: string | null;
+  brand_slug: string | null;
   primary_image: string | null;
   mrp: string;
   selling_price: string;

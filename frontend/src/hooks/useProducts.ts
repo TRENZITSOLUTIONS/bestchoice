@@ -21,6 +21,7 @@ export interface ProductFilters {
   search?: string;
   ordering?: string;
   page?: number;
+  page_size?: string;
 }
 
 function toQueryParams(filters: ProductFilters) {
@@ -43,6 +44,7 @@ function toQueryParams(filters: ProductFilters) {
   if (filters.search) params.search = filters.search;
   if (filters.ordering) params.ordering = filters.ordering;
   if (filters.page) params.page = String(filters.page);
+  if (filters.page_size) params.page_size = filters.page_size;
   return params;
 }
 
