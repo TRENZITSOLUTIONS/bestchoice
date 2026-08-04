@@ -187,7 +187,7 @@ The `send_order_shipped()` function is also available for integration when the a
 delivery/utils.py:
 
   FREE_DELIVERY_THRESHOLD = ₹500
-  BASE_CHARGES = { same_day: ₹30, standard: ₹80 }
+  BASE_CHARGES = { local: ₹30, standard: ₹80 }  # price zones, not speeds
   WEIGHT_SURCHARGE = ₹10 per 500g over 1kg
 
   calculate_delivery_charge(pincode, total_weight_g, order_total)

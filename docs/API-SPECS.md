@@ -454,7 +454,7 @@ Bearer required. Returns current user's reviews.
 ### GET /delivery/check/{pincode}/
 ```json
 // Available (Tamil Nadu pincode)
-{ "pincode": "600001", "city": "Chennai", "zone": "tamilnadu", "delivery_available": true, "delivery_type": "same_day", "estimated_days": "Today", "store_pickup": true, "cod_available": true, "delivery_charge": null }
+{ "pincode": "600001", "city": "Chennai", "zone": "tamilnadu", "delivery_available": true, "delivery_type": "local", "estimated_days": "2-4 business days", "store_pickup": true, "cod_available": true, "delivery_charge": null }
 // Not available
 { "pincode": "999999", "delivery_available": false, "message": "Delivery not available at this pincode" }
 ```

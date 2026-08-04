@@ -82,7 +82,7 @@ Worth knowing up front, because it is unusual and it is easy to assume otherwise
 **Known rough edges,** documented rather than hidden:
 - Every page is client-rendered (`'use client'`), despite docs elsewhere describing SSR for SEO. Product and listing pages would benefit most from changing that.
 - The policy pages are unreviewed drafts with placeholder contact details — they carry a visible notice saying so, and need the owner's sign-off before launch.
-- The header advertises same-day delivery on select Chennai pincodes (81 are configured that way), while the shipping policy says orders are processed 24–48h after payment. Those two claims need reconciling by the owner.
+- The shipping policy's remaining open questions are unanswered: who pays return shipping, whether exchanges are offered, tax treatment of displayed prices, and the rest-of-India timeline.
 - Reviews can be written by anyone, whether or not they bought the product; `is_verified_purchase` distinguishes them but nothing gates it.
 - `/reviews/mine/` has no frontend page, so an author can't revisit a pending review after the initial confirmation.
 

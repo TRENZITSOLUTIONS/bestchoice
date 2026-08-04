@@ -149,7 +149,7 @@ If the gateway is unreachable at step 2, nothing is written — no order, no sto
 - **Product Variants** — color + size combos with per-variant stock and SKU
 - **Image Pipeline** — automatic on upload: original compressed (capped 2000x2000, JPEG q90), thumb/small/medium/large WebP variants generated (150/400/800/1200px, q80, mobile-bandwidth-friendly), stored to S3/CloudFront or local storage transparently
 - **Related Products** — auto-suggested same-category products, plus manually curated via RelatedProduct model
-- **Delivery** — 388 Tamilnadu pincodes, same-day Chennai, weight-based charge, free over ₹500
+- **Delivery** — 388 Tamilnadu pincodes on two price zones (local Chennai ₹30, standard ₹80), weight surcharge over 1kg, free over ₹500, plus a configurable outside-Tamil-Nadu rate card. Same-day delivery is not offered; every Tamil Nadu pincode quotes 2-4 business days
 - **Pincode Checker** — real-time delivery check on product detail page
 - **Coupons** — percentage or fixed discount, min cart, per-user limits, max discount cap. Stored on the cart, revalidated on every read and again at checkout; usage is consumed at order time and released on cancellation
 - **Loyalty** — 1 pt per ₹100 spent, redeem at checkout (1 pt = ₹1), points expire 365 days after earning (FIFO redemption, `expire_loyalty_points` cron command), referral bonuses (50 pts each), birthday bonus command

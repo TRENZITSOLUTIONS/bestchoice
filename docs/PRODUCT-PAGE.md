@@ -50,7 +50,7 @@ Bullet list:
 
 ### 7. Delivery Information ✅
 - Pincode checker component with input + check button ✅
-- Shows: delivery available, type (same_day/standard), estimated days, store pickup, COD, delivery charge ✅
+- Shows: delivery available, rate zone (local/standard), estimated days, store pickup, COD, delivery charge ✅
 - Estimated delivery displayed ✅
 
 ### 8. Return Policy ✅

@@ -8,17 +8,20 @@ Delivery is priced differently depending on the `state` in the shipping address 
 
 | Zone | Pricing | Status |
 |---|---|---|
-| **Tamil Nadu** (`state` matches "Tamil Nadu" / "Tamilnadu" / "TN", case-insensitive — also the default when no `state` is given) | Per-pincode via `DeliveryPincode` (same-day/standard/none, optional per-pincode override) | ✅ |
+| **Tamil Nadu** (`state` matches "Tamil Nadu" / "Tamilnadu" / "TN", case-insensitive — also the default when no `state` is given) | Per-pincode via `DeliveryPincode` (local/standard/none rate zone, optional per-pincode override) | ✅ |
 | **Outside Tamil Nadu** (any other `state`) | Single configurable rate card — `delivery.OutsideStateDeliveryRate` (base charge, free-delivery threshold, estimated days, COD availability, on/off switch), editable in Django Admin | ✅ |
 
 Both zones apply the same weight surcharge (₹10 per 500g over 1kg) and go through `POST /checkout/`, which now rejects the order with 400 if `get_delivery_quote(...)['available']` is `False` for `delivery_type: "home"` (store pickup skips this check).
 
 ## Delivery Options (Tamil Nadu zone)
 
-| Type | Availability | Cost | Status |
+**Same-day delivery is not offered.** Every Tamil Nadu pincode quotes 2-4 business
+days, matching the shipping policy. `delivery_type` is a *price zone*, not a speed:
+
+| Rate zone | Availability | Cost | Status |
 |---|---|---|---|
-| Same Day Delivery | Chennai pincodes only | ₹30 | ✅ |
-| Standard Delivery | All Tamilnadu pincodes | ₹80 | ✅ |
+| Local (Chennai metro) | 81 Chennai pincodes | ₹30 | ✅ |
+| Standard | The other 307 Tamilnadu pincodes | ₹80 | ✅ |
 | Free Delivery | Orders above ₹500 | ₹0 | ✅ |
 | Store Pickup | Select pickup locations | ₹0 | ✅
 
@@ -33,8 +36,8 @@ Both zones apply the same weight surcharge (₹10 per 500g over 1kg) and go thro
   "city": "Chennai",
   "zone": "tamilnadu",
   "delivery_available": true,
-  "delivery_type": "same_day",
-  "estimated_days": "Today",
+  "delivery_type": "local",
+  "estimated_days": "2-4 business days",
   "store_pickup": true,
   "cod_available": true
 }
@@ -60,13 +63,11 @@ Pass `?state=<state>` to check a non-Tamil-Nadu address against the outside-stat
 | pincode | 6-digit pincode (unique) |
 | city | City name |
 | state | Default: Tamilnadu |
-| delivery_type | `same_day`, `standard`, or `none` |
-| estimated_days_text | "Today", "1-2 days", "2-3 days" |
+| delivery_type | `local` (Chennai metro, ₹30), `standard` (₹80), or `none` (not served) — a price zone, not a speed |
+| estimated_days_text | Free text shown to the customer. Seeded as "2-4 business days" everywhere in Tamil Nadu |
 | store_pickup | Boolean |
 | cod_available | Boolean |
 | delivery_charge | Decimal (override, null by default) |
-
-### Management Commands
 
 ## Delivery Charge Calculation
 
@@ -74,31 +75,28 @@ Calculated in `delivery/utils.py` at checkout time:
 
 | Factor | Detail |
 |---|---|
-| Base charge | ₹30 (same_day) / ₹80 (standard) |
+| Base charge | ₹30 (`local`) / ₹80 (`standard`) |
 | Weight surcharge | ₹10 per 500g over 1kg (based on `product.weight_g`) |
 | Free threshold | Orders above ₹500 get free delivery |
 | Store pickup | ₹0 |
 
+The entry point checkout actually calls is `get_delivery_quote`, which returns
+availability, charge, estimate, COD and zone together:
+
 ```python
-def calculate_delivery_charge(pincode, items, delivery_type, order_total):
-    # 1. Free over ₹500
-    if order_total >= Decimal("500"):
-        return Decimal("0")
-    # 2. Store pickup = free
-    if delivery_type == "pickup":
-        return Decimal("0")
-    # 3. Base charge by type
-    if delivery_type == "same_day":
-        charge = Decimal("30")
-    else:
-        charge = Decimal("80")
-    # 4. Weight surcharge
-    total_weight_g = sum(item.product.weight_g * item.quantity for item in items)
-    if total_weight_g > 1000:
-        extra_kg = (total_weight_g - 1000 + 499) // 500
-        charge += Decimal("10") * extra_kg
-    return charge
+get_delivery_quote(pincode='', state='', total_weight_g=0, order_total=Decimal('0'))
+# -> {'available', 'charge', 'estimated_days', 'cod_available', 'delivery_type', 'zone'}
 ```
+
+It branches on `state`: Tamil Nadu (or a blank state) is priced per-pincode from
+`DeliveryPincode`, anything else from the single `OutsideStateDeliveryRate` card.
+`calculate_delivery_charge(...)` is a thin wrapper returning just the charge, kept
+for backward compatibility — it assumes availability was already checked.
+
+Note there is no explicit store-pickup branch; pickup comes out free only because
+the frontend leaves the pincode blank when pickup is selected.
+
+### Management Commands
 
 ```bash
 # Seed 388 Tamilnadu pincodes
