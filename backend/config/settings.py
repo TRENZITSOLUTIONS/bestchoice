@@ -84,6 +84,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
+        # Set DB_TEST_NAME to run a test suite alongside another one without the
+        # two fighting over the same test database.
+        'TEST': {'NAME': os.environ.get('DB_TEST_NAME') or None},
     }
 }
 

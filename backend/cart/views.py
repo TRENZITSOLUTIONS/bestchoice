@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -16,6 +17,46 @@ def get_or_create_cart(request):
             session_id = request.session.session_key
         cart, _ = Cart.objects.get_or_create(session_id=session_id)
     return cart
+
+
+def merge_session_cart(user, session_id):
+    """Fold a guest's session cart into their user cart at sign-in.
+
+    Without this, everything a visitor added before signing in silently
+    disappeared the moment they authenticated.
+    """
+    if not session_id:
+        return None
+
+    guest_cart = Cart.objects.filter(session_id=session_id, user__isnull=True).first()
+    if not guest_cart:
+        return None
+
+    user_cart, _ = Cart.objects.get_or_create(user=user)
+
+    with transaction.atomic():
+        for item in guest_cart.items.select_related('product', 'variant').all():
+            existing = user_cart.items.filter(
+                product=item.product, variant=item.variant
+            ).first()
+
+            if existing:
+                # Combine, but never above what's actually in stock.
+                available = item.variant.stock if item.variant else item.product.total_stock
+                existing.quantity = min(existing.quantity + item.quantity, max(available, 1))
+                existing.save(update_fields=['quantity'])
+            else:
+                item.cart = user_cart
+                item.save(update_fields=['cart'])
+
+        # Carry an applied coupon across only if the user's cart has none.
+        if guest_cart.coupon_id and not user_cart.coupon_id:
+            user_cart.coupon_id = guest_cart.coupon_id
+            user_cart.save(update_fields=['coupon'])
+
+        guest_cart.delete()
+
+    return user_cart
 
 
 @api_view(['GET'])
@@ -63,10 +104,23 @@ def cart_item_detail(request, item_id):
         return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'PUT':
-        quantity = request.data.get('quantity', item.quantity)
+        try:
+            quantity = int(request.data.get('quantity', item.quantity))
+        except (TypeError, ValueError):
+            return Response({'error': 'Quantity must be a number'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         if quantity < 1:
             item.delete()
             return Response({'message': 'Item removed'}, status=status.HTTP_204_NO_CONTENT)
+
+        # Stock was only ever checked when the item was added, so quantity could
+        # be raised past what's in stock afterwards.
+        available = item.variant.stock if item.variant else item.product.total_stock
+        if quantity > available:
+            return Response({'error': f'Only {available} items available'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         item.quantity = quantity
         item.save()
         return Response(CartItemSerializer(item).data)

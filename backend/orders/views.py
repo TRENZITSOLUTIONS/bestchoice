@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta
@@ -17,6 +18,7 @@ from .serializers import (
     CheckoutSerializer, RefundSerializer, OrderTrackingSerializer,
 )
 from cart.models import Cart
+from coupons.utils import record_usage, release_usage
 from loyalty.utils import (
     earn_points, consume_points, reverse_earned_points, restore_used_points,
     points_for_order_subtotal, rupee_value_of_points, max_redeemable_points,
@@ -73,6 +75,14 @@ def checkout(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
     delivery_charge = delivery_quote['charge']
+
+    # Recompute the coupon discount here rather than trusting whatever the cart
+    # showed - the cart can change between applying a code and paying.
+    coupon = cart.coupon
+    coupon_discount = cart.get_coupon_discount(subtotal) if coupon else Decimal(0)
+    if coupon and coupon_discount <= 0:
+        coupon = None
+
     points_used = serializer.validated_data.get('loyalty_points_used', 0)
     points_discount = Decimal(0)
     if points_used > 0:
@@ -84,78 +94,98 @@ def checkout(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         points_discount = rupee_value_of_points(points_used)
-        if points_discount > subtotal:
-            points_discount = subtotal
-    total_before_round = subtotal - points_discount + delivery_charge
+
+    # Coupon and points stack, but together they can never exceed the goods total.
+    discount = coupon_discount + points_discount
+    if discount > subtotal:
+        discount = subtotal
+        points_discount = max(Decimal(0), subtotal - coupon_discount)
+
+    total_before_round = subtotal - discount + delivery_charge
     total = int(total_before_round * 100)  # Convert to paise for Razorpay
 
-    order = Order.objects.create(
-        order_id=generate_order_id(),
-        user=request.user,
-        subtotal=subtotal,
-        discount=points_discount,
-        delivery_charge=delivery_charge,
-        total=total_before_round,
-        status='pending',
-        payment_status='pending',
-        shipping_address=serializer.validated_data['shipping_address'],
-        delivery_type=delivery_type,
-        notes=serializer.validated_data.get('notes', ''),
-        estimated_delivery=timezone.now().date() + timedelta(days=3),
-        loyalty_points_used=points_used,
-    )
-
-    for cart_item in cart.items.all():
+    # Check every line before deducting anything, so a shortage on the last item
+    # can't leave earlier items already decremented.
+    cart_items = list(cart.items.select_related('product', 'variant').all())
+    for cart_item in cart_items:
         variant = cart_item.variant
-        if variant:
-            if variant.stock < cart_item.quantity:
-                order.status = 'cancelled'
-                order.save()
-                return Response(
-                    {'error': f'Insufficient stock for {variant.sku}'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            variant.stock -= cart_item.quantity
-            variant.save()
+        available = variant.stock if variant else cart_item.product.total_stock
+        if available < cart_item.quantity:
+            label = variant.sku if variant else cart_item.product.name
+            return Response(
+                {'error': f'Insufficient stock for {label}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        OrderItem.objects.create(
-            order=order,
-            product=cart_item.product,
-            variant=variant,
-            product_snapshot={
-                'name': cart_item.product.name,
-                'sku': variant.sku if variant else cart_item.product.auto_product_id,
-                'price': str(cart_item.price),
-            },
-            quantity=cart_item.quantity,
-            price=cart_item.price,
-        )
-
-    # Create Razorpay order
+    # Reserve the Razorpay order before touching the database: if the gateway is
+    # down we return without having deducted stock or consumed the coupon.
+    order_id = generate_order_id()
     try:
         razorpay_order = client.order.create({
             'amount': total,
             'currency': 'INR',
-            'receipt': order.order_id,
+            'receipt': order_id,
             'payment_capture': 1,
         })
-        order.razorpay_order_id = razorpay_order['id']
-        order.save()
     except Exception:
-        order.status = 'cancelled'
-        order.save()
         return Response(
             {'error': 'Payment gateway error. Please try again.'},
             status=status.HTTP_502_BAD_GATEWAY,
         )
 
-    cart.items.all().delete()
+    with transaction.atomic():
+        order = Order.objects.create(
+            order_id=order_id,
+            razorpay_order_id=razorpay_order['id'],
+            user=request.user,
+            subtotal=subtotal,
+            coupon=coupon,
+            discount=discount,
+            delivery_charge=delivery_charge,
+            total=total_before_round,
+            status='pending',
+            payment_status='pending',
+            shipping_address=serializer.validated_data['shipping_address'],
+            delivery_type=delivery_type,
+            notes=serializer.validated_data.get('notes', ''),
+            estimated_delivery=timezone.now().date() + timedelta(days=3),
+            loyalty_points_used=points_used,
+        )
+
+        for cart_item in cart_items:
+            variant = cart_item.variant
+            if variant:
+                variant.stock -= cart_item.quantity
+                variant.save()
+
+            OrderItem.objects.create(
+                order=order,
+                product=cart_item.product,
+                variant=variant,
+                product_snapshot={
+                    'name': cart_item.product.name,
+                    'sku': variant.sku if variant else cart_item.product.auto_product_id,
+                    'price': str(cart_item.price),
+                },
+                quantity=cart_item.quantity,
+                price=cart_item.price,
+            )
+
+        if coupon:
+            record_usage(coupon, request.user, order)
+
+        cart.items.all().delete()
+        if cart.coupon_id:
+            cart.coupon = None
+            cart.save(update_fields=['coupon'])
 
     return Response({
         'order_id': order.order_id,
         'subtotal': str(subtotal),
         'delivery_charge': str(delivery_charge),
-        'discount': str(points_discount),
+        'discount': str(discount),
+        'coupon_discount': str(coupon_discount),
+        'loyalty_discount': str(points_discount),
         'total': str(order.total),
         'razorpay_order_id': order.razorpay_order_id,
         'razorpay_key_id': settings.RAZORPAY_KEY_ID,
@@ -236,13 +266,18 @@ def cancel_order(request, order_id):
     if order.status in ['shipped', 'delivered', 'cancelled']:
         return Response({'error': 'Order cannot be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
 
-    for item in order.items.all():
-        if item.variant:
-            item.variant.stock += item.quantity
-            item.variant.save()
+    with transaction.atomic():
+        for item in order.items.select_related('variant').all():
+            if item.variant:
+                item.variant.stock += item.quantity
+                item.variant.save()
 
-    order.status = 'cancelled'
-    order.save()
+        # Hand the coupon use back - the customer never got the goods.
+        if order.coupon_id:
+            release_usage(order.coupon, order.user, order)
+
+        order.status = 'cancelled'
+        order.save()
 
     # Initiate Razorpay refund if paid
     if order.payment_status == 'paid' and order.razorpay_payment_id:

@@ -52,6 +52,18 @@ export default function CheckoutPage() {
     setAddress((a) => ({ ...a, [key]: value }));
   }
 
+  // Mirror of the server's arithmetic in orders.views.checkout, so the figure the
+  // customer approves is the figure they get charged.
+  const subtotal = Number(cart.subtotal);
+  const couponDiscount = Number(cart.discount);
+  const deliveryCharge =
+    deliveryType === 'store_pickup' ? 0 : Number(delivery?.delivery_charge ?? 0);
+  // The server caps redeemable points at a percentage of the subtotal and rejects
+  // anything over it, so cap the input here rather than letting checkout 400.
+  const maxRedeemable = Math.min(loyalty?.points ?? 0, Math.floor(subtotal * 0.2));
+  const pointsDiscount = Math.min(pointsUsed, maxRedeemable);
+  const payable = Math.max(0, subtotal - couponDiscount - pointsDiscount) + deliveryCharge;
+
   function handlePlaceOrder() {
     setError('');
     if (deliveryType === 'home' && (!address.full_name || !address.phone || !address.address_line1 || !address.city || !address.state || address.pincode.length !== 6)) {
@@ -144,15 +156,34 @@ export default function CheckoutPage() {
           {isAuthenticated && loyalty && loyalty.points > 0 && (
             <div className="border border-line rounded p-5.5">
               <h3 className="font-bold mb-2">Redeem Best Choice Rewards</h3>
-              <p className="text-sm text-ink-soft mb-3">You have {loyalty.points} points (1 pt = ₹1)</p>
-              <input
-                type="number"
-                min={0}
-                max={loyalty.points}
-                value={pointsUsed}
-                onChange={(e) => setPointsUsed(Math.max(0, Math.min(loyalty.points, Number(e.target.value))))}
-                className="border border-line rounded px-3 py-2.5 bg-card text-sm w-32"
-              />
+              <p className="text-sm text-ink-soft mb-3">
+                You have {loyalty.points} points (1 pt = ₹1).{' '}
+                {maxRedeemable > 0
+                  ? `Up to ${maxRedeemable} can be used on this order.`
+                  : 'This order is too small to redeem against.'}
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={maxRedeemable}
+                  disabled={maxRedeemable === 0}
+                  value={pointsUsed}
+                  onChange={(e) =>
+                    setPointsUsed(Math.max(0, Math.min(maxRedeemable, Number(e.target.value))))
+                  }
+                  className="border border-line rounded px-3 py-2.5 bg-card text-sm w-32 disabled:opacity-50"
+                />
+                {maxRedeemable > 0 && pointsUsed !== maxRedeemable && (
+                  <button
+                    type="button"
+                    onClick={() => setPointsUsed(maxRedeemable)}
+                    className="text-xs font-bold underline"
+                  >
+                    Use max
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -160,12 +191,30 @@ export default function CheckoutPage() {
         <div className="border border-line rounded p-5.5 h-fit sticky top-5">
           <h3 className="font-bold mb-4">Order Summary</h3>
           <div className="flex justify-between text-sm text-ink-soft py-1.5">
-            <span>Subtotal</span>
-            <span className="num">₹{cart.subtotal}</span>
+            <span>Subtotal ({cart.item_count} {cart.item_count === 1 ? 'item' : 'items'})</span>
+            <span className="num">₹{subtotal.toFixed(2)}</span>
+          </div>
+          {couponDiscount > 0 && (
+            <div className="flex justify-between text-sm text-leaf py-1.5">
+              <span>Coupon {cart.coupon?.code}</span>
+              <span className="num">−₹{couponDiscount.toFixed(2)}</span>
+            </div>
+          )}
+          {pointsDiscount > 0 && (
+            <div className="flex justify-between text-sm text-leaf py-1.5">
+              <span>Rewards ({pointsDiscount} pts)</span>
+              <span className="num">−₹{pointsDiscount.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm text-ink-soft py-1.5">
+            <span>{deliveryType === 'store_pickup' ? 'Store pickup' : 'Delivery'}</span>
+            <span className="num">
+              {deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'Free'}
+            </span>
           </div>
           <div className="flex justify-between font-extrabold border-t border-line mt-2 pt-3.5">
             <span>Total</span>
-            <span className="num">₹{cart.total}</span>
+            <span className="num">₹{payable.toFixed(2)}</span>
           </div>
           {error && <p className="text-kumkum text-xs mt-3">{error}</p>}
           <button
