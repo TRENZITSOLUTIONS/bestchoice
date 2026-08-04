@@ -1,0 +1,82 @@
+# Rendered by the nginx:alpine entrypoint, which runs envsubst over every
+# /etc/nginx/templates/*.template file and writes the result to
+# /etc/nginx/conf.d/. Only variables actually present in the environment are
+# substituted, so nginx's own runtime variables ($host, $remote_addr, ...)
+# pass through untouched. ${DOMAIN} comes from .env via docker-compose.yml.
+
+upstream backend {
+    server backend:8000;
+}
+
+upstream frontend {
+    server frontend:3000;
+}
+
+# Plain HTTP: serve the ACME challenge, redirect everything else to HTTPS.
+server {
+    listen 80;
+    server_name ${DOMAIN} www.${DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://${DOMAIN}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN} www.${DOMAIN};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL:10m;
+
+    # Product images can be large; Razorpay webhooks are small but chatty.
+    client_max_body_size 25M;
+
+    # Next.js immutable build assets.
+    location /_next/static {
+        proxy_pass http://frontend;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Django's own collected static files (admin CSS, DRF browsable API).
+    location /static/ {
+        alias /static/;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    location /admin/ {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Everything else is the Next.js storefront.
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

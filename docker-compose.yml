@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -9,71 +7,105 @@ services:
     environment:
       POSTGRES_DB: bestchoice_db
       POSTGRES_USER: bestchoice
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - '5432:5432'
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bestchoice -d bestchoice_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - '6379:6379'
 
   backend:
     build: ./backend
     restart: unless-stopped
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
     environment:
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
       DJANGO_DEBUG: 'False'
-      DJANGO_ALLOWED_HOSTS: api.bestchoice.in,localhost
+      DJANGO_ALLOWED_HOSTS: ${DOMAIN:-bestchoice.in},www.${DOMAIN:-bestchoice.in},localhost
       DB_NAME: bestchoice_db
       DB_USER: bestchoice
       DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: db
       DB_PORT: '5432'
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:-bestchoice.in},https://www.${DOMAIN:-bestchoice.in}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:?AWS_STORAGE_BUCKET_NAME is required when DEBUG=False}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-ap-south-1}
       AWS_CLOUDFRONT_DOMAIN: ${AWS_CLOUDFRONT_DOMAIN}
-      CORS_ALLOWED_ORIGINS: https://bestchoice.in,https://www.bestchoice.in
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@bestchoice.in}
+    # Loopback only - nginx reaches it over the compose network, but this lets
+    # you curl /api/health/ and attach a debugger from the host.
     ports:
-      - '8000:8000'
+      - '127.0.0.1:8000:8000'
     volumes:
       - static_volume:/app/staticfiles
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # NEXT_PUBLIC_* are compiled into the browser bundle, so they are build
+      # args, not runtime environment. Changing any of them needs a rebuild:
+      #   docker compose build frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN:-bestchoice.in}/api
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+        NEXT_PUBLIC_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+        NEXT_PUBLIC_WHATSAPP_NUMBER: ${WHATSAPP_NUMBER}
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN:-bestchoice.in}
     restart: unless-stopped
     depends_on:
       - backend
-    environment:
-      NEXT_PUBLIC_API_URL: https://api.bestchoice.in/api
-      NEXT_PUBLIC_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
 
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-bestchoice.in}
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - static_volume:/static
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - static_volume:/static:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot
     ports:
       - '80:80'
       - '443:443'
     depends_on:
       - backend
       - frontend
+
+  # Renews the Let's Encrypt certificate; nginx picks up the new file on reload.
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM;
+             while :; do certbot renew --webroot -w /var/www/certbot --quiet;
+             sleep 12h & wait $${!}; done"
 
 volumes:
   postgres_data:
