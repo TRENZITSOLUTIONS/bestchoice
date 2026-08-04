@@ -105,12 +105,22 @@ export interface CartItem {
   total_price: string;
 }
 
+export interface AppliedCoupon {
+  code: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: string;
+  max_discount: string | null;
+  label: string;
+}
+
 export interface Cart {
   id: number;
   items: CartItem[];
+  item_count: number;
   subtotal: string;
   discount: string;
-  coupon: string | null;
+  /** Null when no coupon is applied, or when the applied one no longer qualifies. */
+  coupon: AppliedCoupon | null;
   total: string;
 }
 

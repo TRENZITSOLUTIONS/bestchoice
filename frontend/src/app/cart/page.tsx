@@ -31,11 +31,14 @@ export default function CartPage() {
 
   function handleApplyCoupon() {
     setCouponError('');
-    applyCoupon.mutate(couponCode, {
+    applyCoupon.mutate(couponCode.trim(), {
+      onSuccess: () => setCouponCode(''),
       onError: (err: unknown) => {
-        const message =
-          (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Invalid coupon code';
-        setCouponError(message);
+        // The endpoint answers with {message} for a valid-but-unusable coupon,
+        // and DRF's {code: [...]} for one that doesn't exist.
+        const data = (err as { response?: { data?: { message?: string; code?: string[] } } })
+          ?.response?.data;
+        setCouponError(data?.message || data?.code?.[0] || 'Invalid coupon code');
       },
     });
   }
@@ -84,33 +87,47 @@ export default function CartPage() {
 
         <div className="border border-line rounded p-5.5 h-fit sticky top-5">
           <h3 className="font-bold mb-4">Order Summary</h3>
-          <div className="flex gap-2 mb-4">
-            <input
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              placeholder="Coupon code"
-              className="flex-1 border border-line rounded px-3 py-2.5 bg-card text-sm"
-            />
-            {cart.coupon ? (
-              <button onClick={() => removeCoupon.mutate()} className="border border-line rounded px-4 text-sm font-bold">
+          {cart.coupon ? (
+            <div className="flex items-center gap-2 mb-4 border border-leaf/40 bg-leaf/10 rounded px-3 py-2.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate">{cart.coupon.code}</p>
+                <p className="text-xs text-ink-soft">{cart.coupon.label} applied</p>
+              </div>
+              <button
+                onClick={() => removeCoupon.mutate()}
+                disabled={removeCoupon.isPending}
+                className="text-xs font-bold underline disabled:opacity-50 shrink-0"
+              >
                 Remove
               </button>
-            ) : (
-              <button onClick={handleApplyCoupon} className="border border-line rounded px-4 text-sm font-bold">
-                Apply
+            </div>
+          ) : (
+            <div className="flex gap-2 mb-4">
+              <input
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                placeholder="Coupon code"
+                className="flex-1 border border-line rounded px-3 py-2.5 bg-card text-sm"
+              />
+              <button
+                onClick={handleApplyCoupon}
+                disabled={applyCoupon.isPending || !couponCode.trim()}
+                className="border border-line rounded px-4 text-sm font-bold disabled:opacity-50"
+              >
+                {applyCoupon.isPending ? '...' : 'Apply'}
               </button>
-            )}
-          </div>
+            </div>
+          )}
           {couponError && <p className="text-kumkum text-xs mb-3">{couponError}</p>}
-          {cart.coupon && <p className="text-leaf text-xs mb-3">Coupon &quot;{cart.coupon}&quot; applied</p>}
 
           <div className="flex justify-between text-sm text-ink-soft py-1.5">
-            <span>Subtotal ({cart.items.length} items)</span>
+            <span>Subtotal ({cart.item_count} {cart.item_count === 1 ? 'item' : 'items'})</span>
             <span className="num">₹{cart.subtotal}</span>
           </div>
           {Number(cart.discount) > 0 && (
-            <div className="flex justify-between text-sm text-ink-soft py-1.5">
-              <span>Discount</span>
+            <div className="flex justify-between text-sm text-leaf py-1.5">
+              <span>Coupon discount</span>
               <span className="num">−₹{cart.discount}</span>
             </div>
           )}

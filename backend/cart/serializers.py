@@ -52,15 +52,33 @@ class CartItemCreateSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
     subtotal = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
+    coupon = serializers.SerializerMethodField()
+    item_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
-        fields = ('id', 'items', 'subtotal', 'total')
+        fields = ('id', 'items', 'item_count', 'subtotal', 'coupon', 'discount', 'total')
+
+    def get_item_count(self, obj):
+        return sum(item.quantity for item in obj.items.all())
 
     def get_subtotal(self, obj):
-        total = sum(item.price * item.quantity for item in obj.items.all())
-        return str(total)
+        return str(obj.get_subtotal())
+
+    def get_discount(self, obj):
+        return str(obj.get_coupon_discount())
 
     def get_total(self, obj):
-        return self.get_subtotal(obj)
+        subtotal = obj.get_subtotal()
+        return str(subtotal - obj.get_coupon_discount(subtotal))
+
+    def get_coupon(self, obj):
+        """Null unless a coupon is applied *and* still qualifies for this cart."""
+        if not obj.coupon_id or obj.get_coupon_discount() <= 0:
+            return None
+
+        from coupons.utils import serialize_coupon
+
+        return serialize_coupon(obj.coupon)
