@@ -114,24 +114,16 @@ python manage.py import_pincodes --sample
 python manage.py import_pincodes path/to/file.csv --clear
 ```
 
-## Delivery Charge Logic
+## Store Pickup
 
-- Same Day: ₹49
-- Standard: ₹79
-- Free: subtotal > ₹999
-- Store Pickup: ₹0
+Checkout offers a single pickup point — the Spencer Plaza branch, hardcoded in the
+checkout page. There is no pickup-location model, so additional branches cannot be
+configured without code changes.
 
-### 🚧 Charge Calculation
-Delivery charge logic is documented but not implemented in backend code. Currently, `delivery_charge` is stored per-pincode but not calculated dynamically.
-
-## Store Pickup Locations
-
-| Location | Address | Contact |
-|---|---|---|
-| Chennai - Anna Nagar | 123, 2nd Avenue, Anna Nagar | 9876543210 |
-| Chennai - T Nagar | 45, Pondy Bazaar, T Nagar | 9876543211 |
-| Coimbatore | 78, Cross Cut Road | 9876543212 |
-| Madurai | 12, North Veli Street | 9876543213 |
+Pickup is free, but only incidentally: `calculate_delivery_charge` has no
+`store_pickup` branch. Selecting pickup hides the address form, which leaves the
+pincode empty, which yields a zero charge. Adding a real pickup-vs-delivery rule
+would need an explicit check in `backend/delivery/utils.py`.
 
 ## Shipping Partners (to integrate) 🚧
 

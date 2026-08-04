@@ -72,11 +72,13 @@ Worth knowing up front, because it is unusual and it is easy to assume otherwise
 - OTP / password reset — not needed while customers use Google.
 
 **Known rough edges,** documented rather than hidden:
-- Coupon application isn't persisted on the cart; the discount is recomputed per request.
-- Review moderation has an `is_approved` field, but new reviews are auto-approved, so nothing is actually held back.
-- `Product.total_stock` doesn't auto-sync when variant stock changes.
+- **Coupons cannot actually discount an order.** Validation and the discount calculation work, but nothing applies the result: checkout has no coupon field and `Order.coupon` is never populated, so a customer can see a discount and still be charged full price. Worse, usage is consumed at apply time, so abandoning the cart burns the code. Details and the fix options: [COUPONS.md](COUPONS.md).
+- Review moderation has an `is_approved` field, but new reviews are auto-approved, so nothing is actually held back. `is_verified_purchase` is never set true either — the "verified" badge can never appear.
 - Cart doesn't merge a guest session cart into the user's cart on sign-in.
+- Stock is deducted at checkout without a surrounding transaction, so a mid-loop failure can leave an order with partial deduction.
 - Redis runs in the compose stack but no code uses it.
+- DRF throttling is configured but disabled — `DEFAULT_THROTTLE_CLASSES` is empty, so the documented rates are dead config.
+- Every page is client-rendered (`'use client'`), despite docs elsewhere describing SSR for SEO.
 
 ---
 

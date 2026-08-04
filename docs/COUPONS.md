@@ -24,10 +24,35 @@
    - Within valid date range
    - Usage limit not exhausted
    - Cart subtotal ≥ min_cart_value
-5. If valid → discount applied, coupon `used_count` incremented
+5. If valid → the computed discount is **returned in the response**, and `used_count` is
+   incremented and a `CouponUsage` row written immediately
 6. If invalid → error message shown ("Invalid coupon" / "Expired" / "Min cart ₹999 required")
 
-## Checkout Behavior
+## 🚧 Coupons do not currently reduce what a customer pays
+
+Validation and discount *calculation* work. Nothing applies the result to an order.
+Do not treat this feature as usable until the gaps below are closed.
+
+- **`Cart` has no coupon field.** The discount is computed per request and returned;
+  nothing persists which coupon is applied. `CartSerializer` returns only
+  `id / items / subtotal / total`, with `total == subtotal`. The cart page reads
+  `cart.coupon` and `cart.discount`, which are always `undefined`.
+- **Checkout ignores coupons entirely.** `CheckoutSerializer` has no coupon field, and
+  `checkout()` never reads one — it sets `order.discount` from loyalty points only. The
+  `Order.coupon` foreign key exists but is never populated. A customer can enter a valid
+  code, see a discount, and still be charged the full amount.
+- **Usage is burned at apply time, not order time.** `used_count` and `CouponUsage` are
+  written when the code is *applied*, before any order exists. With the default
+  `per_user_limit` of 1, a customer who applies a code and abandons the cart is
+  permanently locked out of it — and never got the discount.
+- **`remove_coupon` is a no-op.** It returns `{"success": true}` without doing anything,
+  because there is nothing stored to remove.
+
+Closing this needs a decision on where the applied coupon lives — a field on `Cart`
+(server-side, survives sessions) or a code passed through to `POST /checkout/`
+(stateless, simpler) — plus moving usage tracking to order creation.
+
+## Intended Checkout Behavior (once the above is fixed)
 
 - Coupon discount shown separately: `Subtotal - Discount + Delivery = Total`
 - User can remove coupon and apply another

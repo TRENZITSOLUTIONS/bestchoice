@@ -733,3 +733,76 @@ class OrderConfirmationEmailTest(BaseTestCase):
         with mock.patch('notifications.utils.render_to_string',
                         side_effect=RuntimeError('boom')):
             send_order_confirmation(order)  # must not propagate
+
+
+class TotalStockSyncTest(BaseTestCase):
+    """Product.total_stock is denormalised from variant stock.
+
+    It used to be a plain field nobody wrote to, so every product with variants
+    reported total_stock=0 - meaning in_stock False, stock_status "Out of Stock",
+    and permanent invisibility when hide_if_out_of_stock was set. Django Admin
+    lists the field as readonly, so shop staff could not correct it by hand.
+    """
+
+    def test_creating_a_variant_sets_total_stock(self):
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 10)  # BaseTestCase variant
+
+    def test_adding_variants_accumulates(self):
+        ProductVariant.objects.create(product=self.product, color='Blue', size='L', stock=7)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 17)
+
+    def test_editing_variant_stock_resyncs(self):
+        self.variant.stock = 3
+        self.variant.save()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 3)
+
+    def test_deleting_a_variant_resyncs(self):
+        ProductVariant.objects.create(product=self.product, color='Blue', size='L', stock=7)
+        self.variant.delete()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 7)
+
+    def test_variantless_product_keeps_its_manual_value(self):
+        p = Product.objects.create(
+            name='No Variants', slug='no-variants', category=self.cat,
+            mrp=500, selling_price=400, total_stock=25,
+        )
+        p.sync_total_stock()
+        p.refresh_from_db()
+        self.assertEqual(p.total_stock, 25)
+
+    def test_checkout_deduction_keeps_total_stock_in_step(self):
+        self.auth()
+        with mock.patch('orders.views.client.order.create',
+                        return_value={'id': 'rzp_test_order_123'}):
+            self.add_cart_item(qty=4)
+            self.checkout()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 6)
+
+    def test_api_no_longer_reports_stocked_products_as_out_of_stock(self):
+        res = self.client.get(f'/api/products/{self.product.slug}/')
+        self.assertEqual(res.status_code, 200)
+        # 10 units sits on the low_stock side of the badge boundary (in_stock is > 10).
+        self.assertEqual(res.data['stock_status']['badge'], 'low_stock')
+        self.assertEqual(res.data['stock_status']['label'], 'Only 10 Left')
+
+    def test_plenty_of_stock_reports_in_stock(self):
+        ProductVariant.objects.create(product=self.product, color='Blue', size='L', stock=20)
+        res = self.client.get(f'/api/products/{self.product.slug}/')
+        self.assertEqual(res.data['stock_status']['badge'], 'in_stock')
+
+    def test_list_serializer_reports_in_stock_true(self):
+        res = self.client.get('/api/products/')
+        row = next(p for p in res.data['results'] if p['slug'] == self.product.slug)
+        self.assertTrue(row['in_stock'])
+
+    def test_hide_if_out_of_stock_does_not_hide_stocked_products(self):
+        self.product.hide_if_out_of_stock = True
+        self.product.save(update_fields=['hide_if_out_of_stock'])
+        res = self.client.get('/api/products/')
+        slugs = [p['slug'] for p in res.data['results']]
+        self.assertIn(self.product.slug, slugs)

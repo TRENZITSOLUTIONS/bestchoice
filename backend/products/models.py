@@ -95,6 +95,9 @@ class Product(models.Model):
     gst_included = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     hide_if_out_of_stock = models.BooleanField(default=False)
+    # Denormalised sum of variant stock, kept in step by ProductVariant.save()/delete().
+    # It is a stored column rather than a property because visible_to_customers()
+    # filters on it in SQL. Products with no variants hold their own value here.
     total_stock = models.IntegerField(default=0)
     weight_g = models.IntegerField(default=500, help_text='Weight in grams')
 
@@ -127,6 +130,19 @@ class Product(models.Model):
             if Product.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
                 self.slug = f'{base}-{self.auto_product_id.lower()}'
         super().save(*args, **kwargs)
+
+    def sync_total_stock(self):
+        """Recompute total_stock from this product's variants.
+
+        No-op for products without variants - there total_stock is the authoritative
+        value, set directly. Writes with .update() to avoid recursing through save().
+        """
+        if not self.variants.exists():
+            return
+        total = self.variants.aggregate(total=models.Sum('stock'))['total'] or 0
+        if total != self.total_stock:
+            Product.objects.filter(pk=self.pk).update(total_stock=total)
+            self.total_stock = total
 
     def __str__(self):
         return f'{self.auto_product_id} - {self.name}'
@@ -211,6 +227,12 @@ class ProductVariant(models.Model):
             size_part = self.size.upper().replace(' ', '_') if self.size else 'NA'
             self.sku = f'{self.product.auto_product_id}-{color_part}-{size_part}'
         super().save(*args, **kwargs)
+        self.product.sync_total_stock()
+
+    def delete(self, *args, **kwargs):
+        product = self.product
+        super().delete(*args, **kwargs)
+        product.sync_total_stock()
 
     def __str__(self):
         return self.sku
