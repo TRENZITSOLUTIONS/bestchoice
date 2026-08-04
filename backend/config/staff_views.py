@@ -412,6 +412,36 @@ def coupon_detail(request, pk):
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
+def delivery_rates(request):
+    """The two editable rate cards, so staff can see current pricing at a glance."""
+    from delivery.models import OutsideStateDeliveryRate, TamilNaduDeliveryRate
+
+    tn = TamilNaduDeliveryRate.get_config()
+    outside = OutsideStateDeliveryRate.get_config()
+
+    return Response({
+        'tamil_nadu': {
+            'local_charge': str(tn.local_charge),
+            'standard_charge': str(tn.standard_charge),
+            'free_delivery_threshold': str(tn.free_delivery_threshold),
+            'weight_surcharge_per_500g': str(tn.weight_surcharge_per_500g),
+            'weight_allowance_g': tn.weight_allowance_g,
+            'estimated_days_text': tn.estimated_days_text,
+        },
+        'outside_tamil_nadu': {
+            'is_active': outside.is_active,
+            'base_charge': str(outside.base_charge),
+            'free_delivery_threshold': str(outside.free_delivery_threshold),
+            'weight_surcharge_per_500g': str(outside.weight_surcharge_per_500g),
+            'weight_allowance_g': outside.weight_allowance_g,
+            'estimated_days_text': outside.estimated_days_text,
+            'cod_available': outside.cod_available,
+        },
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
 def pincode_list(request):
     qs = DeliveryPincode.objects.order_by('pincode')
     search = (request.query_params.get('search') or '').strip()

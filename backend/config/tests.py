@@ -86,6 +86,7 @@ class StaffApiPermissionTest(StaffApiTestCase):
         ('get', '/api/admin/coupons/'),
         ('post', '/api/admin/coupons/'),
         ('get', '/api/admin/pincodes/'),
+        ('get', '/api/admin/delivery-rates/'),
     ]
 
     def test_customer_forbidden(self):
@@ -449,3 +450,26 @@ class CouponMoneyFormattingTest(TestCase):
         self.assertEqual(
             discount_label(Coupon(discount_type='fixed', discount_value=Decimal('1500.00'))),
             '₹1500 off')
+
+
+class DeliveryRatesEndpointTest(StaffApiTestCase):
+    def test_returns_both_rate_cards_with_defaults(self):
+        self.as_staff()
+        data = self.client.get('/api/admin/delivery-rates/').data
+
+        self.assertEqual(Decimal(data['tamil_nadu']['local_charge']), Decimal('30'))
+        self.assertEqual(Decimal(data['tamil_nadu']['standard_charge']), Decimal('80'))
+        self.assertEqual(Decimal(data['tamil_nadu']['free_delivery_threshold']), Decimal('500'))
+        self.assertEqual(data['tamil_nadu']['weight_allowance_g'], 1000)
+        self.assertEqual(Decimal(data['outside_tamil_nadu']['base_charge']), Decimal('150'))
+
+    def test_reflects_an_edited_rate(self):
+        from delivery.models import TamilNaduDeliveryRate
+
+        config = TamilNaduDeliveryRate.get_config()
+        config.local_charge = Decimal('42')
+        config.save(update_fields=['local_charge'])
+
+        self.as_staff()
+        data = self.client.get('/api/admin/delivery-rates/').data
+        self.assertEqual(Decimal(data['tamil_nadu']['local_charge']), Decimal('42'))
