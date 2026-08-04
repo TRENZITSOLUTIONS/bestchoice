@@ -1,14 +1,6 @@
 from decimal import Decimal
-from .models import DeliveryPincode, OutsideStateDeliveryRate
+from .models import DeliveryPincode, OutsideStateDeliveryRate, TamilNaduDeliveryRate
 
-
-FREE_DELIVERY_THRESHOLD = Decimal('500')
-BASE_CHARGES = {
-    'local': Decimal('30'),
-    'standard': Decimal('80'),
-}
-WEIGHT_SURCHARGE_PER_500G = Decimal('10')
-WEIGHT_THRESHOLD_G = 1000
 
 TAMIL_NADU_ALIASES = {'tamilnadu', 'tn'}
 
@@ -18,10 +10,12 @@ def is_tamil_nadu(state: str) -> bool:
     return normalized in TAMIL_NADU_ALIASES
 
 
-def _weight_surcharge(total_weight_g: int) -> Decimal:
-    if total_weight_g > WEIGHT_THRESHOLD_G:
-        extra_units = (total_weight_g - WEIGHT_THRESHOLD_G + 499) // 500
-        return extra_units * WEIGHT_SURCHARGE_PER_500G
+def _weight_surcharge(total_weight_g: int, per_500g: Decimal, allowance_g: int) -> Decimal:
+    """Charge per 500g, or part of, above the allowance. Both come from the zone's
+    rate card, so the shop owner can change them without a deploy."""
+    if total_weight_g > allowance_g:
+        extra_units = (total_weight_g - allowance_g + 499) // 500
+        return extra_units * per_500g
     return Decimal('0')
 
 
@@ -41,17 +35,22 @@ def _quote_within_tamil_nadu(pincode: str, total_weight_g: int, order_total: Dec
             'cod_available': False, 'delivery_type': 'none', 'zone': 'tamilnadu',
         }
 
-    if order_total >= FREE_DELIVERY_THRESHOLD:
+    config = TamilNaduDeliveryRate.get_config()
+
+    if order_total >= config.free_delivery_threshold:
         charge = Decimal('0')
     else:
+        # A pincode's own delivery_charge, when set, overrides the zone rate.
         charge = pincode_obj.delivery_charge
         if charge is None:
-            charge = BASE_CHARGES.get(pincode_obj.delivery_type, Decimal('80'))
-        charge += _weight_surcharge(total_weight_g)
+            charge = config.charge_for(pincode_obj.delivery_type)
+        charge += _weight_surcharge(
+            total_weight_g, config.weight_surcharge_per_500g, config.weight_allowance_g
+        )
 
     return {
         'available': True, 'charge': charge,
-        'estimated_days': pincode_obj.estimated_days_text,
+        'estimated_days': pincode_obj.estimated_days_text or config.estimated_days_text,
         'cod_available': pincode_obj.cod_available,
         'delivery_type': pincode_obj.delivery_type, 'zone': 'tamilnadu',
     }
@@ -69,7 +68,9 @@ def _quote_outside_tamil_nadu(total_weight_g: int, order_total: Decimal) -> dict
     if order_total >= config.free_delivery_threshold:
         charge = Decimal('0')
     else:
-        charge = config.base_charge + _weight_surcharge(total_weight_g)
+        charge = config.base_charge + _weight_surcharge(
+            total_weight_g, config.weight_surcharge_per_500g, config.weight_allowance_g
+        )
 
     return {
         'available': True, 'charge': charge,

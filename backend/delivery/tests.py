@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .models import DeliveryPincode, OutsideStateDeliveryRate
+from .models import DeliveryPincode, OutsideStateDeliveryRate, TamilNaduDeliveryRate
 from .utils import get_delivery_quote, calculate_delivery_charge, is_tamil_nadu
 
 
@@ -85,3 +85,94 @@ class CheckPincodeViewTest(TestCase):
         res = self.client.get('/api/delivery/check/560001/?state=Karnataka')
         self.assertTrue(res.data['delivery_available'])
         self.assertEqual(res.data['zone'], 'outside_tamilnadu')
+
+
+class ConfigurableRatesTest(TestCase):
+    """Rates used to be hardcoded constants; changing a price meant a deploy."""
+
+    def setUp(self):
+        self.pincode = DeliveryPincode.objects.create(
+            pincode='600001', city='Chennai', delivery_type='local',
+            estimated_days_text='2-4 business days',
+        )
+        self.standard = DeliveryPincode.objects.create(
+            pincode='641001', city='Coimbatore', delivery_type='standard',
+            estimated_days_text='2-4 business days',
+        )
+        self.config = TamilNaduDeliveryRate.get_config()
+
+    def quote(self, pincode='600001', **kwargs):
+        kwargs.setdefault('state', 'Tamil Nadu')
+        kwargs.setdefault('order_total', Decimal('100'))
+        return get_delivery_quote(pincode=pincode, **kwargs)
+
+    def test_defaults_match_the_previous_hardcoded_values(self):
+        self.assertEqual(self.config.local_charge, Decimal('30'))
+        self.assertEqual(self.config.standard_charge, Decimal('80'))
+        self.assertEqual(self.config.free_delivery_threshold, Decimal('500'))
+        self.assertEqual(self.config.weight_surcharge_per_500g, Decimal('10'))
+        self.assertEqual(self.config.weight_allowance_g, 1000)
+
+    def test_config_is_a_singleton(self):
+        self.assertEqual(TamilNaduDeliveryRate.objects.count(), 1)
+        self.assertEqual(TamilNaduDeliveryRate.get_config().pk, self.config.pk)
+
+    def test_changing_local_charge_changes_the_quote(self):
+        self.config.local_charge = Decimal('45')
+        self.config.save(update_fields=['local_charge'])
+        self.assertEqual(self.quote()['charge'], Decimal('45'))
+
+    def test_changing_standard_charge_changes_the_quote(self):
+        self.config.standard_charge = Decimal('99')
+        self.config.save(update_fields=['standard_charge'])
+        self.assertEqual(self.quote('641001')['charge'], Decimal('99'))
+
+    def test_changing_free_threshold_changes_when_delivery_is_free(self):
+        self.assertEqual(self.quote(order_total=Decimal('600'))['charge'], Decimal('0'))
+
+        self.config.free_delivery_threshold = Decimal('2000')
+        self.config.save(update_fields=['free_delivery_threshold'])
+        self.assertEqual(self.quote(order_total=Decimal('600'))['charge'], Decimal('30'))
+
+    def test_weight_surcharge_uses_configured_rate_and_allowance(self):
+        # 1600g = 600g over the 1000g allowance = 2 blocks of 500g = +Rs.20
+        self.assertEqual(self.quote(total_weight_g=1600)['charge'], Decimal('50'))
+
+        self.config.weight_surcharge_per_500g = Decimal('25')
+        self.config.weight_allowance_g = 500
+        self.config.save(update_fields=['weight_surcharge_per_500g', 'weight_allowance_g'])
+        # 1600g = 1100g over a 500g allowance = 3 blocks = +Rs.75
+        self.assertEqual(self.quote(total_weight_g=1600)['charge'], Decimal('105'))
+
+    def test_pincode_override_still_beats_the_zone_rate(self):
+        self.pincode.delivery_charge = Decimal('5')
+        self.pincode.save(update_fields=['delivery_charge'])
+        self.assertEqual(self.quote()['charge'], Decimal('5'))
+
+    def test_pincode_estimate_falls_back_to_the_config_text(self):
+        self.pincode.estimated_days_text = ''
+        self.pincode.save(update_fields=['estimated_days_text'])
+        self.config.estimated_days_text = '3-5 business days'
+        self.config.save(update_fields=['estimated_days_text'])
+        self.assertEqual(self.quote()['estimated_days'], '3-5 business days')
+
+    def test_outside_state_weight_surcharge_is_configurable(self):
+        outside = OutsideStateDeliveryRate.get_config()
+        base = get_delivery_quote(state='Karnataka', total_weight_g=1600,
+                                  order_total=Decimal('100'))['charge']
+        self.assertEqual(base, outside.base_charge + Decimal('20'))
+
+        outside.weight_surcharge_per_500g = Decimal('40')
+        outside.save(update_fields=['weight_surcharge_per_500g'])
+        bumped = get_delivery_quote(state='Karnataka', total_weight_g=1600,
+                                     order_total=Decimal('100'))['charge']
+        self.assertEqual(bumped, outside.base_charge + Decimal('80'))
+
+    def test_checkout_charges_the_configured_rate(self):
+        self.config.local_charge = Decimal('55')
+        self.config.save(update_fields=['local_charge'])
+        self.assertEqual(
+            calculate_delivery_charge(pincode='600001', state='Tamil Nadu',
+                                      order_total=Decimal('100')),
+            Decimal('55'),
+        )
