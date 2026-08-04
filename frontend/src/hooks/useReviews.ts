@@ -9,6 +9,9 @@ export interface Review {
   text: string;
   images: string[];
   is_verified_purchase: boolean;
+  // False while a review is held for staff approval. The public product list only
+  // ever returns approved reviews; /reviews/mine/ returns the author's pending ones too.
+  is_approved: boolean;
   created_at: string;
 }
 
@@ -34,7 +37,7 @@ export function useWriteReview(slug: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { rating: number; text: string; images?: string[] }) => {
-      const res = await api.post(`/products/${slug}/reviews/`, payload);
+      const res = await api.post<Review>(`/products/${slug}/reviews/`, payload);
       return res.data;
     },
     onSuccess: () => {

@@ -8,8 +8,8 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ('id', 'user', 'user_name', 'rating', 'text', 'images',
-                  'is_verified_purchase', 'created_at')
-        read_only_fields = ('user', 'is_verified_purchase')
+                  'is_verified_purchase', 'is_approved', 'created_at')
+        read_only_fields = ('user', 'is_verified_purchase', 'is_approved')
 
     def get_user_name(self, obj):
         return obj.user.get_full_name() or obj.user.email or obj.user.phone or 'Anonymous'

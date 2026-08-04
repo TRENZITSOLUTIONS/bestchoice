@@ -277,7 +277,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             {'★'.repeat(Math.round(product.rating.average))}
             {'☆'.repeat(5 - Math.round(product.rating.average))}
           </div>
-          <div className="text-sm text-ink-soft">Based on {product.rating.count} verified reviews</div>
+          <div className="text-sm text-ink-soft">
+            Based on {product.rating.count} {product.rating.count === 1 ? 'review' : 'reviews'}
+          </div>
         </div>
         {isAuthenticated ? (
           <button onClick={() => setShowReviewForm((v) => !v)} className="ml-auto border border-line rounded px-5 py-2.5 text-sm font-bold">
@@ -320,13 +322,49 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
   const [rating, setRating] = useState(5);
   const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  const [awaitingApproval, setAwaitingApproval] = useState(false);
   const writeReview = useWriteReview(slug);
+
+  // Moderation can be switched on in the admin, in which case a new review is held
+  // as pending. Say so, otherwise the form just closes and the author sees nothing.
+  if (awaitingApproval) {
+    return (
+      <div className="border border-line rounded p-5 mb-6">
+        <p className="text-sm font-bold">Thanks! Your review has been submitted.</p>
+        <p className="text-sm text-ink-soft mt-1">
+          It is waiting to be approved by our team and will appear here once it is published.
+        </p>
+        <button type="button" onClick={onDone} className="mt-3 border border-line rounded px-5 py-2.5 text-sm font-bold">
+          Done
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        writeReview.mutate({ rating, text }, { onSuccess: onDone });
+        setError('');
+        writeReview.mutate(
+          { rating, text },
+          {
+            onSuccess: (review) => {
+              if (review.is_approved) {
+                onDone();
+              } else {
+                setAwaitingApproval(true);
+              }
+            },
+            onError: (err) => {
+              setError(
+                (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+                  'Could not submit your review. Please try again.'
+              );
+            },
+          }
+        );
       }}
       className="border border-line rounded p-5 mb-6"
     >
@@ -344,8 +382,9 @@ function ReviewForm({ slug, onDone }: { slug: string; onDone: () => void }) {
         placeholder="Share your experience with this product..."
         className="w-full border border-line rounded p-3 text-sm bg-card min-h-[90px]"
       />
+      {error && <p className="text-sm text-kumkum mt-2">{error}</p>}
       <button type="submit" disabled={writeReview.isPending} className="mt-3 bg-kumkum text-white font-bold text-sm rounded px-5 py-2.5">
-        Submit review
+        {writeReview.isPending ? 'Submitting...' : 'Submit review'}
       </button>
     </form>
   );
