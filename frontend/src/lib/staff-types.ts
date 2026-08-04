@@ -130,3 +130,23 @@ export interface PincodeRow {
 }
 
 export type PincodeResponse = Paginated<PincodeRow>;
+
+export interface DeliveryRates {
+  tamil_nadu: {
+    local_charge: string;
+    standard_charge: string;
+    free_delivery_threshold: string;
+    weight_surcharge_per_500g: string;
+    weight_allowance_g: number;
+    estimated_days_text: string;
+  };
+  outside_tamil_nadu: {
+    is_active: boolean;
+    base_charge: string;
+    free_delivery_threshold: string;
+    weight_surcharge_per_500g: string;
+    weight_allowance_g: number;
+    estimated_days_text: string;
+    cod_available: boolean;
+  };
+}

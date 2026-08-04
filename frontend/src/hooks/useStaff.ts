@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import type {
   CouponRow,
   DashboardStats,
+  DeliveryRates,
   InventoryResponse,
   OrderListItem,
   PincodeResponse,
@@ -133,6 +134,13 @@ export function useToggleCoupon() {
     mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) =>
       (await api.patch(`/admin/coupons/${id}/`, { is_active })).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'coupons'] }),
+  });
+}
+
+export function useDeliveryRates() {
+  return useQuery({
+    queryKey: ['staff', 'delivery-rates'],
+    queryFn: async () => (await api.get<DeliveryRates>('/admin/delivery-rates/')).data,
   });
 }
 
