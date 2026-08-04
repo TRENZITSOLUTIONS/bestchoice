@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers
 from .models import Category, Brand, Product, ProductImage, ProductVariant, ProductHighlight
 
@@ -15,7 +16,12 @@ class CategorySerializer(serializers.ModelSerializer):
     product_count = serializers.SerializerMethodField()
 
     def get_product_count(self, obj):
-        return obj.products.filter(is_active=True).count()
+        # Include products filed under child categories. Products live in
+        # subcategories, so counting only direct children showed "(0)" against
+        # every top-level department in the filter sidebar.
+        return Product.objects.filter(is_active=True).filter(
+            Q(category=obj) | Q(category__parent=obj)
+        ).count()
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -47,8 +53,16 @@ class ProductHighlightSerializer(serializers.ModelSerializer):
 
 
 class ProductListSerializer(serializers.ModelSerializer):
-    category = serializers.SlugRelatedField(slug_field='slug', read_only=True)
-    brand = serializers.SlugRelatedField(slug_field='slug', read_only=True)
+    # Human names, because these are rendered straight onto product cards -
+    # they used to emit slugs, so shoppers saw "tempered-glass" and
+    # "bestchoice-house". The slugs are still exposed separately for links
+    # and filtering.
+    category = serializers.SlugRelatedField(slug_field='name', read_only=True)
+    brand = serializers.SlugRelatedField(slug_field='name', read_only=True)
+    category_slug = serializers.SlugRelatedField(
+        source='category', slug_field='slug', read_only=True)
+    brand_slug = serializers.SlugRelatedField(
+        source='brand', slug_field='slug', read_only=True)
     primary_image = serializers.SerializerMethodField()
     discount_percent = serializers.SerializerMethodField()
     has_variants = serializers.SerializerMethodField()
@@ -60,7 +74,8 @@ class ProductListSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
             'id', 'auto_product_id', 'name', 'slug', 'short_description',
-            'category', 'brand', 'primary_image', 'mrp', 'selling_price',
+            'category', 'category_slug', 'brand', 'brand_slug',
+            'primary_image', 'mrp', 'selling_price',
             'discount_percent', 'has_variants', 'in_stock',
             'average_rating', 'review_count',
         )
