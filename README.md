@@ -47,9 +47,9 @@ Templates to copy: [`.env.example`](.env.example) for Docker, [`backend/.env.exa
 | Route | Type | Description |
 |---|---|---|
 | `/` | Home | Hero banner, categories, featured products |
-| `/products` | Listing | Filterable product grid with search, sort, mobile filters drawer |
-| `/products/[slug]` | Detail | Gallery with lightbox zoom, variants, pricing, pincode checker, reviews (write + read), sticky bottom bar on mobile, related products, share via Web Share API |
-| `/cart` | Cart | Items, quantity controls, coupon input, summary |
+| `/products` | Listing | Filterable product grid with search, sort, category-aware filter sidebar |
+| `/products/[slug]` | Detail | Image gallery with thumbnails, variant selection, pricing, pincode delivery check, reviews (write + read), related products |
+| `/cart` | Cart | Items, quantity controls, working coupon input, summary |
 | `/checkout` | Checkout | Address form, delivery type, loyalty points redemption, Razorpay payment |
 | `/auth/login` | Sign in | Google sign-in only (supports referral codes) |
 | `/staff/login` | Staff sign in | Email/password, staff accounts only — not linked from the storefront |
@@ -58,11 +58,25 @@ Templates to copy: [`.env.example`](.env.example) for Docker, [`backend/.env.exa
 | `/account/orders/[id]` | Order detail | Status timeline, items, tracking, cancel/refund |
 | `/account/wishlist` | Wishlist | Saved products |
 | `/account/loyalty` | Loyalty | Points balance & history |
+| `/privacy` `/terms` `/refund-policy` `/shipping-policy` | Legal | Policy pages (unreviewed drafts — see the notice on each) |
 
-That is every route the storefront serves. **There is no custom admin dashboard** — store
-management happens in Django Admin at `http://localhost:8000/admin/`, which has model CRUD
-for products, categories, orders, coupons, pincodes, and loyalty config. See
-[docs/ADMIN.md](docs/ADMIN.md).
+### Staff dashboard
+
+Staff-only, behind an `is_staff` check. Sign in at `/staff/login`.
+
+| Route | Description |
+|---|---|
+| `/staff` | Revenue & order stats, revenue chart, recent orders, orders by status |
+| `/staff/orders` | All orders: filter, search, advance status, bulk mark shipped |
+| `/staff/inventory` | Stock worst-first with out/low/ok flags, inline price editing |
+| `/staff/refunds` | Approve, reject or process refund requests |
+| `/staff/reviews` | Moderation queue — publish / unpublish |
+| `/staff/coupons` | Create coupons, see usage, deactivate |
+| `/staff/delivery` | Delivery pincode lookup |
+| `/staff/reports` | Top sellers, revenue by category, delivery-type split |
+
+Product creation, bulk CSV upload and pincode imports remain in Django Admin at
+`http://localhost:8000/admin/`. See [docs/ADMIN.md](docs/ADMIN.md).
 
 ## API Endpoints
 
@@ -80,8 +94,9 @@ Base: `http://localhost:8000/api/`
 | GET | `/brands/` | — | Brand listing |
 | GET | `/cart/` | Bearer/* | Get cart |
 | POST | `/cart/items/` | Bearer/* | Add to cart |
-| POST | `/cart/apply-coupon/` | Bearer/* | Apply coupon code |
-| POST | `/checkout/` | Bearer | Create order + Razorpay order (accepts `loyalty_points_used`) |
+| POST | `/cart/apply-coupon/` | Bearer/* | Apply a coupon to the cart (persisted; returns the discounted cart) |
+| DELETE | `/cart/remove-coupon/` | Bearer/* | Clear the applied coupon |
+| POST | `/checkout/` | Bearer | Create order + Razorpay order (applies the cart's coupon and `loyalty_points_used`) |
 | POST | `/payment/verify/` | Bearer | Verify Razorpay payment |
 | POST | `/payment/webhook/` | — | Razorpay webhook (signature verified) |
 | GET | `/orders/` | Bearer | User orders list |
@@ -96,9 +111,20 @@ Base: `http://localhost:8000/api/`
 | GET | `/loyalty/balance/` | Bearer | Points balance |
 | GET | `/loyalty/transactions/` | Bearer | Points history |
 | GET | `/delivery/check/{pincode}/` | — | Check delivery availability with charge |
-| POST | `/admin/orders/{id}/status/` | Bearer (staff) | Admin: update order status |
-| POST | `/admin/refunds/{id}/status/` | Bearer (staff) | Admin: approve/process a refund (reverses loyalty points) |
-| PUT | `/admin/products/{id}/` | Bearer (staff) | Admin: update product |
+| GET | `/admin/stats/` | Staff | Dashboard headline numbers + daily revenue series |
+| GET | `/admin/reports/` | Staff | Top sellers, revenue by category, delivery-type split |
+| GET | `/admin/orders/` | Staff | All orders, filterable + searchable |
+| POST | `/admin/orders/bulk-ship/` | Staff | Bulk mark shipped with courier details |
+| POST | `/admin/orders/{id}/status/` | Staff | Update order status |
+| GET | `/admin/refunds/` | Staff | Refund queue |
+| POST | `/admin/refunds/{id}/status/` | Staff | Approve/reject/process a refund (reverses loyalty points) |
+| GET | `/admin/inventory/` | Staff | Stock with out/low/ok flags |
+| PUT/PATCH | `/admin/products/{id}/` | Staff | Update product pricing, stock, visibility |
+| GET | `/admin/reviews/` | Staff | Review moderation queue |
+| POST | `/admin/reviews/{id}/moderate/` | Staff | Approve or reject a review |
+| GET/POST | `/admin/coupons/` | Staff | List or create coupons |
+| PATCH/DELETE | `/admin/coupons/{id}/` | Staff | Update; DELETE deactivates so usage history survives |
+| GET | `/admin/pincodes/` | Staff | Delivery pincode lookup |
 | GET | `/health/` | — | Health check |
 
 * = session-based cart works without auth for guest users
@@ -106,14 +132,16 @@ Base: `http://localhost:8000/api/`
 ## Payment Flow (Razorpay)
 
 1. User fills address → optionally redeems loyalty points → clicks Pay
-2. Frontend POSTs to `/checkout/` (includes `loyalty_points_used`) → backend calculates delivery charge, creates Order + Razorpay order
-3. Backend returns `razorpay_order_id` + `key_id`
+2. Frontend POSTs to `/checkout/` → backend validates stock, prices the coupon and points, quotes delivery, reserves a Razorpay order, then writes the Order, items, stock deduction and coupon usage in one transaction
+3. Backend returns `razorpay_order_id` + `razorpay_key_id` + `amount_in_paise`
 4. Frontend loads checkout.razorpay.com → opens Razorpay modal
 5. User pays via UPI / card / netbanking / wallet
 6. Razorpay calls handler with `payment_id` + `signature`
 7. Frontend POSTs to `/payment/verify/` → backend verifies signature, deducts loyalty points if used
 8. On success: order → confirmed, notification email sent, loyalty points credited
-9. On cancel: auto-refund via Razorpay API + stock restored + loyalty points reversed
+9. On cancel: auto-refund via Razorpay API + stock restored + loyalty points reversed + coupon use released
+
+If the gateway is unreachable at step 2, nothing is written — no order, no stock deducted, no coupon consumed.
 
 ## Key Features
 
@@ -123,15 +151,12 @@ Base: `http://localhost:8000/api/`
 - **Related Products** — auto-suggested same-category products, plus manually curated via RelatedProduct model
 - **Delivery** — 388 Tamilnadu pincodes, same-day Chennai, weight-based charge, free over ₹500
 - **Pincode Checker** — real-time delivery check on product detail page
-- **Coupons** — percentage or fixed discount, min cart, per-user limits, max discount cap
+- **Coupons** — percentage or fixed discount, min cart, per-user limits, max discount cap. Stored on the cart, revalidated on every read and again at checkout; usage is consumed at order time and released on cancellation
 - **Loyalty** — 1 pt per ₹100 spent, redeem at checkout (1 pt = ₹1), points expire 365 days after earning (FIFO redemption, `expire_loyalty_points` cron command), referral bonuses (50 pts each), birthday bonus command
 - **Order Tracking** — automatic status history logging, timeline UI in order detail
 - **Notifications** — order confirmation email with HTML template (console backend in dev, SMTP in prod)
 - **Reviews** — write with star rating + text, read with average rating + distribution. Note: new reviews are auto-approved, so the `is_approved` moderation flag doesn't currently hold anything back
 - **Store management** — Django Admin: model CRUD, bulk product upload via CSV, duplicate-product action, and a configurable `LoyaltyConfig` singleton for every rewards rate
-- **Gallery** — clickable zoom, lightbox with prev/next navigation
-- **Share** — Web Share API with clipboard fallback
-- **Sticky Bottom Bar** — mobile add-to-cart with quantity selector
 
 ## Management Commands
 

@@ -45,9 +45,11 @@ New to the project? Read [ARCHITECTURE.md](ARCHITECTURE.md), then [SETUP.md](SET
 
 Worth knowing up front, because it is unusual and it is easy to assume otherwise:
 
-- **Customers sign in with Google only.** There is no customer password, and no password registration. `POST /auth/google/` verifies a Google ID token server-side. Page: `/auth/login`.
-- **Staff sign in with email + password** at a deliberately separate endpoint, `POST /auth/staff/login/`, which rejects non-staff accounts. Page: `/staff/login` — not linked from the storefront and excluded from robots.txt.
+- **Customers sign in with Google only.** There is no customer password, and no password registration. `POST /auth/google/` verifies a Google ID token server-side. Page: `/auth/login`. A guest's cart is merged into their account on sign-in.
+- **Staff sign in with email + password** at a deliberately separate endpoint, `POST /auth/staff/login/`, which rejects non-staff accounts. Page: `/staff/login` — not linked from the storefront and excluded from robots.txt. It lands on the `/staff` dashboard.
 - **Django Admin** at `/admin/` uses normal Django session auth, untouched by the above.
+
+`is_staff` is the only role distinction in the system. It gates the `/staff` dashboard and every `/api/admin/*` route; a signed-in customer hitting one gets a 403.
 
 `POST /auth/register/` and `POST /auth/login/` do not exist. Details in [API-SPECS.md](API-SPECS.md#-auth-endpoints); setup in [ENVIRONMENT.md](ENVIRONMENT.md#google-sign-in).
 
@@ -63,22 +65,26 @@ Worth knowing up front, because it is unusual and it is easy to assume otherwise
 
 ## Current state
 
-**Built and working:** the full storefront (home, listing with filters, product detail, cart, checkout with Razorpay, Google auth, account area with orders / wishlist / loyalty), and the backend behind it — category tree, category-specific product fields, all brief-required filters, state-aware delivery pricing, the image compression pipeline, coupons, reviews, wishlist, and the loyalty program. 124 backend tests pass.
+**Customer storefront:** home, listing with filters, product detail, cart, checkout with Razorpay, Google sign-in, account area (orders, tracking, cancel, refund request, wishlist, loyalty), and the four policy pages.
+
+**Staff dashboard** at `/staff`: revenue and order stats with a revenue chart, order management with filters and bulk mark-shipped, inventory with stock flags and inline editing, refund approval, review moderation, coupon management, pincode lookup, and sales reports. See [ADMIN.md](ADMIN.md).
+
+**Backend:** the 5-category / 38-node tree, category-specific product fields, every brief-required filter, state-aware delivery pricing, the image compression pipeline, working coupons, reviews with moderation and verified-purchase, wishlist, and the fully configurable loyalty programme. 222 tests pass.
 
 **Not built:**
-- A custom admin dashboard — Django Admin covers day-to-day operations. Sales charts and bulk "mark shipped" are the notable gaps ([ADMIN.md](ADMIN.md)).
-- Legal pages (privacy, terms, refund, shipping) — client copy exists, pages don't.
+- Product/variant *creation* and bulk CSV upload — Django Admin only. The dashboard reads and edits.
+- Low-stock alerting — the dashboard flags low stock on screen, but nothing emails anyone. There is no `reorder_level` field.
+- CSV export from the dashboard.
 - WhatsApp bot automation — the `wa.me` link is the agreed scope ([WHATSAPP.md](WHATSAPP.md)).
-- OTP / password reset — not needed while customers use Google.
+- OTP / password reset — not needed while customers sign in with Google.
+- Finer-grained staff roles: any `is_staff` user can do everything in the dashboard.
 
 **Known rough edges,** documented rather than hidden:
-- **Coupons cannot actually discount an order.** Validation and the discount calculation work, but nothing applies the result: checkout has no coupon field and `Order.coupon` is never populated, so a customer can see a discount and still be charged full price. Worse, usage is consumed at apply time, so abandoning the cart burns the code. Details and the fix options: [COUPONS.md](COUPONS.md).
-- Review moderation has an `is_approved` field, but new reviews are auto-approved, so nothing is actually held back. `is_verified_purchase` is never set true either — the "verified" badge can never appear.
-- Cart doesn't merge a guest session cart into the user's cart on sign-in.
-- Stock is deducted at checkout without a surrounding transaction, so a mid-loop failure can leave an order with partial deduction.
-- Redis runs in the compose stack but no code uses it.
-- DRF throttling is configured but disabled — `DEFAULT_THROTTLE_CLASSES` is empty, so the documented rates are dead config.
-- Every page is client-rendered (`'use client'`), despite docs elsewhere describing SSR for SEO.
+- Every page is client-rendered (`'use client'`), despite docs elsewhere describing SSR for SEO. Product and listing pages would benefit most from changing that.
+- The policy pages are unreviewed drafts with placeholder contact details — they carry a visible notice saying so, and need the owner's sign-off before launch.
+- The header advertises same-day delivery on select Chennai pincodes (81 are configured that way), while the shipping policy says orders are processed 24–48h after payment. Those two claims need reconciling by the owner.
+- Reviews can be written by anyone, whether or not they bought the product; `is_verified_purchase` distinguishes them but nothing gates it.
+- `/reviews/mine/` has no frontend page, so an author can't revisit a pending review after the initial confirmation.
 
 ---
 

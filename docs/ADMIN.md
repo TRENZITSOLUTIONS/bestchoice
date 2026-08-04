@@ -36,31 +36,55 @@ Optional maintenance/backfill command to reprocess existing images (e.g. after c
 
 ---
 
-## 2. Custom Business Dashboard (Next.js) — 🚧 NOT BUILT
+## 2. Staff Dashboard (Next.js) — at `/staff`
 
-**There is no custom admin dashboard.** The storefront serves 12 pages, none of them
-under `/admin/`, and `/admin/` on the deployed site routes to Django Admin. Everything
-in this section is a plan, not a description of working software.
+For the shop owner and staff. Sign in at `/staff/login` with an email and password;
+the layout checks `is_staff` and every API route enforces it again server-side.
 
-Three admin REST endpoints do exist and are staff-gated, ready for a dashboard to call:
+Note the path: the dashboard is at **`/staff`**, not `/admin/`. `/admin/` is Django Admin.
+
+| Screen | What it does |
+|---|---|
+| `/staff` | Revenue and paid-order totals, work-waiting counts, a 7/30/90-day revenue chart, recent orders, orders by status. Banners link straight to pending refunds and reviews. |
+| `/staff/orders` | Every customer's orders, filterable by status, payment and free-text search across order id, email and phone. Advance status one step, or multi-select and bulk mark shipped with a courier name. |
+| `/staff/inventory` | Stock worst-first with out/low/ok flags. Inline price editing; stock editing only on products without variants, where the field is authoritative. |
+| `/staff/refunds` | Requested refunds with a two-step confirmation — approving moves real money through Razorpay, reverses loyalty points and marks the order refunded. |
+| `/staff/reviews` | Moderation queue. Publish or unpublish. Only fills up when `auto_approve_reviews` is off (Django Admin → Review config). |
+| `/staff/coupons` | Create coupons, see usage counts against limits, deactivate and reactivate. |
+| `/staff/delivery` | Pincode lookup. Adding and bulk-importing still happens in Django Admin or via `import_pincodes`. |
+| `/staff/reports` | Top sellers, revenue by category, home delivery vs store pickup, over 7/30/90/365 days. |
+
+Revenue figures count **paid, non-cancelled** orders only.
+
+### API
+
+Everything above is served by `/api/admin/*`, all `IsAdminUser`:
 
 | Endpoint | Does |
 |---|---|
-| `POST /api/admin/orders/{order_id}/status/` | Move an order through pending → confirmed → packed → shipped → delivered |
-| `POST /api/admin/refunds/{refund_id}/status/` | approved / rejected / processed. Approving attempts the Razorpay refund, marks the order refunded, and reverses loyalty points earned on it (once only) |
-| `PUT/PATCH /api/admin/products/{pk}/` | Update name, slug, mrp, selling_price, total_stock, is_active, weight_g, descriptions, category, brand, hide_if_out_of_stock |
+| `GET /stats/?days=` | Dashboard headline numbers plus a zero-filled daily revenue series |
+| `GET /reports/?days=` | Top products, revenue by category, delivery-type split |
+| `GET /orders/` | All orders — `status`, `payment_status`, `delivery_type`, `search`, `page` |
+| `POST /orders/bulk-ship/` | Mark many shipped. Rejects one `tracking_id` across several orders |
+| `POST /orders/{order_id}/status/` | Advance a single order, logging status history |
+| `GET /refunds/` · `POST /refunds/{id}/status/` | Refund queue and approve/reject/process |
+| `GET /inventory/?low_stock_below=` | Stock with out/low/ok state |
+| `PUT/PATCH /products/{pk}/` | Update pricing, stock, visibility, category, brand |
+| `GET /reviews/?pending=true` · `POST /reviews/{id}/moderate/` | Queue and approve/reject |
+| `GET/POST /coupons/` · `PATCH/DELETE /coupons/{pk}/` | Coupon CRUD. DELETE deactivates rather than deleting, so usage history survives |
+| `GET /pincodes/?search=` | Delivery pincode lookup |
 
-Everything below is unbuilt and needs both a frontend and, where noted, new API work:
+### Still only in Django Admin
 
-- **Dashboard home** — stats cards, recent orders, low-stock alerts, sales chart. No aggregate/stats endpoint exists yet either.
-- **Orders** — filterable table, tracking number + provider entry.
-- **Products** — table with quick edit, CSV export, add-product form. (Bulk CSV *upload* already works in Django Admin.)
-- **Inventory** — stock overview, out-of-stock alerts, CSV export. Note there is no `reorder_level` field and no low-stock alerting anywhere.
-- **Coupons** — list with usage counts, active toggle.
-- **Reviews** — approval queue. Would need a code change first: reviews are auto-approved at creation, so nothing is ever pending.
-- **Refunds** — pending queue and history views over the endpoint above.
-- **Delivery** — pincode management UI, CSV upload, per-pincode delivery days.
-- **Reports** — sales by date range, top sellers, revenue by category, orders by delivery type. All need new aggregate endpoints.
+- Creating products, variants and images (the dashboard reads and edits, it doesn't create)
+- Bulk product CSV upload and the duplicate-product action
+- Adding or bulk-importing delivery pincodes
+- Outside-Tamil-Nadu delivery rates, loyalty config, review config
+
+### Not built
+
+- CSV export from the dashboard
+- Low-stock alerting — there is no `reorder_level` field and no notification anywhere; the dashboard flags low stock on screen but nothing emails you
 
 ---
 
@@ -69,16 +93,17 @@ Everything below is unbuilt and needs both a frontend and, where noted, new API 
 There is **one** permission distinction in the system: `is_staff`. No role model, no
 per-area scoping.
 
-| | Django Admin (`/admin/`) | `/api/admin/*` endpoints | `/staff/login` |
+| | Django Admin (`/admin/`) | Dashboard (`/staff`) | `/api/admin/*` |
 |---|---|---|---|
 | Superuser | Full access | Yes | Yes |
 | `is_staff` user | Per Django model permissions | Yes | Yes |
-| Customer | No | **No** — 403 | No — 403 |
+| Customer | No | No — shown an explanation | **No** — 403 |
+| Anonymous | No | Prompted to sign in | **No** — 401 |
 
 Customers authenticate with Google and never have a usable password, so they cannot
 reach `/staff/login` at all. Staff accounts are created with `createsuperuser`, or by
 setting `is_staff` on an existing user in Django Admin.
 
-The three roles this section previously described (Business Owner, Customer Support,
-with distinct scopes) do not exist. Adding them means a role model and per-endpoint
-permission classes.
+There is no finer-grained split — an `is_staff` user can do everything in the
+dashboard. Separate Business Owner and Customer Support scopes would need a role
+model and per-endpoint permission classes.
