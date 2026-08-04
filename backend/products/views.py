@@ -1,6 +1,6 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Brand, Product
@@ -106,7 +106,7 @@ class ProductByCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def admin_update_product(request, pk):
     try:
         product = Product.objects.get(pk=pk)

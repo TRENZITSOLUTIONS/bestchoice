@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'wishlist',
     'loyalty',
     'delivery',
+    'notifications',
 ]
 
 MIDDLEWARE = [

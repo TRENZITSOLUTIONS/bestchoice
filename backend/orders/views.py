@@ -4,7 +4,7 @@ import razorpay
 from decimal import Decimal
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from django.conf import settings
 from django.utils import timezone
@@ -266,7 +266,7 @@ def cancel_order(request, order_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def admin_update_order_status(request, order_id):
     try:
         order = Order.objects.get(order_id=order_id)
@@ -314,7 +314,7 @@ def request_refund(request, order_id):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def admin_update_refund_status(request, refund_id):
     try:
         refund = Refund.objects.select_related('order', 'order__user').get(pk=refund_id)

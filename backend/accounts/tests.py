@@ -402,6 +402,12 @@ class RefundTest(BaseTestCase):
         from orders.models import Order
         from loyalty.utils import earn_points
 
+        # The customer requests a refund; only staff may approve it.
+        self.staff = User.objects.create_user(
+            email='refunds@bestchoice.in', username='refunds',
+            password='staffpass123', is_staff=True,
+        )
+
         self.order = Order.objects.create(
             order_id='BC-ORD-REFUND-0001', user=self.user, subtotal=1000, total=1000,
             status='delivered', payment_status='paid',
@@ -413,34 +419,52 @@ class RefundTest(BaseTestCase):
     def request_refund(self):
         return self.client.post(f'/api/orders/{self.order.order_id}/refund/', {'reason': 'Wrong size'}, format='json')
 
+    def set_refund_status(self, refund_id, new_status):
+        """Approve/reject as staff, then hand the session back to the customer."""
+        self.auth(self.staff)
+        try:
+            return self.client.post(f'/api/admin/refunds/{refund_id}/status/',
+                                    {'status': new_status}, format='json')
+        finally:
+            self.auth(self.user)
+
     def test_request_refund_does_not_reverse_points_yet(self):
         self.request_refund()
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 10)
 
+    def test_customer_cannot_approve_their_own_refund(self):
+        refund_id = self.request_refund().data['id']
+        res = self.client.post(f'/api/admin/refunds/{refund_id}/status/',
+                               {'status': 'approved'}, format='json')
+        self.assertEqual(res.status_code, 403)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.loyalty_points, 10)
+
     def test_approving_refund_reverses_points(self):
         refund_id = self.request_refund().data['id']
-        res = self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'approved'}, format='json')
+        res = self.set_refund_status(refund_id, 'approved')
         self.assertEqual(res.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 0)
 
     def test_rejecting_refund_does_not_reverse_points(self):
         refund_id = self.request_refund().data['id']
-        self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'rejected'}, format='json')
+        res = self.set_refund_status(refund_id, 'rejected')
+        self.assertEqual(res.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 10)
 
     def test_approving_refund_twice_does_not_double_reverse(self):
         refund_id = self.request_refund().data['id']
-        self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'approved'}, format='json')
-        self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'processed'}, format='json')
+        self.set_refund_status(refund_id, 'approved')
+        self.set_refund_status(refund_id, 'processed')
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 0)
 
     def test_invalid_status_rejected(self):
         refund_id = self.request_refund().data['id']
-        res = self.client.post(f'/api/admin/refunds/{refund_id}/status/', {'status': 'bogus'}, format='json')
+        res = self.set_refund_status(refund_id, 'bogus')
         self.assertEqual(res.status_code, 400)
 
 
@@ -619,3 +643,46 @@ class GoogleLoginTest(BaseTestCase):
 
         self.assertEqual(res.status_code, 201)
         self.assertEqual(User.objects.get(email='referred@gmail.com').referred_by, self.user)
+
+
+class AdminEndpointPermissionTest(BaseTestCase):
+    """The /api/admin/ endpoints must reject non-staff callers.
+
+    They previously used IsAuthenticated only, so any signed-in customer could
+    change order status, approve refunds (moving real money via Razorpay), or
+    edit product pricing and stock.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.staff = User.objects.create_user(
+            email='manager2@bestchoice.in', username='manager2',
+            password='staffpass123', is_staff=True,
+        )
+
+    def _endpoints(self):
+        return [
+            ('post', '/api/admin/orders/BC-DOES-NOT-EXIST/status/', {'status': 'shipped'}),
+            ('post', '/api/admin/refunds/999999/status/', {'status': 'approved'}),
+            ('put', f'/api/admin/products/{self.product.pk}/', {'selling_price': '1'}),
+        ]
+
+    def test_customer_is_forbidden(self):
+        self.auth(self.user)
+        for method, url, payload in self._endpoints():
+            res = getattr(self.client, method)(url, payload, format='json')
+            self.assertEqual(res.status_code, 403, f'{url} allowed a non-staff user')
+
+    def test_anonymous_is_unauthorized(self):
+        self.client.credentials()
+        for method, url, payload in self._endpoints():
+            res = getattr(self.client, method)(url, payload, format='json')
+            self.assertEqual(res.status_code, 401, f'{url} allowed an anonymous user')
+
+    def test_staff_gets_past_the_permission_check(self):
+        self.auth(self.staff)
+        # 404 for the deliberately-missing order/refund proves the permission
+        # check passed and the view ran; the product update should succeed.
+        for method, url, payload in self._endpoints():
+            res = getattr(self.client, method)(url, payload, format='json')
+            self.assertNotIn(res.status_code, (401, 403), f'{url} rejected a staff user')
