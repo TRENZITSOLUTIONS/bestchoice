@@ -5,9 +5,12 @@
   --ivory-raised: #f3ead9;
   --ink: #211726;
   --ink-soft: #4a3f4e;
-  --kumkum: #e14b1f;
-  --kumkum-deep: #b23814;
-  --marigold: #c98d20;
+  /* True red + gold, sampled from the real Best Choice crest logo (a red/gold
+     "B" mark on black) - replaces an earlier orange-toned placeholder chosen
+     before a real logo existed. */
+  --kumkum: #d6231f;
+  --kumkum-deep: #ac1a17;
+  --marigold: #c8901d;
   --leaf: #3f6b4f;
   --line: #e3d6c6;
   --card: #ffffff;
@@ -19,8 +22,8 @@
     --ivory-raised: #221a28;
     --ink: #f3ead9;
     --ink-soft: #cabfc9;
-    --kumkum: #ff6a3d;
-    --kumkum-deep: #ff8a5c;
+    --kumkum: #ff4d4d;
+    --kumkum-deep: #ff7373;
     --marigold: #e0ab4a;
     --leaf: #6fae86;
     --line: #4a3d4f;
@@ -65,6 +68,38 @@ body {
 
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Announcement ticker: two copies of the message list sit side by side and
+   the whole track slides left by exactly one copy's width, so the loop point
+   is invisible. Pauses on hover so the text is readable on demand. */
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-viewport {
+  animation: ticker-scroll 28s linear infinite;
+}
+
+.group:hover .ticker-viewport {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-viewport {
+    animation: none;
+  }
+
+  /* Without the animation only the first copy would ever need to render;
+     hide the aria-hidden duplicate so a static view doesn't show it twice. */
+  .ticker-track[aria-hidden='true'] {
+    display: none;
+  }
 }
 
 ::selection {
