@@ -218,7 +218,7 @@ If you skip the S3 upload, the backups live only on the machine they are protect
 ./deploy.sh
 ```
 
-Backs up the database, pulls `main`, rebuilds both images, restarts, and health-checks with a 60-second window — exiting non-zero and dumping logs if either service fails to come up.
+Backs up the database, pulls `main`, rebuilds both images, restarts, health-checks with a 60-second window, then prunes the dangling image each rebuild leaves behind and any build cache older than 72 hours — exiting non-zero and dumping logs (skipping cleanup) if either service fails to come up, so a broken deploy's state is left intact for debugging.
 
 The frontend rebuild is mandatory, not an optimisation: `NEXT_PUBLIC_*` values are compiled into the browser bundle, so a restart alone keeps serving the old ones.
 
