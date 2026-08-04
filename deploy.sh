@@ -1,52 +1,61 @@
 #!/bin/bash
-set -e
+# Deploy the current main branch. Run from the repo root on the server.
+#
+# Backs the database up first, so a failed migration is recoverable - see
+# docs/DEPLOYMENT.md for the restore procedure.
+set -euo pipefail
 
-echo "=== BestChoice Deployment ==="
+cd "$(dirname "$0")"
 
-# Load env
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-fi
-
-BACKUP_DIR="/backups"
+BACKUP_DIR="${BACKUP_DIR:-/backups}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
-echo "1/6 Backing up database..."
-mkdir -p $BACKUP_DIR
-docker-compose exec -T db pg_dump -U bestchoice bestchoice_db | gzip > $BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz
-echo "  Backup saved: $BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
-
-echo "2/6 Pulling latest code..."
-git pull origin main
-
-echo "3/6 Building images..."
-docker-compose build
-
-echo "4/6 Running migrations..."
-docker-compose run --rm backend python manage.py migrate --noinput
-
-echo "5/6 Collecting static files..."
-docker-compose run --rm backend python manage.py collectstatic --noinput
-
-echo "6/6 Restarting services..."
-docker-compose up -d --remove-orphans
-
-# Health check
-sleep 5
-if curl -sf http://localhost:8000/api/health/ > /dev/null 2>&1; then
-    echo "✅ Backend health check passed"
-else
-    echo "❌ Backend health check failed"
+if [ ! -f .env ]; then
+    echo "ERROR: .env not found. Copy .env.example to .env and fill it in."
     exit 1
 fi
 
-if curl -sf http://localhost:3000/ > /dev/null 2>&1; then
-    echo "✅ Frontend health check passed"
+echo "=== BestChoice deployment ==="
+
+echo "1/5 Backing up the database..."
+mkdir -p "$BACKUP_DIR"
+docker compose exec -T db pg_dump -U bestchoice bestchoice_db | gzip > "$BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
+echo "     saved $BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
+
+echo "2/5 Pulling latest code..."
+git pull origin main
+
+# Rebuilds both images. The frontend rebuild is required, not optional: the
+# NEXT_PUBLIC_* values are compiled into the browser bundle at build time.
+echo "3/5 Building images..."
+docker compose build
+
+# The backend container runs migrate and collectstatic itself on startup.
+echo "4/5 Restarting services..."
+docker compose up -d --remove-orphans
+
+echo "5/5 Health check..."
+for i in $(seq 1 30); do
+    if curl -sf http://127.0.0.1:8000/api/health/ > /dev/null 2>&1; then
+        echo "     backend OK"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "     backend FAILED - recent logs:"
+        docker compose logs --tail=40 backend
+        exit 1
+    fi
+    sleep 2
+done
+
+if curl -sf http://127.0.0.1:3000/ > /dev/null 2>&1; then
+    echo "     frontend OK"
 else
-    echo "❌ Frontend health check failed"
+    echo "     frontend FAILED - recent logs:"
+    docker compose logs --tail=40 frontend
+    exit 1
 fi
 
 echo "=== Deployment complete ==="
 
-# Cleanup old backups (keep 30 days)
-find $BACKUP_DIR -name "bestchoice_*.sql.gz" -mtime +30 -delete
+find "$BACKUP_DIR" -name "bestchoice_*.sql.gz" -mtime +30 -delete
