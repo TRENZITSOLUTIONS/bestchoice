@@ -1,8 +1,15 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils import timezone
 
 from .models import CouponUsage
+
+PAISE = Decimal('0.01')
+
+
+def to_money(value):
+    """Round to paise. Percentage maths yields long tails like 389.7000."""
+    return Decimal(value).quantize(PAISE, rounding=ROUND_HALF_UP)
 
 
 class CouponError(Exception):
@@ -22,7 +29,7 @@ def compute_discount(coupon, subtotal):
             discount = min(discount, coupon.max_discount)
     else:
         discount = coupon.discount_value
-    return min(discount, subtotal)
+    return to_money(min(discount, subtotal))
 
 
 def check_coupon(coupon, subtotal, user=None):
@@ -74,10 +81,19 @@ def release_usage(coupon, user, order):
         coupon.save(update_fields=['used_count'])
 
 
+def _trim(value):
+    """15.00 -> '15', 12.50 -> '12.5' - Decimal's 'g' format keeps the zeros."""
+    trimmed = Decimal(value).normalize()
+    # normalize() turns 1500 into 1.5E+3, so expand any positive exponent back out.
+    if trimmed == trimmed.to_integral_value():
+        return str(trimmed.quantize(Decimal(1)))
+    return str(trimmed)
+
+
 def discount_label(coupon):
     if coupon.discount_type == 'percentage':
-        return f'{coupon.discount_value:g}% off'
-    return f'₹{coupon.discount_value:g} off'
+        return f'{_trim(coupon.discount_value)}% off'
+    return f'₹{_trim(coupon.discount_value)} off'
 
 
 def serialize_coupon(coupon):
