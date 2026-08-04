@@ -4,8 +4,12 @@ from django.core.management.base import BaseCommand, CommandError
 from delivery.models import DeliveryPincode
 
 
-# Default mapping for cities known to support same-day delivery in Chennai
-SAME_DAY_CITIES = {'chennai'}
+# Cities close enough to the Chennai store to get the cheaper 'local' rate.
+# This is a price zone, not a speed - same-day delivery is not offered.
+LOCAL_RATE_CITIES = {'chennai'}
+
+# The shipping policy's stated figure for anywhere in Tamil Nadu.
+TAMIL_NADU_ESTIMATE = '2-4 business days'
 
 # Default store pickup locations
 STORE_PICKUP_CITIES = {'chennai', 'coimbatore', 'madurai'}
@@ -96,12 +100,11 @@ class Command(BaseCommand):
 
                     city_lower = city.lower()
 
-                    if city_lower in SAME_DAY_CITIES:
-                        delivery_type = 'same_day'
-                        days = 'Today'
+                    if city_lower in LOCAL_RATE_CITIES:
+                        delivery_type = 'local'
                     else:
                         delivery_type = 'standard'
-                        days = '2-3 days'
+                    days = TAMIL_NADU_ESTIMATE
 
                     DeliveryPincode.objects.update_or_create(
                         pincode=pincode,

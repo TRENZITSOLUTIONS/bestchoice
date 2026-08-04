@@ -4,7 +4,7 @@ from .models import DeliveryPincode, OutsideStateDeliveryRate
 
 FREE_DELIVERY_THRESHOLD = Decimal('500')
 BASE_CHARGES = {
-    'same_day': Decimal('30'),
+    'local': Decimal('30'),
     'standard': Decimal('80'),
 }
 WEIGHT_SURCHARGE_PER_500G = Decimal('10')

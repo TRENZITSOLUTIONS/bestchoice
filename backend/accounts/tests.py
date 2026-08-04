@@ -63,8 +63,8 @@ class BaseTestCase(TestCase):
         self.pincode = DeliveryPincode.objects.create(
             pincode='600001',
             city='Chennai',
-            delivery_type='same_day',
-            estimated_days_text='Today',
+            delivery_type='local',
+            estimated_days_text='2-4 business days',
             store_pickup_available=True,
         )
 
@@ -624,7 +624,7 @@ class DeliveryTest(BaseTestCase):
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.content) if hasattr(res, 'content') else res.data
         self.assertTrue(data['delivery_available'])
-        self.assertEqual(data['delivery_type'], 'same_day')
+        self.assertEqual(data['delivery_type'], 'local')
 
     def test_check_unavailable_pincode(self):
         res = self.client.get('/api/delivery/check/999999/')

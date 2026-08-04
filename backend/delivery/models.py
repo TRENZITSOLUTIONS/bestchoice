@@ -2,8 +2,11 @@ from django.db import models
 
 
 class DeliveryPincode(models.Model):
+    # These are price zones, not speeds. Same-day delivery is not offered - the
+    # shipping policy quotes 2-4 business days across Tamil Nadu - so 'local'
+    # only means "near the Chennai store, therefore cheaper to deliver to".
     DELIVERY_CHOICES = [
-        ('same_day', 'Same Day'),
+        ('local', 'Local (Chennai metro)'),
         ('standard', 'Standard'),
         ('none', 'Not Available'),
     ]

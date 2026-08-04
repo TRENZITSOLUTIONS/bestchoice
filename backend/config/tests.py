@@ -39,8 +39,8 @@ class StaffApiTestCase(TestCase):
             product=self.product, color='Red', size='M', stock=8,
         )
         DeliveryPincode.objects.create(
-            pincode='600001', city='Chennai', delivery_type='same_day',
-            estimated_days_text='Today',
+            pincode='600001', city='Chennai', delivery_type='local',
+            estimated_days_text='2-4 business days',
         )
 
     def as_staff(self):

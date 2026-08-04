@@ -18,8 +18,8 @@ class TamilNaduAliasTest(TestCase):
 class DeliveryQuoteTest(TestCase):
     def setUp(self):
         self.pincode = DeliveryPincode.objects.create(
-            pincode='600001', city='Chennai', delivery_type='same_day',
-            estimated_days_text='Today', cod_available=True,
+            pincode='600001', city='Chennai', delivery_type='local',
+            estimated_days_text='2-4 business days', cod_available=True,
         )
 
     def test_within_tamil_nadu_known_pincode(self):
@@ -74,7 +74,7 @@ class DeliveryQuoteTest(TestCase):
 class CheckPincodeViewTest(TestCase):
     def setUp(self):
         self.client = APIClient()
-        DeliveryPincode.objects.create(pincode='600001', city='Chennai', delivery_type='same_day')
+        DeliveryPincode.objects.create(pincode='600001', city='Chennai', delivery_type='local')
 
     def test_check_tamil_nadu_pincode(self):
         res = self.client.get('/api/delivery/check/600001/')
