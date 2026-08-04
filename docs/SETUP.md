@@ -2,10 +2,14 @@
 
 ## Prerequisites
 
-- Python 3.9+
-- Node.js 22+
-- PostgreSQL 15+
+- Python 3.9+ (the Docker image and local venv both use 3.9)
+- Node.js 20+ (Next.js 16; the Docker image uses `node:20-alpine`)
+- PostgreSQL 15+ — required, there is no SQLite fallback even for tests
 - Git
+
+Prefer to skip all of this? `docker compose up -d --build` brings the whole stack up
+instead — see [DEPLOYMENT.md](DEPLOYMENT.md). The steps below are for working on the
+code directly, with hot reload.
 
 ## 1. Clone & Install
 
@@ -68,14 +72,24 @@ DB_USER=bestchoice
 DB_PASSWORD=your_password_here
 DB_HOST=localhost
 DB_PORT=5432
+GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
 RAZORPAY_KEY_ID=rzp_test_xxxx
 RAZORPAY_KEY_SECRET=your_razorpay_test_secret
 ```
+
+Leave S3 unset for local work — with `DJANGO_DEBUG=True`, images go to `backend/media/`
+and are served at `/media/`. (Production is the opposite: it refuses to start without a bucket.)
 
 To get Razorpay test keys:
 1. Sign up at https://razorpay.com
 2. Dashboard → Settings → API Keys
 3. Generate test key
+
+To get a Google client ID:
+1. [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Create credentials → OAuth client ID → **Web application**
+3. Add `http://localhost:3000` as an authorized JavaScript origin
+4. Leave authorized redirect URIs empty — this flow never redirects
 
 ### Frontend
 
@@ -88,8 +102,18 @@ Edit `.env.local`:
 
 ```ini
 NEXT_PUBLIC_API_URL=http://localhost:8000/api
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxx
+NEXT_PUBLIC_WHATSAPP_NUMBER=919876543210
 ```
+
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` must be the **same value** as the backend's
+`GOOGLE_OAUTH_CLIENT_ID`, or token verification fails. Leave it empty and
+`/auth/login` shows a "not configured" notice instead of a sign-in button.
+
+Next.js reads `.env.local` at startup and inlines `NEXT_PUBLIC_*` into the bundle —
+`npm run dev` picks up edits automatically, but a production `npm run build` bakes in
+whatever was set at build time. Full reference: [ENVIRONMENT.md](ENVIRONMENT.md).
 
 ## 4. Run Migrations & Seed
 
@@ -104,15 +128,15 @@ python manage.py migrate
 python manage.py seed_categories
 python manage.py seed_pincodes
 
-# Create admin user
+# Create admin user (this is also your /staff/login account)
 python manage.py createsuperuser
 
-# (Optional) Seed sample products
-python manage.py seed_products
-
-# Run tests
+# Run tests - expect 124 passing
 python manage.py test
 ```
+
+There is no sample-product seeder. Add products through Django Admin at
+http://localhost:8000/admin/, or bulk-import a CSV — see [INVENTORY-SETUP.md](INVENTORY-SETUP.md).
 
 ## 5. Start Development Servers
 
@@ -195,8 +219,11 @@ python manage.py import_pincodes --sample
 # Clear and re-import pincodes
 python manage.py import_pincodes path/to/file.csv --clear
 
-# Award birthday bonus (100 points to users whose birthday is today)
+# Award birthday bonus (points to users whose birthday is today) - run daily in prod
 python manage.py give_birthday_bonus
+
+# Expire loyalty points past their 365-day window - run daily in prod
+python manage.py expire_loyalty_points
 
 # Optional: reprocess existing product images (new uploads are processed automatically)
 python manage.py process_images
@@ -293,5 +320,8 @@ isort --check backend/
 ```bash
 cd frontend
 npm run lint
-npm run typecheck
+npx tsc --noEmit
 ```
+
+There is no `typecheck` script — `package.json` defines only `dev`, `build`, `start`, and `lint`.
+Run `npx tsc --noEmit` directly for type checking.

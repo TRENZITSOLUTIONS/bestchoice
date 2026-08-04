@@ -1,489 +1,325 @@
 # Deployment Guide
 
-## Architecture
+How to get BestChoice running on a production server, from a bare Ubuntu box to a live site.
 
-| Service | Recommended Provider | Purpose |
+The repo ships a Docker Compose stack — Postgres, Django, Next.js, and nginx on one host. That is the supported path and what every file in this repo is wired for. [Alternative topologies](#alternative-topologies) at the end covers splitting pieces onto managed services.
+
+**Read [ENVIRONMENT.md](ENVIRONMENT.md) alongside this.** Most failed deploys are a missing or misplaced environment variable, and that file explains each one.
+
+---
+
+## What runs where
+
+```
+                        ┌─────────────── your server ────────────────┐
+                        │                                            │
+  visitor ──── :443 ────┼──▶ nginx ──┬──▶ /api/    ──▶ Django :8000  │
+                        │            │    /admin/                     │
+                        │            │                               │
+                        │            ├──▶ /static/ ──▶ static_volume │
+                        │            │                               │
+                        │            └──▶ /        ──▶ Next.js :3000 │
+                        │                                            │
+                        │                 Django ──▶ Postgres :5432  │
+                        └────────────────────────────────────────────┘
+                                          │
+  product images ◀──── CloudFront ◀────── S3 (outside the server)
+```
+
+Everything is served from **one domain**. `nginx` terminates TLS and routes by path: `/api/` and `/admin/` to Django, everything else to Next.js. There is no `api.` subdomain.
+
+Only nginx binds a public port. Django and Next.js bind to `127.0.0.1` so you can curl them from the host for debugging, but they are not reachable from the internet. Postgres and Redis have no host ports at all.
+
+Product images are **not** served from the server — they go to S3 (optionally fronted by CloudFront). The backend refuses to start in production without a bucket, because Django does not serve local `media/` when `DEBUG=False` and every image would 404 silently. See [ENVIRONMENT.md](ENVIRONMENT.md#image-storage-s3).
+
+---
+
+## Before you start
+
+Have these ready. Each one is a real blocker — the first three stop the stack from starting at all.
+
+| | What | Where to get it |
 |---|---|---|
-| Frontend | Vercel (Pro) | Next.js SSR + static assets |
-| Backend | Railway / AWS EC2 / DigitalOcean | Django API server |
-| Database | AWS RDS / Railway Postgres | PostgreSQL |
-| Cache | Upstash / Redis Cloud | Redis (optional) |
-| Images | AWS S3 + CloudFront | Image storage + CDN |
-| Domain | Cloudflare DNS | DNS, SSL, DDoS protection |
-| Monitoring | Sentry | Error tracking |
-| Email | SendGrid / AWS SES / Mailgun | Transactional emails |
-| Uptime | Better Uptime / UptimeRobot | Health checks |
+| 1 | A domain with an **A record** pointing at the server's IP | Your registrar. DNS must resolve *before* you request certificates. |
+| 2 | An **S3 bucket** + IAM access key | [ENVIRONMENT.md → S3](ENVIRONMENT.md#image-storage-s3) |
+| 3 | A **Google OAuth client ID** | [ENVIRONMENT.md → Google sign-in](ENVIRONMENT.md#google-sign-in). Customers cannot log in without it. |
+| 4 | **Razorpay** key id + secret | [ENVIRONMENT.md → Payments](ENVIRONMENT.md#payments-razorpay). Needed to take money; the site otherwise works. |
+| 5 | An **SMTP** host, user, password | Optional. Without it, order emails are silently skipped. |
 
-## Prerequisites
-
-1. Domain name (e.g., `bestchoice.in`)
-2. Cloudflare account (DNS management)
-3. Razorpay live account (KYC completed)
-4. AWS account (S3 + CloudFront)
-5. Vercel account (frontend hosting)
-6. Railway / EC2 account (backend hosting)
+Server: 2 vCPU / 4 GB RAM is comfortable for launch. 1 GB is not — the Next.js build alone will OOM.
 
 ---
 
-## 1. Backend Setup
-
-### Server Requirements
-
-- Ubuntu 22.04+
-- Python 3.9+
-- PostgreSQL 15+
-- Nginx
-- Supervisor or systemd
-
-### Steps
+## 1. Prepare the server
 
 ```bash
-# Install system dependencies
-sudo apt update
-sudo apt install -y python3.9 python3.9-venv python3-dev libpq-dev nginx supervisor
-
-# Create deploy user
-sudo adduser --disabled-password deploy
-sudo usermod -aG sudo deploy
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io docker-compose-v2 git
+sudo systemctl enable --now docker
 ```
 
-### Deploy Script
-
-Create `/opt/bestchoice/deploy.sh`:
+Let your user run Docker without sudo (log out and back in for it to take effect):
 
 ```bash
-#!/bin/bash
-set -e
-
-cd /opt/bestchoice/backend
-
-# Activate venv
-source venv/bin/activate
-
-# Pull latest
-git pull origin main
-
-# Install deps
-pip install -r requirements.txt
-
-# Migrate DB
-python manage.py migrate
-
-# Collect static
-python manage.py collectstatic --noinput
-
-# Restart services
-sudo supervisorctl restart bestchoice-gunicorn
-sudo systemctl reload nginx
-
-# Health check
-sleep 3
-curl -f http://localhost:8000/admin/ || exit 1
-echo "Deploy successful"
+sudo usermod -aG docker "$USER"
 ```
 
-### Gunicorn Config
-
-Create `/etc/supervisor/conf.d/bestchoice.conf`:
-
-```
-[program:bestchoice-gunicorn]
-directory=/opt/bestchoice/backend
-command=/opt/bestchoice/backend/venv/bin/gunicorn config.wsgi:application \
-    --workers 4 \
-    --worker-class sync \
-    --bind 127.0.0.1:8000 \
-    --timeout 120 \
-    --access-logfile /var/log/bestchoice/access.log \
-    --error-logfile /var/log/bestchoice/error.log
-user=deploy
-autostart=true
-autorestart=true
-stopwaitsecs=30
-environment=
-    DJANGO_SETTINGS_MODULE="config.settings",
-    DJANGO_SECRET_KEY="<secret>",
-    DJANGO_DEBUG="False",
-    DJANGO_ALLOWED_HOSTS="api.bestchoice.in,localhost",
-    DB_NAME="bestchoice",
-    DB_USER="bestchoice",
-    DB_PASSWORD="<password>",
-    DB_HOST="<rds-endpoint>",
-    DB_PORT="5432",
-    RAZORPAY_KEY_ID="rzp_live_xxxx",
-    RAZORPAY_KEY_SECRET="<secret>",
-    AWS_ACCESS_KEY_ID="<key>",
-    AWS_SECRET_ACCESS_KEY="<secret>",
-    AWS_STORAGE_BUCKET_NAME="bestchoice-images",
-    AWS_CLOUDFRONT_DOMAIN="https://dxxx.cloudfront.net",
-    CORS_ALLOWED_ORIGINS="https://bestchoice.in,https://www.bestchoice.in"
-```
-
-`AWS_STORAGE_BUCKET_NAME` is not optional here — with `DJANGO_DEBUG=False`, Django refuses to start at all without it (`config/settings.py`, checked via `ImproperlyConfigured`). Local `media/` storage is only ever served through the `/media/` URL in `DEBUG` mode, so without S3 those image URLs would silently 404 in production — this fails fast at startup instead.
-
-### Nginx Config
-
-Create `/etc/nginx/sites-available/bestchoice`:
-
-```nginx
-server {
-    listen 80;
-    server_name api.bestchoice.in;
-
-    location /static/ {
-        alias /opt/bestchoice/backend/staticfiles/;
-        expires 365d;
-        add_header Cache-Control "public, immutable";
-    }
-
-    location /media/ {
-        alias /opt/bestchoice/backend/media/;
-        expires 365d;
-        add_header Cache-Control "public, immutable";
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 120s;
-    }
-}
-
-# Redirect www
-server {
-    listen 80;
-    server_name www.api.bestchoice.in;
-    return 301 $scheme://api.bestchoice.in$request_uri;
-}
-```
+Allow only SSH and web traffic:
 
 ```bash
-# Enable site
-sudo ln -s /etc/nginx/sites-available/bestchoice /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### SSL via Let's Encrypt
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.bestchoice.in
-# Auto-renewal is configured automatically
+sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw --force enable
 ```
 
 ---
 
-## 2. Frontend Setup (Vercel)
+## 2. Get the code and configure it
 
-### Build Configuration
+```bash
+git clone <your-repo-url> bestchoice && cd bestchoice
+```
 
-Vercel auto-detects Next.js. Set these environment variables in Vercel dashboard:
+```bash
+cp .env.example .env
+```
 
-| Variable | Value |
+Now edit `.env`. Every variable is documented inline there and in detail in [ENVIRONMENT.md](ENVIRONMENT.md). At minimum you must set `DOMAIN`, `DJANGO_SECRET_KEY`, `DB_PASSWORD`, the three `AWS_*` values, and `GOOGLE_OAUTH_CLIENT_ID` — Compose refuses to start without the secret key, DB password, and bucket name.
+
+Generate the secret key:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+```
+
+Check your values resolve the way you expect before building anything:
+
+```bash
+docker compose config | grep -E "DJANGO_ALLOWED_HOSTS|CORS_ALLOWED|NEXT_PUBLIC_API_URL|DOMAIN"
+```
+
+---
+
+## 3. Get a TLS certificate
+
+nginx will not start without a certificate at the path it expects, and Certbot cannot validate a domain that nothing is answering on. Break the circle by serving the ACME challenge from a throwaway container first.
+
+```bash
+mkdir -p certbot/conf certbot/www
+```
+
+```bash
+docker run --rm -p 80:80 -v "$PWD/certbot/conf:/etc/letsencrypt" -v "$PWD/certbot/www:/var/www/certbot" certbot/certbot certonly --standalone -d "$DOMAIN" -d "www.$DOMAIN" --email you@example.com --agree-tos --no-eff-email
+```
+
+Replace `$DOMAIN` and the email with real values. Add `--dry-run` first if you want to rehearse — Let's Encrypt rate-limits failed attempts on a real domain.
+
+This writes to `certbot/conf/live/<domain>/`, which nginx mounts read-only. The `certbot` service in the compose stack renews it every 12 hours from then on.
+
+---
+
+## 4. Start the stack
+
+```bash
+docker compose up -d --build
+```
+
+First run takes a few minutes — it builds two images and the Next.js production bundle. The backend container migrates the database and runs `collectstatic` on startup, so there is no separate migration step.
+
+Create your admin login:
+
+```bash
+docker compose run --rm backend python manage.py createsuperuser
+```
+
+Seed the category tree (the 5 top-level categories and 38 subcategories from the client brief — idempotent, safe to re-run):
+
+```bash
+docker compose run --rm backend python manage.py seed_categories
+```
+
+---
+
+## 5. Verify it actually works
+
+Don't trust "containers are up". Check each layer.
+
+All five services `running`:
+
+```bash
+docker compose ps
+```
+
+Backend healthy:
+
+```bash
+curl -sf http://127.0.0.1:8000/api/health/ && echo OK
+```
+
+Site reachable over HTTPS with a valid certificate:
+
+```bash
+curl -sSI "https://$DOMAIN" | head -1
+```
+
+Google sign-in wired up — this must return `400 credential is required`. A `503` means `GOOGLE_OAUTH_CLIENT_ID` did not reach the backend:
+
+```bash
+curl -s -X POST "https://$DOMAIN/api/auth/google/" -H 'Content-Type: application/json' -d '{}'
+```
+
+The frontend bundle points at your domain, not `localhost` — the single most common broken deploy:
+
+```bash
+docker compose exec frontend sh -c "grep -rhoE 'https?://[a-zA-Z0-9._:-]+/api' .next/static | sort -u"
+```
+
+Then in a browser: load the storefront, open `/auth/login` and confirm a real Google button renders (not the "isn't configured" notice), sign in, and check `/admin/` accepts your superuser.
+
+---
+
+## 6. Razorpay webhook
+
+In the Razorpay dashboard, *Settings → Webhooks → Add New Webhook*:
+
+- URL `https://<your-domain>/api/payment/webhook/`
+- Events: `payment.captured`, `payment.failed`
+- Set a secret, and put the same value in `.env` as `RAZORPAY_WEBHOOK_SECRET`
+
+Then `docker compose up -d backend` to pick it up. Signatures are verified and handling is idempotent, so a replayed webhook will not double-credit an order.
+
+---
+
+## 7. Automate backups
+
+`backup-db.sh` dumps Postgres, gzips it, uploads to S3 if credentials are present, and prunes copies older than 30 days.
+
+```bash
+sudo mkdir -p /backups && sudo chown "$USER" /backups
+```
+
+```bash
+(crontab -l 2>/dev/null; echo "0 2 * * * cd $PWD && ./backup-db.sh >> /var/log/bestchoice-backup.log 2>&1") | crontab -
+```
+
+Run it once by hand to confirm it works before relying on the schedule:
+
+```bash
+./backup-db.sh
+```
+
+If you skip the S3 upload, the backups live only on the machine they are protecting — losing the host loses the history with it.
+
+---
+
+## Routine operations
+
+### Deploy a new version
+
+```bash
+./deploy.sh
+```
+
+Backs up the database, pulls `main`, rebuilds both images, restarts, and health-checks with a 60-second window — exiting non-zero and dumping logs if either service fails to come up.
+
+The frontend rebuild is mandatory, not an optimisation: `NEXT_PUBLIC_*` values are compiled into the browser bundle, so a restart alone keeps serving the old ones.
+
+### Logs
+
+```bash
+docker compose logs -f backend
+```
+
+### Django shell
+
+```bash
+docker compose run --rm backend python manage.py shell
+```
+
+### Scheduled maintenance commands
+
+Three commands are meant to run on a schedule. None of them are wired into cron by default — set them up if you rely on the behaviour:
+
+```bash
+docker compose run --rm backend python manage.py expire_loyalty_points
+```
+
+Expires points past their 365-day window. Without it, points never actually expire and the balance drifts from what the rules promise. Daily is fine.
+
+```bash
+docker compose run --rm backend python manage.py give_birthday_bonus
+```
+
+Awards birthday bonus points. Must run daily to catch each day's birthdays.
+
+```bash
+docker compose run --rm backend python manage.py process_images
+```
+
+Regenerates the WebP thumbnail/small/medium/large variants. Only needed as a one-off backfill after bulk-importing products whose images skipped the upload pipeline.
+
+Two more are one-offs rather than scheduled: `seed_pincodes` and `import_pincodes` populate Tamil Nadu delivery pincodes — see [DELIVERY.md](DELIVERY.md).
+
+### Restore a backup
+
+**Destructive** — this drops the live database. Take a fresh dump first if there is anything in there you might still want.
+
+Stop the backend so nothing holds a connection open (an open connection blocks `DROP DATABASE`):
+
+```bash
+docker compose stop backend
+```
+
+Recreate the database, then load the dump:
+
+```bash
+docker compose exec -T db psql -U bestchoice -d postgres -c "DROP DATABASE IF EXISTS bestchoice_db;" -c "CREATE DATABASE bestchoice_db OWNER bestchoice;"
+```
+
+```bash
+gunzip -c /backups/bestchoice_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T db psql -U bestchoice -d bestchoice_db
+```
+
+```bash
+docker compose start backend
+```
+
+### Change an environment variable
+
+```bash
+docker compose up -d --build
+```
+
+Editing `.env` requires a `--build` if you touched anything that feeds a `NEXT_PUBLIC_*` build arg (`DOMAIN`, `GOOGLE_OAUTH_CLIENT_ID`, `RAZORPAY_KEY_ID`, `WHATSAPP_NUMBER`). Backend-only values need just a restart, but `--build` is always safe.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | `https://api.bestchoice.in/api` |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | `rzp_live_xxxx` |
+| Backend exits immediately, `ImproperlyConfigured: AWS_STORAGE_BUCKET_NAME must be set` | Working as designed — set a real bucket. Django will not serve local `media/` in production, so images would 404 silently. |
+| `POST /api/auth/google/` returns `503` | `GOOGLE_OAUTH_CLIENT_ID` missing from `.env`. Nobody can log in. |
+| Google button shows "isn't configured yet" | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` was not baked in. Rebuild: `docker compose up -d --build frontend`. |
+| Site loads, every API call fails | The bundle has the wrong API URL — check with the bundle-grep above — or the browser's origin is not in `CORS_ALLOWED_ORIGINS`. |
+| `400 Bad Request` on every page | Host header not in `DJANGO_ALLOWED_HOSTS`. Driven by `DOMAIN`. |
+| nginx won't start, "cannot load certificate" | Step 3 did not complete, or `DOMAIN` doesn't match the certificate directory name under `certbot/conf/live/`. |
+| Payment popup opens then errors | Razorpay keys are placeholders or test keys against a live account. |
+| Order emails never arrive | Email is sent `fail_silently=True`. Check `EMAIL_HOST`, and note `EMAIL_USE_TLS` is case-sensitive — `true` is not `True`. |
+| Frontend build killed during deploy | Out of memory. Needs ~2 GB; add swap or a bigger instance. |
 
-### `vercel.json`
-
-```json
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "framework": "nextjs",
-  "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "/api/sitemap"
-    }
-  ]
-}
-```
-
-### Custom Domain
-
-1. Go to Vercel dashboard → Project → Domains
-2. Add `bestchoice.in` and `www.bestchoice.in`
-3. Update Cloudflare DNS:
-   - Type: CNAME
-   - Name: @
-   - Target: `cname.vercel-dns.com`
-   - Proxy: DNS only (orange cloud off)
-
----
-
-## 3. Database (AWS RDS)
+To see what the backend actually loaded:
 
 ```bash
-# Create PostgreSQL instance
-aws rds create-db-instance \
-    --db-instance-identifier bestchoice-db \
-    --db-instance-class db.t3.micro \
-    --engine postgres \
-    --master-username bestchoice \
-    --master-user-password <password> \
-    --allocated-storage 20 \
-    --vpc-security-group-ids sg-xxxx
-
-# Allow backend server access
-# Add security group rule: PostgreSQL (5432) from backend server IP
-```
-
-### Backup
-
-```bash
-# Automated daily backup via cron
-0 3 * * * pg_dump -h <rds-endpoint> -U bestchoice bestchoice | gzip > /backups/bestchoice_$(date +\%Y\%m\%d).sql.gz
-
-# Retention: keep last 30 days
-0 4 * * * find /backups -name "bestchoice_*.sql.gz" -mtime +30 -delete
+docker compose exec backend python manage.py shell -c "from django.conf import settings; print('DEBUG', settings.DEBUG); print('HOSTS', settings.ALLOWED_HOSTS); print('BUCKET', repr(settings.AWS_STORAGE_BUCKET_NAME)); print('GOOGLE', bool(settings.GOOGLE_OAUTH_CLIENT_ID))"
 ```
 
 ---
 
-## 4. S3 + CloudFront
+## Alternative topologies
 
-### S3 Bucket
+The single-host stack is the supported path. Common variations, and what changes:
 
-```bash
-# Create bucket (must be globally unique)
-aws s3api create-bucket \
-    --bucket bestchoice-images \
-    --region ap-south-1 \
-    --create-bucket-configuration LocationConstraint=ap-south-1
+**Managed Postgres (RDS, Neon, Supabase).** Drop the `db` service, point `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` at the managed instance, and remove the `depends_on: db` condition from `backend`. You get automated backups and point-in-time recovery, and `backup-db.sh` becomes redundant.
 
-# Block public access (CloudFront handles access)
-aws s3api put-public-access-block \
-    --bucket bestchoice-images \
-    --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+**Frontend on Vercel.** Deploy `frontend/` as its own Vercel project with root directory `frontend`. Set the `NEXT_PUBLIC_*` values in Vercel's dashboard, not `.env`. Then drop the `frontend` service and its nginx `location /` block, and point DNS at Vercel with the backend on an `api.` subdomain — which means adding an `api.` server block to the nginx template and putting both origins in `CORS_ALLOWED_ORIGINS`. You gain a global CDN and preview deploys; you lose the single-domain setup this repo is wired for.
 
-# CORS config
-aws s3api put-bucket-cors \
-    --bucket bestchoice-images \
-    --cors-configuration '{
-        "CORSRules": [{
-            "AllowedOrigins": ["https://bestchoice.in", "https://www.bestchoice.in"],
-            "AllowedMethods": ["GET"],
-            "AllowedHeaders": ["*"],
-            "MaxAgeSeconds": 3600
-        }]
-    }'
-```
-
-### CloudFront Distribution
-
-```bash
-# Create CloudFront distribution pointing to S3 bucket
-aws cloudfront create-distribution \
-    --origin-domain-name bestchoice-images.s3.ap-south-1.amazonaws.com \
-    --default-root-object index.html
-
-# Add CNAME: cdn.bestchoice.in
-# SSL: Request ACM certificate for *.bestchoice.in (us-east-1)
-# Price class: Asia Only (to reduce cost)
-```
-
-### IAM User for Django
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::bestchoice-images", "arn:aws:s3:::bestchoice-images/*"]
-    }
-  ]
-}
-```
-
----
-
-## 5. Email Configuration
-
-Set these env vars in production:
-
-```bash
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.sendgrid.net
-EMAIL_PORT=587
-EMAIL_HOST_USER=apikey
-EMAIL_HOST_PASSWORD=<sendgrid-api-key>
-EMAIL_USE_TLS=True
-DEFAULT_FROM_EMAIL=noreply@bestchoice.in
-```
-
-Dev uses console backend (prints to terminal).
-
-## 6. Image Processing
-
-Automatic on upload — no deploy-time step needed. `python manage.py process_images` is only for backfilling/reprocessing existing images (e.g. after changing compression settings). Works with S3/CloudFront or local storage either way.
-
-## 7. Birthday Bonus Automation
-
-Run daily via cron:
-
-```bash
-0 8 * * * cd /app && python manage.py give_birthday_bonus
-```
-
-## 8. Monitoring
-
-### Health Check Endpoint
-
-Backend exposes `/api/health/` — returns `{"status": "ok"}`.
-
-### Sentry
-
-```python
-# Add to requirements.txt
-sentry-sdk==2.0.0
-
-# Add to settings.py
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-
-sentry_sdk.init(
-    dsn=os.environ.get('SENTRY_DSN', ''),
-    integrations=[DjangoIntegration()],
-    traces_sample_rate=0.1,
-    send_default_p2p=True,
-)
-```
-
-### Uptime Checks
-
-- Endpoint: `https://api.bestchoice.in/api/health/`
-- Expected: HTTP 200, JSON `{"status": "ok"}`
-- Alert via: Email + Slack
-
----
-
-## 6. CI/CD (GitHub Actions)
-
-Create `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  test-backend:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-      - run: pip install -r backend/requirements.txt
-      - run: python manage.py test
-        env:
-          DJANGO_SETTINGS_MODULE: config.settings
-          DB_NAME: test_db
-          DB_USER: test
-          DB_PASSWORD: test
-          DB_HOST: localhost
-          DB_PORT: 5432
-        working-directory: backend
-
-  test-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
-        working-directory: frontend
-
-  deploy-backend:
-    needs: [test-backend, test-frontend]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: /opt/bestchoice/deploy.sh
-
-  deploy-frontend:
-    needs: [test-backend, test-frontend]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-```
-
----
-
-## 7. Post-Deploy Checklist
-
-- [ ] Backend health check returns 200
-- [ ] Frontend loads without CORS errors
-- [ ] Razorpay test payment completes (use test card `4111 1111 1111 1111`)
-- [ ] Admin dashboard accessible
-- [ ] S3 image upload works
-- [ ] CloudFront URLs resolve
-- [ ] SSL certificates valid
-- [ ] Scheduled DB backup runs
-- [ ] Sentry reports no errors
-- [ ] DNS propagation complete (check with `dig`)
-
-## Production Settings
-
-Add these to `settings.py` for production:
-
-```python
-# Security
-SECURE_SSL_REDIRECT = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-
-# Whitenoise for static files
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-```
-
-Add to `requirements.txt`:
-
-```
-gunicorn==22.0.0
-whitenoise==6.6.0
-sentry-sdk==2.0.0
-django-redis==5.4.0
-redis==5.0.0
-```
+**Redis.** The compose stack runs Redis 7, but no application code uses it — no cache backend, no Celery broker. It is there for future caching or background jobs. Removing the service today changes nothing.
