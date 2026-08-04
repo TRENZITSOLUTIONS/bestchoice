@@ -686,3 +686,50 @@ class AdminEndpointPermissionTest(BaseTestCase):
         for method, url, payload in self._endpoints():
             res = getattr(self.client, method)(url, payload, format='json')
             self.assertNotIn(res.status_code, (401, 403), f'{url} rejected a staff user')
+
+
+class OrderConfirmationEmailTest(BaseTestCase):
+    """The confirmation email is sent after the order is marked paid, so a
+    failure in it must never surface as an error to the caller.
+
+    The `notifications` app was missing from INSTALLED_APPS, so its template
+    was unreachable and render_to_string raised TemplateDoesNotExist right
+    after payment succeeded.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.auth()
+        self._mock_razorpay = mock.patch('orders.views.client.order.create',
+                                         return_value={'id': 'rzp_test_order_123'})
+        self._mock_razorpay.start()
+        self.addCleanup(self._mock_razorpay.stop)
+
+    def _order(self):
+        self.add_cart_item()
+        res = self.checkout()
+        self.assertEqual(res.status_code, 201, res.data)
+        from orders.models import Order
+        return Order.objects.get(order_id=res.data['order_id'])
+
+    def test_template_is_reachable(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('notifications/order_confirmation.html', {
+            'order': self._order(), 'items': [], 'subtotal': 0,
+            'discount': 0, 'delivery_charge': 0, 'total': 0,
+        })
+        self.assertIn('<', html)
+
+    def test_sends_without_raising(self):
+        from django.core import mail
+        from notifications.utils import send_order_confirmation
+        send_order_confirmation(self._order())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Order Confirmed', mail.outbox[0].subject)
+
+    def test_swallows_failures_instead_of_raising(self):
+        from notifications.utils import send_order_confirmation
+        order = self._order()
+        with mock.patch('notifications.utils.render_to_string',
+                        side_effect=RuntimeError('boom')):
+            send_order_confirmation(order)  # must not propagate
