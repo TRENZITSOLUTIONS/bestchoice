@@ -266,3 +266,122 @@ class ProductFilterTest(TestCase):
         names = self._names(res)
         self.assertIn('Fast Charger', names)
         self.assertNotIn('Cotton Slim Shirt', names)
+
+
+class VariantSkuTest(TestCase):
+    """SKU generation must cover every variant axis a category actually uses.
+
+    It used to build the suffix from colour and size only, so all shades of a
+    cosmetic became '<id>-NA-NA' and the second one violated the unique
+    constraint - meaning no cosmetic could stock more than one shade.
+    """
+
+    def setUp(self):
+        self.cat = Category.objects.create(name='Makeup', slug='makeup')
+        self.product = Product.objects.create(
+            name='Lipstick', slug='lipstick', category=self.cat, mrp=599, selling_price=399,
+        )
+
+    def test_multiple_shades_get_distinct_skus(self):
+        a = ProductVariant.objects.create(product=self.product, shade='Rustic Red', stock=5)
+        b = ProductVariant.objects.create(product=self.product, shade='Nude Beige', stock=5)
+        c = ProductVariant.objects.create(product=self.product, shade='Berry Wine', stock=5)
+
+        self.assertEqual(len({a.sku, b.sku, c.sku}), 3)
+        self.assertIn('RUSTIC_RED', a.sku)
+        self.assertIn('NUDE_BEIGE', b.sku)
+
+    def test_shade_and_volume_both_appear(self):
+        v = ProductVariant.objects.create(product=self.product, shade='Ivory', volume='30ml', stock=5)
+        self.assertIn('IVORY', v.sku)
+        self.assertIn('30ML', v.sku)
+
+    def test_colour_and_size_still_work_for_clothing(self):
+        shirt_cat = Category.objects.create(name='Shirts', slug='shirts')
+        shirt = Product.objects.create(name='Shirt', slug='shirt', category=shirt_cat,
+                                       mrp=999, selling_price=699)
+        v = ProductVariant.objects.create(product=shirt, color='Navy', size='M', stock=5)
+        self.assertTrue(v.sku.endswith('-NAVY-M'), v.sku)
+
+    def test_variant_with_no_axes_gets_a_stable_placeholder(self):
+        v = ProductVariant.objects.create(product=self.product, stock=5)
+        self.assertTrue(v.sku.endswith('-STD'), v.sku)
+
+    def test_identical_axes_disambiguate_rather_than_crash(self):
+        a = ProductVariant.objects.create(product=self.product, shade='Red', stock=1)
+        b = ProductVariant.objects.create(product=self.product, shade='Red', stock=1)
+        self.assertNotEqual(a.sku, b.sku)
+        self.assertTrue(b.sku.endswith('-2'), b.sku)
+
+    def test_explicit_sku_is_never_overwritten(self):
+        v = ProductVariant.objects.create(product=self.product, shade='Red',
+                                          sku='MANUAL-SKU-1', stock=1)
+        self.assertEqual(v.sku, 'MANUAL-SKU-1')
+
+
+class CategoryFilterTest(TestCase):
+    """The storefront's main nav links to top-level category slugs.
+
+    Filtering was an exact match on category__slug, but products are filed
+    under subcategories - so every one of the five main nav links returned
+    zero products.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.mens = Category.objects.create(name="Men's Wear", slug='mens-wear')
+        self.shirts = Category.objects.create(name='Shirts', slug='shirts', parent=self.mens)
+        self.tees = Category.objects.create(name='T-Shirts', slug='t-shirts', parent=self.mens)
+        self.cosmetics = Category.objects.create(name='Cosmetics', slug='cosmetics')
+        self.makeup = Category.objects.create(name='Makeup', slug='makeup', parent=self.cosmetics)
+
+        for cat, name in [(self.shirts, 'Oxford Shirt'), (self.tees, 'Crew Tee'),
+                          (self.makeup, 'Lipstick')]:
+            p = Product.objects.create(name=name, slug=name.lower().replace(' ', '-'),
+                                       category=cat, mrp=999, selling_price=699)
+            ProductVariant.objects.create(product=p, color='Black', size='M', stock=5)
+
+    def count(self, query):
+        res = self.client.get(f'/api/products/?{query}')
+        self.assertEqual(res.status_code, 200)
+        return res.data['count']
+
+    def test_top_level_category_includes_subcategory_products(self):
+        self.assertEqual(self.count('category=mens-wear'), 2)
+        self.assertEqual(self.count('category=cosmetics'), 1)
+
+    def test_subcategory_still_filters_precisely(self):
+        self.assertEqual(self.count('category=shirts'), 1)
+        self.assertEqual(self.count('category=makeup'), 1)
+
+    def test_legacy_category_slug_param_still_accepted(self):
+        self.assertEqual(self.count('category__slug=mens-wear'), 2)
+
+    def test_unknown_category_returns_nothing_rather_than_everything(self):
+        self.assertEqual(self.count('category=does-not-exist'), 0)
+
+    def test_no_category_param_returns_all(self):
+        self.assertEqual(self.count(''), 3)
+
+
+class PageSizeTest(TestCase):
+    """?page_size= was silently ignored, capping the sitemap at 20 products."""
+
+    def setUp(self):
+        self.client = APIClient()
+        cat = Category.objects.create(name='Shirts', slug='shirts')
+        for i in range(25):
+            Product.objects.create(name=f'Shirt {i}', slug=f'shirt-{i}',
+                                   category=cat, mrp=999, selling_price=699, total_stock=3)
+
+    def test_page_size_is_honoured(self):
+        res = self.client.get('/api/products/?page_size=25')
+        self.assertEqual(len(res.data['results']), 25)
+
+    def test_default_page_size_still_applies(self):
+        res = self.client.get('/api/products/')
+        self.assertEqual(len(res.data['results']), 20)
+
+    def test_oversized_request_is_clamped(self):
+        res = self.client.get('/api/products/?page_size=100000')
+        self.assertLessEqual(len(res.data['results']), 500)

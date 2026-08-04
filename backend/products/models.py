@@ -221,11 +221,32 @@ class ProductVariant(models.Model):
     class Meta:
         ordering = ['color', 'size']
 
+    def build_sku(self):
+        """Derive a SKU from whichever variant axes this product actually uses.
+
+        Clothing varies by colour + size, cosmetics by shade + volume. Building
+        the suffix from only colour and size meant every shade of a lipstick
+        collapsed to the same '<id>-NA-NA' SKU and tripped the unique
+        constraint, so a cosmetic could never have more than one shade. Falls
+        back to a counter if two variants still collide.
+        """
+        def part(value):
+            return value.upper().replace(' ', '_') if value else ''
+
+        axes = [part(self.color), part(self.size), part(self.shade), part(self.volume)]
+        suffix = '-'.join(a for a in axes if a) or 'STD'
+        base = f'{self.product.auto_product_id}-{suffix}'
+
+        candidate, n = base, 2
+        taken = ProductVariant.objects.exclude(pk=self.pk)
+        while taken.filter(sku=candidate).exists():
+            candidate = f'{base}-{n}'
+            n += 1
+        return candidate
+
     def save(self, *args, **kwargs):
         if not self.sku:
-            color_part = self.color.upper().replace(' ', '_') if self.color else 'NA'
-            size_part = self.size.upper().replace(' ', '_') if self.size else 'NA'
-            self.sku = f'{self.product.auto_product_id}-{color_part}-{size_part}'
+            self.sku = self.build_sku()
         super().save(*args, **kwargs)
         self.product.sync_total_stock()
 
