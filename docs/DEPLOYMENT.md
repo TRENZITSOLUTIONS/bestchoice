@@ -222,6 +222,22 @@ Backs up the database, pulls `main`, rebuilds both images, restarts, and health-
 
 The frontend rebuild is mandatory, not an optimisation: `NEXT_PUBLIC_*` values are compiled into the browser bundle, so a restart alone keeps serving the old ones.
 
+### Automatic deployment on push
+
+`.github/workflows/deploy.yml` runs `deploy.sh` on the server over SSH every time `main` is pushed. Set these three repository secrets once (**Settings → Secrets and variables → Actions**):
+
+| Secret | Value |
+|---|---|
+| `SSH_HOST` | The server's hostname or IP |
+| `SSH_USER` | `ubuntu` |
+| `SSH_PRIVATE_KEY` | The full contents of the `.pem` key that can SSH in |
+
+`gh secret set SSH_PRIVATE_KEY < path/to/key.pem` sets one from a file without ever pasting the key into a terminal argument or a chat.
+
+A raw IP in `SSH_HOST` goes stale if the instance stops and starts without an Elastic IP attached — prefer the domain once DNS points at the server, or attach an Elastic IP so the address never changes.
+
+Only one deploy runs at a time (`concurrency: production-deploy`); a push that lands mid-deploy queues instead of racing the one in progress. Trigger a redeploy without a new commit from the **Actions** tab → *Deploy to production* → **Run workflow**. Logs live there, not just in the SSH session that happened to run it.
+
 ### Logs
 
 ```bash

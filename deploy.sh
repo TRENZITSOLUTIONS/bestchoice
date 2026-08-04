@@ -35,8 +35,11 @@ echo "4/5 Restarting services..."
 docker compose up -d --remove-orphans
 
 echo "5/5 Health check..."
+# localhost, not 127.0.0.1: curl sets the Host header to whatever's in the URL,
+# and Django's ALLOWED_HOSTS only lists "localhost" - hitting the raw loopback
+# IP directly gets a 400 even though the container is perfectly healthy.
 for i in $(seq 1 30); do
-    if curl -sf http://127.0.0.1:8000/api/health/ > /dev/null 2>&1; then
+    if curl -sf http://localhost:8000/api/health/ > /dev/null 2>&1; then
         echo "     backend OK"
         break
     fi
@@ -48,7 +51,7 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-if curl -sf http://127.0.0.1:3000/ > /dev/null 2>&1; then
+if curl -sf http://localhost:3000/ > /dev/null 2>&1; then
     echo "     frontend OK"
 else
     echo "     frontend FAILED - recent logs:"
