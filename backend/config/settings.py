@@ -128,7 +128,11 @@ AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '')
 AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'ap-south-1')
 AWS_CLOUDFRONT_DOMAIN = os.environ.get('AWS_CLOUDFRONT_DOMAIN', '')
 AWS_S3_CUSTOM_DOMAIN = AWS_CLOUDFRONT_DOMAIN.replace('https://', '') if AWS_CLOUDFRONT_DOMAIN else None
-AWS_DEFAULT_ACL = 'public-read'
+# Buckets created since ~2023 default to "Bucket owner enforced" ownership,
+# which disables ACLs outright - setting one on upload (the old 'public-read'
+# default) makes every PutObject fail with AccessControlListNotSupported.
+# Public read now has to come from a bucket policy instead; see docs/ENVIRONMENT.md.
+AWS_DEFAULT_ACL = None
 AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 AWS_QUERYSTRING_AUTH = False
 

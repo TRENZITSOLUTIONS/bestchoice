@@ -67,6 +67,32 @@ PostgreSQL only — there is no SQLite fallback, including for tests. Tests crea
 
 With no bucket set and `DEBUG=True`, uploads go to local `media/` and are served at `/media/` — fine for development.
 
+**Object ownership and public read.** Buckets created since ~April 2023 default
+to *Bucket owner enforced* ownership, which disables ACLs outright. The app
+never sets a per-object ACL (`AWS_DEFAULT_ACL = None`) — product images need to
+be public, so grant that with a bucket policy instead:
+
+1. Bucket → **Permissions** → *Block public access* → uncheck the two
+   "...bucket policies" boxes (leave ACL-related ones checked; you have no ACLs).
+2. **Bucket policy** → paste, replacing the bucket name:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Principal": "*",
+       "Action": "s3:GetObject",
+       "Resource": "arn:aws:s3:::your-bucket-name/*"
+     }]
+   }
+   ```
+
+**Credentials.** Leave `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` blank when
+running on EC2 with an IAM instance role attached — boto3 only calls
+`session.set_credentials()` when both are truthy, so an empty string correctly
+falls through to the instance's role via the metadata service. Only fill them
+in when running somewhere without an attachable role (local dev, a non-AWS host).
+
 ### Google sign-in
 
 | Variable | Default | Required | Notes |
