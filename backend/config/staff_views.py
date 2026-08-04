@@ -440,6 +440,34 @@ def delivery_rates(request):
     })
 
 
+@api_view(['PATCH'])
+@permission_classes([IsAdminUser])
+def update_tamil_nadu_rate(request):
+    from delivery.models import TamilNaduDeliveryRate
+
+    from .staff_serializers import TamilNaduDeliveryRateWriteSerializer
+
+    config = TamilNaduDeliveryRate.get_config()
+    serializer = TamilNaduDeliveryRateWriteSerializer(config, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminUser])
+def update_outside_state_rate(request):
+    from delivery.models import OutsideStateDeliveryRate
+
+    from .staff_serializers import OutsideStateDeliveryRateWriteSerializer
+
+    config = OutsideStateDeliveryRate.get_config()
+    serializer = OutsideStateDeliveryRateWriteSerializer(config, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def pincode_list(request):

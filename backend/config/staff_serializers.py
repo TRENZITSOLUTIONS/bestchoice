@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from coupons.models import Coupon
+from delivery.models import OutsideStateDeliveryRate, TamilNaduDeliveryRate
 
 
 class CouponWriteSerializer(serializers.ModelSerializer):
@@ -39,3 +40,49 @@ class CouponWriteSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+
+class _NonNegativeMixin:
+    def _reject_negative(self, value, label):
+        if value < 0:
+            raise serializers.ValidationError(f'{label} cannot be negative.')
+        return value
+
+
+class TamilNaduDeliveryRateWriteSerializer(_NonNegativeMixin, serializers.ModelSerializer):
+    class Meta:
+        model = TamilNaduDeliveryRate
+        fields = (
+            'local_charge', 'standard_charge', 'free_delivery_threshold',
+            'weight_surcharge_per_500g', 'weight_allowance_g', 'estimated_days_text',
+        )
+
+    def validate_local_charge(self, value):
+        return self._reject_negative(value, 'Local charge')
+
+    def validate_standard_charge(self, value):
+        return self._reject_negative(value, 'Standard charge')
+
+    def validate_free_delivery_threshold(self, value):
+        return self._reject_negative(value, 'Free delivery threshold')
+
+    def validate_weight_surcharge_per_500g(self, value):
+        return self._reject_negative(value, 'Weight surcharge')
+
+
+class OutsideStateDeliveryRateWriteSerializer(_NonNegativeMixin, serializers.ModelSerializer):
+    class Meta:
+        model = OutsideStateDeliveryRate
+        fields = (
+            'base_charge', 'free_delivery_threshold', 'weight_surcharge_per_500g',
+            'weight_allowance_g', 'estimated_days_text', 'cod_available', 'is_active',
+        )
+
+    def validate_base_charge(self, value):
+        return self._reject_negative(value, 'Base charge')
+
+    def validate_free_delivery_threshold(self, value):
+        return self._reject_negative(value, 'Free delivery threshold')
+
+    def validate_weight_surcharge_per_500g(self, value):
+        return self._reject_negative(value, 'Weight surcharge')

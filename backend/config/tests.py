@@ -87,6 +87,8 @@ class StaffApiPermissionTest(StaffApiTestCase):
         ('post', '/api/admin/coupons/'),
         ('get', '/api/admin/pincodes/'),
         ('get', '/api/admin/delivery-rates/'),
+        ('patch', '/api/admin/delivery-rates/tamil-nadu/'),
+        ('patch', '/api/admin/delivery-rates/outside-tamil-nadu/'),
     ]
 
     def test_customer_forbidden(self):
@@ -473,3 +475,53 @@ class DeliveryRatesEndpointTest(StaffApiTestCase):
         self.as_staff()
         data = self.client.get('/api/admin/delivery-rates/').data
         self.assertEqual(Decimal(data['tamil_nadu']['local_charge']), Decimal('42'))
+
+
+class DeliveryRateEditTest(StaffApiTestCase):
+    """The staff dashboard's delivery page previously only displayed these
+    rates read-only, pointing staff at Django Admin to actually change
+    anything - these endpoints back real inline editing instead."""
+
+    def test_updates_tamil_nadu_rate_and_it_affects_real_quotes(self):
+        from delivery.utils import get_delivery_quote
+
+        self.as_staff()
+        res = self.client.patch('/api/admin/delivery-rates/tamil-nadu/',
+                                {'local_charge': '55'}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(Decimal(res.data['local_charge']), Decimal('55'))
+
+        quote = get_delivery_quote(pincode='600001', state='Tamil Nadu', order_total=Decimal('100'))
+        self.assertEqual(quote['charge'], Decimal('55'))
+
+    def test_partial_update_leaves_other_fields_untouched(self):
+        self.as_staff()
+        self.client.patch('/api/admin/delivery-rates/tamil-nadu/',
+                          {'standard_charge': '99'}, format='json')
+        data = self.client.get('/api/admin/delivery-rates/').data['tamil_nadu']
+        self.assertEqual(Decimal(data['standard_charge']), Decimal('99'))
+        self.assertEqual(Decimal(data['local_charge']), Decimal('30'))  # untouched
+
+    def test_rejects_negative_charge(self):
+        self.as_staff()
+        res = self.client.patch('/api/admin/delivery-rates/tamil-nadu/',
+                                {'local_charge': '-5'}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_updates_outside_state_rate(self):
+        self.as_staff()
+        res = self.client.patch('/api/admin/delivery-rates/outside-tamil-nadu/',
+                                {'base_charge': '200', 'is_active': False}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(Decimal(res.data['base_charge']), Decimal('200'))
+        self.assertFalse(res.data['is_active'])
+
+    def test_customer_cannot_edit_rates(self):
+        from delivery.models import TamilNaduDeliveryRate
+
+        self.as_customer()
+        res = self.client.patch('/api/admin/delivery-rates/tamil-nadu/',
+                                {'local_charge': '1'}, format='json')
+        self.assertEqual(res.status_code, 403)
+        # The rejection must actually have left the stored rate alone.
+        self.assertEqual(TamilNaduDeliveryRate.get_config().local_charge, Decimal('30'))

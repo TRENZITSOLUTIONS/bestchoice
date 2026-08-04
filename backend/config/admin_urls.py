@@ -34,4 +34,6 @@ urlpatterns = [
     # Delivery
     path('pincodes/', staff_views.pincode_list, name='admin-pincode-list'),
     path('delivery-rates/', staff_views.delivery_rates, name='admin-delivery-rates'),
+    path('delivery-rates/tamil-nadu/', staff_views.update_tamil_nadu_rate, name='admin-delivery-rate-tn'),
+    path('delivery-rates/outside-tamil-nadu/', staff_views.update_outside_state_rate, name='admin-delivery-rate-outside'),
 ]
