@@ -90,6 +90,25 @@ DATABASES = {
     }
 }
 
+# Throttle counters live in the cache. Without a shared cache each gunicorn
+# worker keeps its own, so the effective rate limit is multiplied by the worker
+# count - set REDIS_URL in production to make the limit mean what it says.
+REDIS_URL = os.environ.get('REDIS_URL', '')
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'bestchoice-locmem',
+        }
+    }
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -163,10 +182,15 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_THROTTLE_CLASSES': [],
+    # Throttling was configured but switched off - the rates below were dead
+    # config. Disabled under tests so suites don't trip the limit and fail.
+    'DEFAULT_THROTTLE_CLASSES': [] if 'test' in sys.argv else [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour',
+        'anon': os.environ.get('THROTTLE_ANON', '300/hour'),
+        'user': os.environ.get('THROTTLE_USER', '2000/hour'),
     },
 }
 

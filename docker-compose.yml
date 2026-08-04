@@ -24,8 +24,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      REDIS_URL: redis://redis:6379/0
       DJANGO_DEBUG: 'False'
       DJANGO_ALLOWED_HOSTS: ${DOMAIN:-bestchoice.in},www.${DOMAIN:-bestchoice.in},localhost
       DB_NAME: bestchoice_db
