@@ -144,6 +144,24 @@ export function useDeliveryRates() {
   });
 }
 
+export function useUpdateTamilNaduRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: Record<string, string>) =>
+      (await api.patch('/admin/delivery-rates/tamil-nadu/', fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'delivery-rates'] }),
+  });
+}
+
+export function useUpdateOutsideStateRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: Record<string, string | boolean>) =>
+      (await api.patch('/admin/delivery-rates/outside-tamil-nadu/', fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'delivery-rates'] }),
+  });
+}
+
 export function useStaffPincodes(search = '') {
   return useQuery({
     queryKey: ['staff', 'pincodes', search],

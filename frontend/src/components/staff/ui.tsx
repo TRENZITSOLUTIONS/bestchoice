@@ -29,7 +29,7 @@ export function StatusPill({ value, label }: { value: string; label?: string }) 
   const tone = STATUS_TONES[value] ?? 'bg-ink-soft/10 text-ink-soft border-line';
   return (
     <span
-      className={`inline-block border rounded-full px-2.5 py-0.5 text-xs font-bold capitalize whitespace-nowrap ${tone}`}
+      className={`inline-block whitespace-nowrap border px-2.5 py-0.5 text-[0.68rem] font-bold capitalize ${tone}`}
     >
       {label ?? value.replace(/_/g, ' ')}
     </span>
@@ -47,13 +47,12 @@ export function StatCard({
   hint?: string;
   tone?: 'attention' | 'good';
 }) {
-  const accent =
-    tone === 'attention' ? 'text-kumkum-deep' : tone === 'good' ? 'text-leaf' : '';
+  const accent = tone === 'attention' ? 'text-kumkum' : tone === 'good' ? 'text-leaf' : 'text-ink';
   return (
-    <div className="border border-line rounded bg-card p-4">
-      <p className="eyebrow mb-1.5">{label}</p>
-      <p className={`display text-2xl num ${accent}`}>{value}</p>
-      {hint && <p className="text-xs text-ink-soft mt-1">{hint}</p>}
+    <div className="border border-line bg-card p-5">
+      <p className="eyebrow mb-2">{label}</p>
+      <p className={`font-serif text-[1.7rem] leading-none num ${accent}`}>{value}</p>
+      {hint && <p className="text-xs text-ink-faint mt-2">{hint}</p>}
     </div>
   );
 }
@@ -68,19 +67,19 @@ export function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border border-line rounded bg-card">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-line">
-        <h2 className="font-bold text-sm">{title}</h2>
+    <section className="border border-line bg-card">
+      <header className="flex items-center gap-3 border-b border-line px-5 py-3.5">
+        <h2 className="text-[0.7rem] font-bold uppercase tracking-[0.16em] text-marigold">{title}</h2>
         {action && <div className="ml-auto">{action}</div>}
       </header>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
 
 /** Wide tables must scroll inside their own box, never the page. */
 export function TableScroll({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-x-auto -mx-4 px-4">{children}</div>;
+  return <div className="overflow-x-auto -mx-5 px-5">{children}</div>;
 }
 
 export function EmptyState({ message }: { message: string }) {
@@ -123,7 +122,7 @@ export function Sparkbars({
         return (
           <div key={p.date} className="flex-1 flex flex-col items-center gap-1 min-w-0">
             <div
-              className={`w-full rounded-t ${value > 0 ? 'bg-kumkum' : 'bg-line'}`}
+              className={`w-full ${value > 0 ? 'bg-kumkum' : 'bg-line'}`}
               style={{ height: `${height}%` }}
               title={`${shortDate(p.date)} — ${money(value)} (${p.orders} orders)`}
             />
