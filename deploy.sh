@@ -51,13 +51,21 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-if curl -sf http://localhost:3000/ > /dev/null 2>&1; then
-    echo "     frontend OK"
-else
-    echo "     frontend FAILED - recent logs:"
-    docker compose logs --tail=40 frontend
-    exit 1
-fi
+# Same retry loop as the backend check above - a single zero-retry attempt
+# right after "Started" can lose a race against Next.js still binding its
+# port, even when it comes up in well under a second.
+for i in $(seq 1 30); do
+    if curl -sf http://localhost:3000/ > /dev/null 2>&1; then
+        echo "     frontend OK"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "     frontend FAILED - recent logs:"
+        docker compose logs --tail=40 frontend
+        exit 1
+    fi
+    sleep 2
+done
 
 # Every rebuild leaves the previous backend/frontend image dangling (untagged,
 # replaced by the new "latest") plus fresh build-cache layers - unbounded over
