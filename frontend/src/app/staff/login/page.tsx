@@ -17,7 +17,7 @@ export default function StaffLoginPage() {
     staffLogin.mutate(
       { email, password },
       {
-        onSuccess: () => router.push('/account'),
+        onSuccess: () => router.push('/staff'),
         onError: (err: unknown) => {
           const status = (err as { response?: { status?: number } })?.response?.status;
           setError(

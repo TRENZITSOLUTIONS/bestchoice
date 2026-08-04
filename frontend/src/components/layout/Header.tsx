@@ -12,6 +12,7 @@ export function Header() {
   useCart(); // keeps the cart store warm so the bag count is accurate everywhere
   const itemCount = useCartStore((s) => s.itemCount());
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
   const [query, setQuery] = useState('');
 
   return (
@@ -70,6 +71,11 @@ export function Header() {
             </form>
 
             <div className="ml-auto flex items-center gap-5 text-sm font-semibold">
+              {user?.is_staff && (
+                <Link href="/staff" className="text-marigold hidden sm:inline">
+                  Manage
+                </Link>
+              )}
               <Link href={isAuthenticated ? '/account' : '/auth/login'}>Account</Link>
               <Link href="/account/wishlist" className="hidden sm:inline">
                 Wishlist

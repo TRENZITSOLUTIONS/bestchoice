@@ -131,6 +131,8 @@ export interface User {
   first_name: string;
   last_name: string;
   loyalty_points: number;
+  /** Drives whether the staff dashboard is offered. The API enforces it too. */
+  is_staff: boolean;
 }
 
 export interface Order {
