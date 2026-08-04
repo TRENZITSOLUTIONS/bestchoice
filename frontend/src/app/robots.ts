@@ -6,7 +6,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/account/', '/checkout', '/cart', '/auth/', '/staff/'],
+        // No trailing slash on /staff, so the dashboard root is covered too.
+        disallow: ['/account/', '/checkout', '/cart', '/auth/', '/staff'],
       },
     ],
     sitemap: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://bestchoice.in'}/sitemap.xml`,

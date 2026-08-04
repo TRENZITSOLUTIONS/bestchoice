@@ -18,7 +18,10 @@ export function Header() {
   return (
     <>
       <div className="bg-kumkum-deep text-white text-center text-xs sm:text-sm py-2 px-3 tracking-wide">
-        Free delivery in Tamil Nadu on orders above ₹500 · Same-day delivery in Chennai
+        {/* Kept deliberately non-committal on timing: 81 Chennai pincodes are
+            configured same-day, but the shipping policy states orders are
+            processed 24-48h after payment. Check a pincode for the real answer. */}
+        Free delivery on orders above ₹500 · Same-day delivery on select Chennai pincodes
       </div>
 
       <header className="border-b border-line bg-ivory">
