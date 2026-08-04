@@ -31,7 +31,7 @@ export default function StaffDeliveryPage() {
                 <tr className="text-left text-ink-soft">
                   <th className="font-medium pb-2">Pincode</th>
                   <th className="font-medium pb-2">City</th>
-                  <th className="font-medium pb-2">Service</th>
+                  <th className="font-medium pb-2">Rate zone</th>
                   <th className="font-medium pb-2">Estimate</th>
                   <th className="font-medium pb-2">Store pickup</th>
                 </tr>
@@ -43,8 +43,8 @@ export default function StaffDeliveryPage() {
                     <td className="py-2.5">{p.city}</td>
                     <td className="py-2.5">
                       <StatusPill
-                        value={p.delivery_type === 'same_day' ? 'delivered' : 'shipped'}
-                        label={p.delivery_type.replace(/_/g, ' ')}
+                        value={p.delivery_type === 'local' ? 'delivered' : 'shipped'}
+                        label={p.delivery_type === 'local' ? 'Local ₹30' : 'Standard ₹80'}
                       />
                     </td>
                     <td className="py-2.5 text-ink-soft">{p.estimated_days_text}</td>

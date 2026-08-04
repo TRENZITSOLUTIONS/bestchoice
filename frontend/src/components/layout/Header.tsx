@@ -18,10 +18,9 @@ export function Header() {
   return (
     <>
       <div className="bg-kumkum-deep text-white text-center text-xs sm:text-sm py-2 px-3 tracking-wide">
-        {/* Kept deliberately non-committal on timing: 81 Chennai pincodes are
-            configured same-day, but the shipping policy states orders are
-            processed 24-48h after payment. Check a pincode for the real answer. */}
-        Free delivery on orders above ₹500 · Same-day delivery on select Chennai pincodes
+        {/* No same-day claim: the shipping policy quotes 2-4 business days across
+            Tamil Nadu, and same-day is not a service offered. */}
+        Free delivery on orders above ₹500 · Store pickup at Spencer Plaza, Chennai
       </div>
 
       <header className="border-b border-line bg-ivory">

@@ -26,8 +26,8 @@ export default function HomePage() {
             Dressed right, delivered right.
           </h1>
           <p className="text-lg text-ink-soft max-w-[440px] mb-7">
-            Clothing, cosmetics and accessories for every member of the house — with same-day delivery across
-            Chennai and doorstep service across Tamil Nadu.
+            Clothing, cosmetics and accessories for every member of the house — delivered to your
+            doorstep across Tamil Nadu, or collect free from our Chennai store.
           </p>
           <Link
             href="/products"
@@ -105,7 +105,7 @@ export default function HomePage() {
         </div>
 
         <div className="border-t border-b border-line py-8 grid sm:grid-cols-4 gap-6">
-          <TrustItem icon="🚚" title="Tamil Nadu delivery" body="Same-day in Chennai, 2-4 days statewide" />
+          <TrustItem icon="🚚" title="Tamil Nadu delivery" body="2-4 business days statewide" />
           <TrustItem icon="🏬" title="Store pickup" body="Collect free at Spencer Plaza" />
           <TrustItem icon="↩" title="7-day returns" body="Easy exchange on eligible items" />
           <TrustItem icon="🔒" title="Secure payments" body="UPI, cards & netbanking via Razorpay" />
