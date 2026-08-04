@@ -22,6 +22,15 @@ def _award_signup_bonuses(user):
         earn_points(user, config.referral_bonus_points, description='Referred by friend')
 
 
+def _merge_guest_cart(request, user):
+    """Carry a pre-sign-in guest cart over to the account."""
+    from cart.views import merge_session_cart
+
+    session_id = request.session.session_key
+    if session_id:
+        merge_session_cart(user, session_id)
+
+
 def _token_response(user, created):
     refresh = RefreshToken.for_user(user)
     return Response({
@@ -49,6 +58,7 @@ def staff_login(request):
         return Response({'detail': 'This sign-in is for staff accounts only.'},
                         status=status.HTTP_403_FORBIDDEN)
 
+    _merge_guest_cart(request, user)
     return _token_response(user, created=False)
 
 
@@ -82,6 +92,7 @@ def google_login(request):
 
     user = User.objects.filter(email__iexact=email).first()
     if user:
+        _merge_guest_cart(request, user)
         return _token_response(user, created=False)
 
     user = User.objects.create_user(
@@ -99,6 +110,7 @@ def google_login(request):
             user.save(update_fields=['referred_by'])
 
     _award_signup_bonuses(user)
+    _merge_guest_cart(request, user)
     return _token_response(user, created=True)
 
 

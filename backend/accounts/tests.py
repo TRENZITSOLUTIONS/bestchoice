@@ -7,8 +7,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from PIL import Image
 from products.models import Category, Brand, Product, ProductVariant, ProductImage
+from cart.models import Cart, CartItem
 from delivery.models import DeliveryPincode
-from coupons.models import Coupon
+from coupons.models import Coupon, CouponUsage
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -232,25 +233,292 @@ class CouponTest(BaseTestCase):
         super().setUp()
         self.auth()
 
-    def test_apply_valid_coupon(self):
-        self.add_cart_item(qty=1)
-        res = self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+    def apply(self, code='TEST20'):
+        return self.client.post('/api/cart/apply-coupon/', {'code': code}, format='json')
+
+    def test_apply_valid_coupon_returns_discounted_cart(self):
+        self.add_cart_item(qty=1)  # 1299
+        res = self.apply()
         self.assertEqual(res.status_code, 200)
-        self.assertIn('discount', res.data)
+        cart = res.data['cart']
+        # 20% of 1299 = 259.80, under the 500 max_discount cap.
+        self.assertEqual(Decimal(cart['discount']), Decimal('259.80'))
+        self.assertEqual(Decimal(cart['total']), Decimal('1039.20'))
+        self.assertEqual(cart['coupon']['code'], 'TEST20')
 
     def test_apply_invalid_coupon(self):
-        res = self.client.post('/api/cart/apply-coupon/', {'code': 'INVALID'}, format='json')
+        res = self.apply('INVALID')
         self.assertEqual(res.status_code, 400)
 
     def test_apply_coupon_empty_cart(self):
-        res = self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        res = self.apply()
         self.assertEqual(res.status_code, 400)
 
-    def test_remove_coupon(self):
+    def test_coupon_persists_across_requests(self):
         self.add_cart_item(qty=1)
-        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        self.apply()
+        res = self.client.get('/api/cart/')
+        self.assertEqual(res.data['coupon']['code'], 'TEST20')
+        self.assertEqual(Decimal(res.data['discount']), Decimal('259.80'))
+
+    def test_remove_coupon_clears_the_discount(self):
+        self.add_cart_item(qty=1)
+        self.apply()
         res = self.client.delete('/api/cart/remove-coupon/')
         self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.data['cart']['coupon'])
+        self.assertEqual(Decimal(res.data['cart']['discount']), Decimal('0'))
+        self.assertEqual(Decimal(self.client.get('/api/cart/').data['discount']), Decimal('0'))
+
+    def test_applying_does_not_consume_the_coupon(self):
+        """Usage is consumed at order time. Applying then abandoning must not burn it."""
+        self.add_cart_item(qty=1)
+        self.apply()
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.coupon.used_count, 0)
+        self.assertEqual(CouponUsage.objects.filter(coupon=self.coupon).count(), 0)
+        # ...and the same user can still apply it again.
+        self.assertEqual(self.apply().status_code, 200)
+
+    def test_min_cart_value_enforced(self):
+        self.coupon.min_cart_value = 5000
+        self.coupon.save(update_fields=['min_cart_value'])
+        self.add_cart_item(qty=1)
+        res = self.apply()
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data['code'], 'MIN_CART')
+
+    def test_discount_drops_when_cart_falls_below_min_cart_value(self):
+        self.add_cart_item(qty=2)  # 2598
+        self.apply()
+        self.coupon.min_cart_value = 2000
+        self.coupon.save(update_fields=['min_cart_value'])
+
+        item_id = self.client.get('/api/cart/').data['items'][0]['id']
+        self.client.put(f'/api/cart/items/{item_id}/', {'quantity': 1}, format='json')
+
+        res = self.client.get('/api/cart/')
+        self.assertEqual(Decimal(res.data['discount']), Decimal('0'))
+        self.assertIsNone(res.data['coupon'])
+        self.assertEqual(Decimal(res.data['total']), Decimal(res.data['subtotal']))
+
+    def test_fixed_discount_type(self):
+        self.coupon.discount_type = 'fixed'
+        self.coupon.discount_value = 300
+        self.coupon.save(update_fields=['discount_type', 'discount_value'])
+        self.add_cart_item(qty=1)
+        self.assertEqual(Decimal(self.apply().data['cart']['discount']), Decimal('300'))
+
+    def test_max_discount_caps_percentage(self):
+        self.add_cart_item(qty=5)  # 6495; 20% = 1299, capped at 500
+        self.assertEqual(Decimal(self.apply().data['cart']['discount']), Decimal('500'))
+
+    def test_discount_never_exceeds_subtotal(self):
+        self.coupon.discount_type = 'fixed'
+        self.coupon.discount_value = 99999
+        self.coupon.min_cart_value = 0
+        self.coupon.save()
+        self.add_cart_item(qty=1)
+        cart = self.apply().data['cart']
+        self.assertEqual(Decimal(cart['discount']), Decimal(cart['subtotal']))
+        self.assertEqual(Decimal(cart['total']), Decimal('0'))
+
+
+class CouponCheckoutTest(BaseTestCase):
+    """A coupon must actually reduce what the customer is charged."""
+
+    def setUp(self):
+        super().setUp()
+        self.auth()
+        self._rzp = mock.patch('orders.views.client.order.create',
+                               return_value={'id': 'rzp_test_order_123'})
+        self._rzp.start()
+        self.addCleanup(self._rzp.stop)
+
+    def test_coupon_reduces_order_total_and_is_recorded(self):
+        from orders.models import Order
+
+        self.add_cart_item(qty=1)  # 1299
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        res = self.checkout()
+        self.assertEqual(res.status_code, 201, res.data)
+
+        order = Order.objects.get(order_id=res.data['order_id'])
+        self.assertEqual(order.coupon, self.coupon)
+        self.assertEqual(order.discount, Decimal('259.80'))
+        # 1299 - 259.80, delivery free because the subtotal clears the Rs.500
+        # threshold (which is measured before discounts).
+        self.assertEqual(order.total, Decimal('1039.20'))
+        self.assertEqual(Decimal(res.data['coupon_discount']), Decimal('259.80'))
+        self.assertEqual(Decimal(res.data['delivery_charge']), Decimal('0'))
+
+    def test_usage_is_consumed_once_at_order_time(self):
+        self.add_cart_item(qty=1)
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        self.checkout()
+
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.coupon.used_count, 1)
+        self.assertEqual(
+            CouponUsage.objects.filter(coupon=self.coupon, user=self.user).count(), 1
+        )
+
+    def test_per_user_limit_blocks_a_second_order(self):
+        self.add_cart_item(qty=1)
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        self.checkout()
+
+        self.add_cart_item(qty=1)
+        res = self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data['code'], 'ALREADY_USED')
+
+    def test_checkout_clears_the_applied_coupon(self):
+        self.add_cart_item(qty=1)
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        self.checkout()
+        self.assertIsNone(self.client.get('/api/cart/').data['coupon'])
+
+    def test_coupon_and_loyalty_points_stack(self):
+        from orders.models import Order
+
+        self.user.loyalty_points = 100
+        self.user.save(update_fields=['loyalty_points'])
+        self.add_cart_item(qty=1)  # 1299, 20% cap on points = 259
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+
+        res = self.client.post('/api/checkout/', {
+            'shipping_address': {
+                'full_name': 'Test User', 'phone': '9876543210',
+                'address_line1': '123 Main St', 'city': 'Chennai',
+                'pincode': '600001', 'state': 'Tamilnadu',
+            },
+            'delivery_type': 'home',
+            'loyalty_points_used': 100,
+        }, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+
+        order = Order.objects.get(order_id=res.data['order_id'])
+        self.assertEqual(order.discount, Decimal('359.80'))  # 259.80 coupon + 100 points
+
+    def test_cancelling_gives_the_coupon_use_back(self):
+        self.add_cart_item(qty=1)
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+        order_id = self.checkout().data['order_id']
+
+        self.client.post(f'/api/orders/{order_id}/cancel/', {}, format='json')
+
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.coupon.used_count, 0)
+        self.assertEqual(CouponUsage.objects.filter(coupon=self.coupon).count(), 0)
+
+    def test_gateway_failure_leaves_no_stock_or_coupon_consumed(self):
+        self.add_cart_item(qty=2)
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+
+        with mock.patch('orders.views.client.order.create',
+                        side_effect=RuntimeError('gateway down')):
+            res = self.checkout()
+
+        self.assertEqual(res.status_code, 502)
+        self.variant.refresh_from_db()
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.variant.stock, 10)  # untouched
+        self.assertEqual(self.coupon.used_count, 0)
+
+
+class CartStockGuardTest(BaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self.auth()
+
+    def test_quantity_update_cannot_exceed_stock(self):
+        item_id = self.add_cart_item(qty=1).data['id']
+        res = self.client.put(f'/api/cart/items/{item_id}/', {'quantity': 99}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('Only 10 items available', str(res.data))
+
+    def test_quantity_update_within_stock_succeeds(self):
+        item_id = self.add_cart_item(qty=1).data['id']
+        res = self.client.put(f'/api/cart/items/{item_id}/', {'quantity': 10}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['quantity'], 10)
+
+    def test_non_numeric_quantity_rejected(self):
+        item_id = self.add_cart_item(qty=1).data['id']
+        res = self.client.put(f'/api/cart/items/{item_id}/', {'quantity': 'lots'}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_partial_stock_shortage_deducts_nothing(self):
+        """A shortage on the second line must not leave the first already deducted."""
+        p2 = Product.objects.create(name='Scarce', slug='scarce', category=self.cat,
+                                    mrp=500, selling_price=400)
+        v2 = ProductVariant.objects.create(product=p2, color='Grey', size='S', stock=1)
+        self.add_cart_item(qty=2)
+        CartItem.objects.create(cart=Cart.objects.get(user=self.user),
+                                product=p2, variant=v2, quantity=5, price=400)
+
+        with mock.patch('orders.views.client.order.create',
+                        return_value={'id': 'rzp_x'}):
+            res = self.checkout()
+
+        self.assertEqual(res.status_code, 400)
+        self.variant.refresh_from_db()
+        v2.refresh_from_db()
+        self.assertEqual(self.variant.stock, 10)
+        self.assertEqual(v2.stock, 1)
+
+
+class GuestCartMergeTest(BaseTestCase):
+    """A guest's cart must survive signing in."""
+
+    def _guest_cart_with_item(self, qty=2):
+        self.client.credentials()  # anonymous
+        res = self.add_cart_item(qty=qty)
+        self.assertEqual(res.status_code, 201)
+        return Cart.objects.get(user__isnull=True)
+
+    def _google_signin(self, email):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           return_value={'email': email, 'email_verified': True,
+                                         'given_name': 'G', 'family_name': 'U'}):
+            return self.client.post('/api/auth/google/', {'credential': 'tok'}, format='json')
+
+    def test_guest_items_move_to_the_user_cart(self):
+        self._guest_cart_with_item(qty=2)
+        res = self._google_signin('test@example.com')
+        self.assertEqual(res.status_code, 200)
+
+        self.auth()
+        cart = self.client.get('/api/cart/').data
+        self.assertEqual(cart['item_count'], 2)
+        self.assertFalse(Cart.objects.filter(user__isnull=True).exists())
+
+    def test_quantities_combine_without_exceeding_stock(self):
+        self.auth()
+        self.add_cart_item(qty=6)          # in the user's cart
+        self.client.credentials()
+        self.add_cart_item(qty=6)          # and 6 more as a guest
+
+        self._google_signin('test@example.com')
+
+        self.auth()
+        cart = self.client.get('/api/cart/').data
+        self.assertEqual(cart['item_count'], 10)  # capped at variant stock, not 12
+
+    def test_guest_coupon_carries_over(self):
+        self._guest_cart_with_item(qty=1)
+        self.client.post('/api/cart/apply-coupon/', {'code': 'TEST20'}, format='json')
+
+        self._google_signin('test@example.com')
+
+        self.auth()
+        self.assertEqual(self.client.get('/api/cart/').data['coupon']['code'], 'TEST20')
+
+    def test_signing_in_with_no_guest_cart_is_harmless(self):
+        res = self._google_signin('brandnew@example.com')
+        self.assertEqual(res.status_code, 201)
 
 
 class OrderTest(BaseTestCase):
