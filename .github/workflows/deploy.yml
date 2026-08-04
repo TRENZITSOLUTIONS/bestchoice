@@ -26,4 +26,9 @@ jobs:
           script: |
             set -e
             cd /opt/bestchoice
+            # Pull here, not just inside deploy.sh: a running bash script that
+            # git-pulls itself mid-execution can keep running the OLD buffered
+            # copy for the rest of that run - fetch fresh first so deploy.sh
+            # forks as a brand new process reading its own latest content.
+            git pull origin main
             ./deploy.sh
