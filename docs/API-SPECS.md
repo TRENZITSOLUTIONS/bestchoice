@@ -8,7 +8,8 @@
 
 ## Authentication
 - JWT Bearer token in `Authorization` header
-- Obtain: `POST /auth/login/`
+- Customers obtain a token via `POST /auth/google/` — Google is the only customer sign-in method. There is no password registration or password login for customers.
+- Staff obtain a token via `POST /auth/staff/login/` (email + password, rejects non-staff accounts).
 - Refresh: `POST /auth/token/refresh/`
 - 24h access token lifetime, 30d refresh token
 
@@ -16,20 +17,30 @@
 
 ## ✅ Auth Endpoints
 
-### POST /auth/register/
+### POST /auth/google/
+Verifies a Google Identity Services ID token server-side, then signs the customer in — creating the account on first use.
+
 ```json
-{ "email": "user@example.com", "phone": "9876543210", "password": "securepass123", "first_name": "John", "last_name": "Doe", "referral_code": "ABC123DEFG" }
-// 201
-{ "id": "uuid", "email": "user@example.com", "phone": "9876543210", "access": "jwt_token", "refresh": "refresh_token" }
+{ "credential": "<google_id_token>", "referral_code": "ABC123DEFG" }
+// 200 (existing user) / 201 (new account)
+{ "user": {"id": "uuid", "email": "user@gmail.com", "first_name": "John", "loyalty_points": 50}, "access": "jwt_token", "refresh": "refresh_token" }
 ```
 
-If `referral_code` is valid, both referrer and new user get 50 bonus loyalty points.
+`referral_code` is optional and only applies when the account is created. If valid, both referrer and new user get the configured referral bonus. New accounts also receive the welcome bonus.
 
-### POST /auth/login/
+Errors: `400` missing credential or unverified Google email · `401` invalid credential · `503` `GOOGLE_OAUTH_CLIENT_ID` not configured.
+
+Requires `GOOGLE_OAUTH_CLIENT_ID` (backend, for audience verification) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend, same value).
+
+### POST /auth/staff/login/
+Password login restricted to `is_staff` accounts. Customers cannot use this endpoint.
+
 ```json
-{ "email": "user@example.com", "password": "securepass123" }
-// 200 { "access": "...", "refresh": "...", "user": {"id": "...", "email": "...", "first_name": "John", "loyalty_points": 50} }
+{ "email": "manager@bestchoice.in", "password": "..." }
+// 200 { "user": {...}, "access": "...", "refresh": "..." }
 ```
+
+Errors: `400` missing fields · `401` bad credentials or inactive account · `403` valid credentials but not a staff account.
 
 ### POST /auth/token/refresh/
 ```json
@@ -484,8 +495,8 @@ Valid statuses: requested, approved, rejected, processed. Transitioning into `ap
 
 | # | Method | Path | Auth | Status |
 |---|---|---|---|---|
-| 1 | POST | /auth/register/ | — | ✅ |
-| 2 | POST | /auth/login/ | — | ✅ |
+| 1 | POST | /auth/google/ | — | ✅ |
+| 2 | POST | /auth/staff/login/ | — | ✅ |
 | 3 | POST | /auth/token/refresh/ | — | ✅ |
 | 4 | GET | /auth/me/ | Bearer | ✅ |
 | 5 | PUT | /auth/me/ | Bearer | ✅ |

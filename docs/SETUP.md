@@ -148,16 +148,21 @@ curl http://localhost:8000/api/products/ | python -m json.tool
 
 ### Auth flow
 
-```bash
-# Register a user
-curl -X POST http://localhost:8000/api/auth/register/ \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","phone":"9876543210","password":"testpass123","first_name":"Test","last_name":"User"}'
+Customers sign in with Google only — there is no password registration. Set `GOOGLE_OAUTH_CLIENT_ID`
+(backend) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (frontend) to the same Google OAuth **Web application**
+client ID, with `http://localhost:3000` as an authorized JavaScript origin for local dev.
 
-# Login
-curl -X POST http://localhost:8000/api/auth/login/ \
+```bash
+# Customer sign-in — needs a real Google ID token, so this is easiest to exercise
+# through the frontend at http://localhost:3000/auth/login
+curl -X POST http://localhost:8000/api/auth/google/ \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}'
+  -d '{"credential":"<google_id_token>"}'
+
+# Staff sign-in (create the account first with: python manage.py createsuperuser)
+curl -X POST http://localhost:8000/api/auth/staff/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"manager@bestchoice.in","password":"yourpassword"}'
 ```
 
 ### Delivery check

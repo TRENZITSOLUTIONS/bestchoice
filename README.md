@@ -74,8 +74,8 @@ Open http://localhost:3000 — backend at http://localhost:8000
 | `/products/[slug]` | Detail | Gallery with lightbox zoom, variants, pricing, pincode checker, reviews (write + read), sticky bottom bar on mobile, related products, share via Web Share API |
 | `/cart` | Cart | Items, quantity controls, coupon input, summary |
 | `/checkout` | Checkout | Address form, delivery type, loyalty points redemption, Razorpay payment |
-| `/auth/login` | Login | Email/password login |
-| `/auth/register` | Register | New user registration (supports referral codes) |
+| `/auth/login` | Sign in | Google sign-in only (supports referral codes) |
+| `/staff/login` | Staff sign in | Email/password, staff accounts only — not linked from the storefront |
 | `/account` | Dashboard | Order history, wishlist, loyalty points |
 | `/account/orders` | Orders | Order list |
 | `/account/orders/[id]` | Order detail | Status timeline, items, tracking, cancel/refund |
@@ -96,8 +96,8 @@ Base: `http://localhost:8000/api/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register/` | — | Register new user (accepts `referral_code`) |
-| POST | `/auth/login/` | — | Login, get JWT tokens |
+| POST | `/auth/google/` | — | Customer sign-in via Google ID token (accepts `referral_code`) |
+| POST | `/auth/staff/login/` | — | Staff-only email/password login, get JWT tokens |
 | POST | `/auth/token/refresh/` | — | Refresh JWT |
 | GET/PUT | `/auth/me/` | Bearer | Current user profile |
 | GET | `/products/` | — | Product listing with filters (search, price range, discount, color, size) |
