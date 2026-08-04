@@ -9,21 +9,23 @@ Delivery is priced differently depending on the `state` in the shipping address 
 | Zone | Pricing | Status |
 |---|---|---|
 | **Tamil Nadu** (`state` matches "Tamil Nadu" / "Tamilnadu" / "TN", case-insensitive — also the default when no `state` is given) | Per-pincode via `DeliveryPincode` (local/standard/none rate zone, optional per-pincode override) | ✅ |
-| **Outside Tamil Nadu** (any other `state`) | Single configurable rate card — `delivery.OutsideStateDeliveryRate` (base charge, free-delivery threshold, estimated days, COD availability, on/off switch), editable in Django Admin | ✅ |
+| **Outside Tamil Nadu** (any other `state`) | Single configurable rate card — `delivery.OutsideStateDeliveryRate`, editable in Django Admin | ✅ |
 
-Both zones apply the same weight surcharge (₹10 per 500g over 1kg) and go through `POST /checkout/`, which now rejects the order with 400 if `get_delivery_quote(...)['available']` is `False` for `delivery_type: "home"` (store pickup skips this check).
+Both zones apply a weight surcharge (₹10 per 500g over 1kg by default, configurable per zone) and go through `POST /checkout/`, which now rejects the order with 400 if `get_delivery_quote(...)['available']` is `False` for `delivery_type: "home"` (store pickup skips this check).
 
 ## Delivery Options (Tamil Nadu zone)
 
 **Same-day delivery is not offered.** Every Tamil Nadu pincode quotes 2-4 business
 days, matching the shipping policy. `delivery_type` is a *price zone*, not a speed:
 
-| Rate zone | Availability | Cost | Status |
+| Rate zone | Availability | Default cost | Status |
 |---|---|---|---|
 | Local (Chennai metro) | 81 Chennai pincodes | ₹30 | ✅ |
 | Standard | The other 307 Tamilnadu pincodes | ₹80 | ✅ |
-| Free Delivery | Orders above ₹500 | ₹0 | ✅ |
-| Store Pickup | Select pickup locations | ₹0 | ✅
+| Free Delivery | Orders at or above ₹500 | ₹0 | ✅ |
+| Store Pickup | Select pickup locations | ₹0 | ✅ |
+
+**Every figure here is editable, no deploy needed.** See [Rate cards](#rate-cards).
 
 ## Pincode-Based Logic
 
@@ -39,9 +41,15 @@ days, matching the shipping policy. `delivery_type` is a *price zone*, not a spe
   "delivery_type": "local",
   "estimated_days": "2-4 business days",
   "store_pickup": true,
-  "cod_available": true
+  "cod_available": true,
+  "delivery_charge": "30.00",
+  "free_delivery_threshold": "500.00"
 }
 ```
+`delivery_charge` is the full charge for that zone. Pass `?order_total=<amount>` to have
+the free-delivery threshold applied, which is what the checkout page does so its summary
+matches what the server will charge.
+
 Pass `?state=<state>` to check a non-Tamil-Nadu address against the outside-state rate card instead, e.g. `GET /api/delivery/check/560001/?state=Karnataka`:
 ```json
 {
@@ -73,12 +81,29 @@ Pass `?state=<state>` to check a non-Tamil-Nadu address against the outside-stat
 
 Calculated in `delivery/utils.py` at checkout time:
 
-| Factor | Detail |
+| Factor | Default | Where it comes from |
+|---|---|---|
+| Base charge | ₹30 (`local`) / ₹80 (`standard`) | `TamilNaduDeliveryRate`, or the pincode's own `delivery_charge` override |
+| Weight surcharge | ₹10 per 500g over 1kg (based on `product.weight_g`) | `TamilNaduDeliveryRate` |
+| Free threshold | Orders at or above ₹500 | `TamilNaduDeliveryRate` |
+| Store pickup | ₹0 | Incidental — see [Store Pickup](#store-pickup) |
+
+## Rate cards
+
+Both zones read an admin-editable singleton, so prices change from Django Admin
+rather than a code deploy. Django Admin → **Delivery**:
+
+| Record | Fields |
 |---|---|
-| Base charge | ₹30 (`local`) / ₹80 (`standard`) |
-| Weight surcharge | ₹10 per 500g over 1kg (based on `product.weight_g`) |
-| Free threshold | Orders above ₹500 get free delivery |
-| Store pickup | ₹0 |
+| **Tamil Nadu delivery rate** | `local_charge`, `standard_charge`, `free_delivery_threshold`, `weight_surcharge_per_500g`, `weight_allowance_g`, `estimated_days_text` |
+| **Outside Tamil Nadu delivery rate** | `base_charge`, `free_delivery_threshold`, `weight_surcharge_per_500g`, `weight_allowance_g`, `estimated_days_text`, `cod_available`, `is_active` |
+
+Both rows are created lazily on first read via `get_config()`, cannot be deleted, and
+cannot be duplicated. Defaults match the values that used to be hardcoded, so nothing
+changed behaviourally when they became configurable.
+
+Precedence for a Tamil Nadu pincode: its own `delivery_charge` if set, otherwise the
+zone charge from the rate card. Staff can see both cards read-only at `/staff/delivery`.
 
 The entry point checkout actually calls is `get_delivery_quote`, which returns
 availability, charge, estimate, COD and zone together:
