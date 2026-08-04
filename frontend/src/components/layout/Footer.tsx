@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Footer() {
   return (
@@ -6,9 +7,13 @@ export function Footer() {
       <div className="mx-auto max-w-[1180px] px-4 sm:px-7">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
           <div>
-            <div className="text-lg font-extrabold tracking-tight text-ink">
-              Best<span className="text-kumkum">Choice</span>
-            </div>
+            <Image
+              src="/logo-crest.png"
+              alt="Best Choice"
+              width={700}
+              height={885}
+              className="h-24 w-auto mb-3"
+            />
             <p className="mt-2.5 max-w-[240px]">
               Spencer Plaza Branch, Chennai. Clothing, cosmetics &amp; accessories delivered across Tamil Nadu.
             </p>

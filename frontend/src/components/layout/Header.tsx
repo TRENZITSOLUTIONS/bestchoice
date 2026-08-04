@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { useCategories } from '@/hooks/useProducts';
 import { useCartStore } from '@/store/cart';
 import { useCart } from '@/hooks/useCart';
 import { useAuthStore } from '@/store/auth';
+import { AnnouncementTicker } from './AnnouncementTicker';
 
 export function Header() {
   const { data: categories } = useCategories();
@@ -17,17 +19,16 @@ export function Header() {
 
   return (
     <>
-      <div className="bg-kumkum-deep text-white text-center text-xs sm:text-sm py-2 px-3 tracking-wide">
-        {/* No same-day claim: the shipping policy quotes 2-4 business days across
-            Tamil Nadu, and same-day is not a service offered. */}
-        Free delivery on orders above ₹500 · Store pickup at Spencer Plaza, Chennai
-      </div>
+      <AnnouncementTicker />
 
       <header className="border-b border-line bg-ivory">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-7">
           <div className="flex items-center gap-4 sm:gap-8 py-4 flex-wrap">
-            <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight whitespace-nowrap">
-              Best<span className="text-kumkum">Choice</span>
+            <Link href="/" className="flex items-center gap-2.5 whitespace-nowrap">
+              <Image src="/logo-mark.png" alt="" width={36} height={37} priority className="h-8 w-auto sm:h-9" />
+              <span className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                Best<span className="text-kumkum">Choice</span>
+              </span>
             </Link>
 
             <nav className="hidden lg:flex gap-1 text-sm font-semibold">
