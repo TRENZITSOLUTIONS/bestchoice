@@ -27,8 +27,8 @@ export function Footer() {
             <h4 className="text-xs tracking-wide uppercase text-ink mb-3.5">Help</h4>
             <ul className="grid gap-2">
               <li><Link href="/account/orders">Track Order</Link></li>
-              <li><Link href="/account/orders">Returns &amp; Exchange</Link></li>
-              <li><Link href="/">Shipping Policy</Link></li>
+              <li><Link href="/refund-policy">Returns &amp; Refunds</Link></li>
+              <li><Link href="/shipping-policy">Shipping Policy</Link></li>
               <li><Link href="/">Contact Us</Link></li>
             </ul>
           </div>
@@ -37,8 +37,8 @@ export function Footer() {
             <ul className="grid gap-2">
               <li><Link href="/">About Us</Link></li>
               <li><Link href="/account/loyalty">Best Choice Rewards</Link></li>
-              <li><Link href="/">Terms &amp; Conditions</Link></li>
-              <li><Link href="/">Privacy Policy</Link></li>
+              <li><Link href="/terms">Terms &amp; Conditions</Link></li>
+              <li><Link href="/privacy">Privacy Policy</Link></li>
             </ul>
           </div>
         </div>
