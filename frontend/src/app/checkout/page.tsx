@@ -31,7 +31,13 @@ export default function CheckoutPage() {
     landmark: '', city: '', state: '', pincode: '',
   });
 
-  const { data: delivery } = useDeliveryCheck(address.pincode, address.state);
+  // Pass the cart subtotal so the quote applies the free-delivery threshold,
+  // matching what the server will charge.
+  const { data: delivery } = useDeliveryCheck(
+    address.pincode,
+    address.state,
+    cart ? Number(cart.subtotal) : undefined,
+  );
 
   if (!isAuthenticated) {
     return (

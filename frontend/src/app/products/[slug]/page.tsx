@@ -249,11 +249,32 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               className="border border-line rounded px-3 py-2 text-sm w-full mt-1.5 bg-card"
             />
             {delivery && (
-              <p className="text-sm text-ink-soft mt-2.5">
-                {delivery.delivery_available
-                  ? `${delivery.estimated_days ?? 'Available'} · ${delivery.store_pickup ? 'Store pickup available' : ''}`
-                  : delivery.message || 'Delivery not available at this pincode'}
-              </p>
+              <div className="text-sm mt-2.5 grid gap-0.5">
+                {delivery.delivery_available ? (
+                  <>
+                    <p className="text-leaf font-semibold">
+                      Delivers in {delivery.estimated_days ?? 'a few days'}
+                    </p>
+                    {delivery.delivery_charge && (
+                      <p className="text-ink-soft">
+                        {Number(delivery.delivery_charge) > 0
+                          ? `Delivery ₹${Number(delivery.delivery_charge).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                          : 'Free delivery'}
+                        {delivery.free_delivery_threshold &&
+                          Number(delivery.delivery_charge) > 0 &&
+                          ` · free over ₹${Number(delivery.free_delivery_threshold).toLocaleString('en-IN')}`}
+                      </p>
+                    )}
+                    {delivery.store_pickup && (
+                      <p className="text-ink-soft">Store pickup available</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-ink-soft">
+                    {delivery.message || 'Delivery not available at this pincode'}
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <div className="border border-line rounded p-4.5">
