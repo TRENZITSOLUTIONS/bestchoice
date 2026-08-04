@@ -1,7 +1,9 @@
 import io
+from unittest import mock
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from PIL import Image
 from products.models import Category, Brand, Product, ProductVariant, ProductImage
@@ -76,11 +78,9 @@ class BaseTestCase(TestCase):
             usage_limit=100,
         )
 
-    def auth(self):
-        login = self.client.post('/api/auth/login/', {
-            'email': 'test@example.com', 'password': 'testpass123',
-        })
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {login.data["access"]}')
+    def auth(self, user=None):
+        refresh = RefreshToken.for_user(user or self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
 
     def add_cart_item(self, product=None, variant=None, qty=1):
         product = product or self.product
@@ -102,37 +102,15 @@ class BaseTestCase(TestCase):
 
 
 class AuthTest(BaseTestCase):
-    def test_register(self):
-        res = self.client.post('/api/auth/register/', {
-            'email': 'new@example.com', 'phone': '9876543211',
-            'password': 'newpass123', 'first_name': 'New', 'last_name': 'User',
-        })
-        self.assertEqual(res.status_code, 201)
-        self.assertIn('access', res.data)
+    def test_customer_password_endpoints_are_gone(self):
+        for path in ('/api/auth/register/', '/api/auth/login/'):
+            self.assertEqual(self.client.post(path, {}).status_code, 404)
 
-    def test_register_duplicate_email(self):
-        self.client.post('/api/auth/register/', {
-            'email': 'dup@example.com', 'phone': '9876543212',
-            'password': 'pass123', 'first_name': 'Dup',
-        })
-        res = self.client.post('/api/auth/register/', {
-            'email': 'dup@example.com', 'phone': '9876543213',
-            'password': 'pass123', 'first_name': 'Dup',
-        })
-        self.assertEqual(res.status_code, 400)
-
-    def test_login(self):
-        res = self.client.post('/api/auth/login/', {
-            'email': 'test@example.com', 'password': 'testpass123',
-        })
+    def test_token_refresh_still_works(self):
+        refresh = RefreshToken.for_user(self.user)
+        res = self.client.post('/api/auth/token/refresh/', {'refresh': str(refresh)}, format='json')
         self.assertEqual(res.status_code, 200)
         self.assertIn('access', res.data)
-
-    def test_login_wrong_password(self):
-        res = self.client.post('/api/auth/login/', {
-            'email': 'test@example.com', 'password': 'wrong',
-        })
-        self.assertEqual(res.status_code, 401)
 
     def test_get_profile(self):
         self.auth()
@@ -502,3 +480,142 @@ class ReviewsTest(BaseTestCase):
     def test_my_reviews(self):
         res = self.client.get('/api/reviews/mine/')
         self.assertEqual(res.status_code, 200)
+
+
+class StaffLoginTest(BaseTestCase):
+    URL = '/api/auth/staff/login/'
+
+    def setUp(self):
+        super().setUp()
+        self.client.credentials()
+        self.staff = User.objects.create_user(
+            email='manager@bestchoice.in',
+            username='manager',
+            password='staffpass123',
+            is_staff=True,
+        )
+
+    def test_staff_can_log_in(self):
+        res = self.client.post(self.URL, {
+            'email': 'manager@bestchoice.in', 'password': 'staffpass123',
+        }, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('access', res.data)
+        self.assertEqual(res.data['user']['email'], 'manager@bestchoice.in')
+
+    def test_email_is_case_insensitive(self):
+        res = self.client.post(self.URL, {
+            'email': 'Manager@BestChoice.IN', 'password': 'staffpass123',
+        }, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_non_staff_customer_is_rejected(self):
+        res = self.client.post(self.URL, {
+            'email': 'test@example.com', 'password': 'testpass123',
+        }, format='json')
+        self.assertEqual(res.status_code, 403)
+
+    def test_wrong_password_returns_401(self):
+        res = self.client.post(self.URL, {
+            'email': 'manager@bestchoice.in', 'password': 'nope',
+        }, format='json')
+        self.assertEqual(res.status_code, 401)
+
+    def test_missing_fields_return_400(self):
+        res = self.client.post(self.URL, {'email': 'manager@bestchoice.in'}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_inactive_staff_is_rejected(self):
+        self.staff.is_active = False
+        self.staff.save(update_fields=['is_active'])
+        res = self.client.post(self.URL, {
+            'email': 'manager@bestchoice.in', 'password': 'staffpass123',
+        }, format='json')
+        self.assertEqual(res.status_code, 401)
+
+
+class GoogleLoginTest(BaseTestCase):
+    URL = '/api/auth/google/'
+
+    def setUp(self):
+        super().setUp()
+        self.client.credentials()
+
+    def _payload(self, email, verified=True, **extra):
+        return {
+            'email': email,
+            'email_verified': verified,
+            'given_name': 'Google',
+            'family_name': 'User',
+            **extra,
+        }
+
+    def test_not_configured_returns_503(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID=''):
+            res = self.client.post(self.URL, {'credential': 'x'}, format='json')
+        self.assertEqual(res.status_code, 503)
+
+    def test_missing_credential_returns_400(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'):
+            res = self.client.post(self.URL, {}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_invalid_credential_returns_401(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           side_effect=ValueError('bad token')):
+            res = self.client.post(self.URL, {'credential': 'bad'}, format='json')
+        self.assertEqual(res.status_code, 401)
+
+    def test_unverified_email_rejected(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           return_value=self._payload('new@gmail.com', verified=False)):
+            res = self.client.post(self.URL, {'credential': 'tok'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(User.objects.filter(email='new@gmail.com').exists())
+
+    def test_new_user_is_created_with_tokens_and_welcome_bonus(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           return_value=self._payload('new@gmail.com')):
+            res = self.client.post(self.URL, {'credential': 'tok'}, format='json')
+
+        self.assertEqual(res.status_code, 201)
+        self.assertIn('access', res.data)
+        self.assertIn('refresh', res.data)
+        user = User.objects.get(email='new@gmail.com')
+        self.assertEqual(user.first_name, 'Google')
+        self.assertFalse(user.has_usable_password())
+        self.assertGreater(user.loyalty_points, 0)
+
+    def test_existing_user_logs_in_without_duplicate(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           return_value=self._payload('test@example.com')):
+            res = self.client.post(self.URL, {'credential': 'tok'}, format='json')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['user']['email'], 'test@example.com')
+        self.assertEqual(User.objects.filter(email='test@example.com').count(), 1)
+
+    def test_email_match_is_case_insensitive(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           return_value=self._payload('TEST@EXAMPLE.COM')):
+            res = self.client.post(self.URL, {'credential': 'tok'}, format='json')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(User.objects.filter(email__iexact='test@example.com').count(), 1)
+
+    def test_referral_code_is_applied_on_signup(self):
+        with self.settings(GOOGLE_OAUTH_CLIENT_ID='cid'), \
+                mock.patch('google.oauth2.id_token.verify_oauth2_token',
+                           return_value=self._payload('referred@gmail.com')):
+            res = self.client.post(self.URL, {
+                'credential': 'tok',
+                'referral_code': self.user.referral_code,
+            }, format='json')
+
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(User.objects.get(email='referred@gmail.com').referred_by, self.user)
