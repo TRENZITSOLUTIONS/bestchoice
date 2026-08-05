@@ -49,7 +49,7 @@ export default function StaffInventoryPage() {
             setPage(1);
           }}
           placeholder="Product name or id"
-          className="border border-line rounded px-3 py-2 bg-card text-sm min-w-[220px] flex-1"
+          className="border border-line px-3 py-2 bg-card text-sm min-w-[220px] flex-1"
         />
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -117,7 +117,7 @@ export default function StaffInventoryPage() {
                               onChange={(e) =>
                                 setDraft((d) => ({ ...d, selling_price: e.target.value }))
                               }
-                              className="border border-line rounded px-2 py-1 bg-ivory text-sm w-24 text-right num"
+                              className="border border-line px-2 py-1 bg-ivory text-sm w-24 text-right num"
                             />
                           ) : (
                             <span className="num">{money(row.selling_price)}</span>
@@ -130,7 +130,7 @@ export default function StaffInventoryPage() {
                               onChange={(e) =>
                                 setDraft((d) => ({ ...d, total_stock: e.target.value }))
                               }
-                              className="border border-line rounded px-2 py-1 bg-ivory text-sm w-20 text-right num"
+                              className="border border-line px-2 py-1 bg-ivory text-sm w-20 text-right num"
                             />
                           ) : (
                             <span className="num" title={hasVariants ? 'Sum of variant stock' : undefined}>
@@ -182,7 +182,7 @@ export default function StaffInventoryPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="border border-line rounded px-3 py-1.5 font-bold disabled:opacity-40"
+                  className="border border-line px-3 py-1.5 font-bold disabled:opacity-40"
                 >
                   Previous
                 </button>
@@ -190,7 +190,7 @@ export default function StaffInventoryPage() {
                 <button
                   onClick={() => setPage((p) => Math.min(data.num_pages, p + 1))}
                   disabled={page >= data.num_pages}
-                  className="border border-line rounded px-3 py-1.5 font-bold disabled:opacity-40"
+                  className="border border-line px-3 py-1.5 font-bold disabled:opacity-40"
                 >
                   Next
                 </button>

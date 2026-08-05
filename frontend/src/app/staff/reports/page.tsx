@@ -29,7 +29,7 @@ export default function StaffReportsPage() {
           <button
             key={r}
             onClick={() => setDays(r)}
-            className={`text-xs font-bold px-3 py-1.5 rounded ${
+            className={`text-xs font-bold px-3 py-1.5 ${
               days === r ? 'bg-kumkum text-white' : 'text-ink-soft hover:bg-ivory-raised'
             }`}
           >
@@ -91,9 +91,9 @@ export default function StaffReportsPage() {
                         <span className="font-medium">{c.category}</span>
                         <span className="ml-auto num font-bold">{money(c.revenue)}</span>
                       </div>
-                      <div className="h-1.5 rounded bg-line overflow-hidden">
+                      <div className="h-1.5 bg-line overflow-hidden">
                         <div
-                          className="h-full bg-kumkum rounded"
+                          className="h-full bg-kumkum"
                           style={{ width: `${(Number(c.revenue) / categoryMax) * 100}%` }}
                         />
                       </div>

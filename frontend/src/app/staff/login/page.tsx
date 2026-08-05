@@ -46,7 +46,7 @@ export default function StaffLoginPage() {
           placeholder="Staff email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="border border-line rounded px-3.5 py-2.5 bg-card text-sm"
+          className="border border-line px-3.5 py-2.5 bg-card text-sm"
         />
         <input
           type="password"
@@ -55,13 +55,13 @@ export default function StaffLoginPage() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="border border-line rounded px-3.5 py-2.5 bg-card text-sm"
+          className="border border-line px-3.5 py-2.5 bg-card text-sm"
         />
         {error && <p className="text-kumkum text-sm">{error}</p>}
         <button
           type="submit"
           disabled={staffLogin.isPending}
-          className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm rounded py-3 disabled:opacity-50"
+          className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm py-3 disabled:opacity-50"
         >
           {staffLogin.isPending ? 'Signing in...' : 'Sign In'}
         </button>

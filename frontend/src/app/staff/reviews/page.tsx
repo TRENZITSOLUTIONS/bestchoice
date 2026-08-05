@@ -45,7 +45,7 @@ export default function StaffReviewsPage() {
         ) : (
           <ul className="grid gap-4">
             {data.results.map((r) => (
-              <li key={r.id} className="border border-line rounded p-4 grid gap-2">
+              <li key={r.id} className="border border-line p-4 grid gap-2">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="num font-bold" aria-label={`${r.rating} out of 5`}>
                     {'★'.repeat(r.rating)}
@@ -76,7 +76,7 @@ export default function StaffReviewsPage() {
                     <button
                       onClick={() => moderate.mutate({ reviewId: r.id, action: 'approve' })}
                       disabled={moderate.isPending}
-                      className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold rounded px-3.5 py-1.5 disabled:opacity-50"
+                      className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5 disabled:opacity-50"
                     >
                       Publish
                     </button>
@@ -85,7 +85,7 @@ export default function StaffReviewsPage() {
                     <button
                       onClick={() => moderate.mutate({ reviewId: r.id, action: 'reject' })}
                       disabled={moderate.isPending}
-                      className="border border-line text-xs font-bold rounded px-3.5 py-1.5 disabled:opacity-50"
+                      className="border border-line text-xs font-bold px-3.5 py-1.5 disabled:opacity-50"
                     >
                       Unpublish
                     </button>

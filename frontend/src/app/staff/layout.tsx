@@ -32,7 +32,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         <h1 className="display text-2xl mt-2 mb-4">Sign in to continue</h1>
         <Link
           href="/staff/login"
-          className="inline-block bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-6 py-3 rounded"
+          className="inline-block bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-6 py-3"
         >
           Staff sign in
         </Link>
@@ -50,12 +50,12 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           manage this store, sign in with your staff credentials.
         </p>
         <div className="flex gap-3 justify-center">
-          <Link href="/" className="border border-line rounded px-5 py-2.5 text-sm font-bold">
+          <Link href="/" className="border border-line px-5 py-2.5 text-sm font-bold">
             Back to shop
           </Link>
           <button
             onClick={logout}
-            className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-5 py-2.5 rounded"
+            className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-5 py-2.5"
           >
             Switch account
           </button>
@@ -87,7 +87,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                 key={link.href}
                 href={link.href}
                 aria-current={active ? 'page' : undefined}
-                className={`px-3 py-2 rounded font-medium whitespace-nowrap ${
+                className={`px-3 py-2 font-medium whitespace-nowrap ${
                   active ? 'bg-kumkum text-white' : 'text-ink-soft hover:bg-ivory-raised'
                 }`}
               >

@@ -78,12 +78,12 @@ export default function StaffOrdersPage() {
           value={filters.search}
           onChange={(e) => setFilter('search', e.target.value)}
           placeholder="Order id, email or phone"
-          className="border border-line rounded px-3 py-2 bg-card text-sm min-w-[220px] flex-1"
+          className="border border-line px-3 py-2 bg-card text-sm min-w-[220px] flex-1"
         />
         <select
           value={filters.status}
           onChange={(e) => setFilter('status', e.target.value)}
-          className="border border-line rounded px-3 py-2 bg-card text-sm"
+          className="border border-line px-3 py-2 bg-card text-sm"
         >
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
@@ -93,7 +93,7 @@ export default function StaffOrdersPage() {
         <select
           value={filters.payment_status}
           onChange={(e) => setFilter('payment_status', e.target.value)}
-          className="border border-line rounded px-3 py-2 bg-card text-sm"
+          className="border border-line px-3 py-2 bg-card text-sm"
         >
           <option value="">Any payment</option>
           {['pending', 'paid', 'refunded', 'failed'].map((s) => (
@@ -103,7 +103,7 @@ export default function StaffOrdersPage() {
       </div>
 
       {selected.length > 0 && (
-        <div className="border border-kumkum/30 bg-kumkum/5 rounded p-4 grid gap-3 sm:flex sm:items-end">
+        <div className="border border-kumkum/30 bg-kumkum/5 p-4 grid gap-3 sm:flex sm:items-end">
           <div className="grid gap-1">
             <label htmlFor="provider" className="eyebrow">Courier</label>
             <input
@@ -111,7 +111,7 @@ export default function StaffOrdersPage() {
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
               placeholder="e.g. Delhivery"
-              className="border border-line rounded px-3 py-2 bg-card text-sm"
+              className="border border-line px-3 py-2 bg-card text-sm"
             />
           </div>
           {selected.length === 1 && (
@@ -121,14 +121,14 @@ export default function StaffOrdersPage() {
                 id="tracking"
                 value={trackingId}
                 onChange={(e) => setTrackingId(e.target.value)}
-                className="border border-line rounded px-3 py-2 bg-card text-sm"
+                className="border border-line px-3 py-2 bg-card text-sm"
               />
             </div>
           )}
           <button
             onClick={handleBulkShip}
             disabled={bulkShip.isPending}
-            className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm rounded px-5 py-2.5 disabled:opacity-50 sm:ml-auto"
+            className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-5 py-2.5 disabled:opacity-50 sm:ml-auto"
           >
             {bulkShip.isPending ? 'Marking…' : `Mark ${selected.length} shipped`}
           </button>
@@ -234,7 +234,7 @@ export default function StaffOrdersPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="border border-line rounded px-3 py-1.5 font-bold disabled:opacity-40"
+                  className="border border-line px-3 py-1.5 font-bold disabled:opacity-40"
                 >
                   Previous
                 </button>
@@ -242,7 +242,7 @@ export default function StaffOrdersPage() {
                 <button
                   onClick={() => setPage((p) => Math.min(data.num_pages, p + 1))}
                   disabled={page >= data.num_pages}
-                  className="border border-line rounded px-3 py-1.5 font-bold disabled:opacity-40"
+                  className="border border-line px-3 py-1.5 font-bold disabled:opacity-40"
                 >
                   Next
                 </button>
