@@ -75,9 +75,15 @@ export interface InventoryRow {
   name: string;
   slug: string;
   category: string | null;
+  category_id: number | null;
   brand: string | null;
+  brand_id: number | null;
+  mrp: string;
   selling_price: string;
   total_stock: number;
+  weight_g: number;
+  short_description: string;
+  description: string;
   is_active: boolean;
   variant_count: number;
   stock_state: 'out' | 'low' | 'ok';

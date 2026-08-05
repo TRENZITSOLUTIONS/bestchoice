@@ -1,7 +1,7 @@
 from django.urls import path
 
 from orders.views import admin_update_order_status, admin_update_refund_status
-from products.views import admin_update_product
+from products.views import admin_create_product, admin_update_product
 
 from . import staff_views
 
@@ -21,6 +21,7 @@ urlpatterns = [
 
     # Catalogue
     path('inventory/', staff_views.inventory_list, name='admin-inventory'),
+    path('products/', admin_create_product, name='admin-product-create'),
     path('products/<int:pk>/', admin_update_product, name='admin-product-update'),
 
     # Reviews

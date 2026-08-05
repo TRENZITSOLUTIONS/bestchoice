@@ -82,6 +82,7 @@ class StaffApiPermissionTest(StaffApiTestCase):
         ('post', '/api/admin/orders/bulk-ship/'),
         ('get', '/api/admin/refunds/'),
         ('get', '/api/admin/inventory/'),
+        ('post', '/api/admin/products/'),
         ('get', '/api/admin/reviews/'),
         ('get', '/api/admin/coupons/'),
         ('post', '/api/admin/coupons/'),
@@ -279,6 +280,84 @@ class InventoryTest(StaffApiTestCase):
         self.as_staff()
         data = self.client.get('/api/admin/inventory/?out_of_stock=true').data
         self.assertEqual([r['name'] for r in data['results']], ['Zero'])
+
+    def test_category_filter_includes_the_departments_own_products(self):
+        department = Category.objects.create(name='Wear', slug='wear')
+        self.category.parent = department
+        self.category.save()
+        Product.objects.create(name='Filed under department directly', slug='direct',
+                               category=department, mrp=100, selling_price=90)
+        self.as_staff()
+        names = {r['name'] for r in
+                 self.client.get(f'/api/admin/inventory/?category={department.id}').data['results']}
+        self.assertEqual(names, {'Cotton Shirt', 'Filed under department directly'})
+
+    def test_brand_filter(self):
+        other_brand = Brand.objects.create(name='Other', slug='other')
+        Product.objects.create(name='Other Brand Product', slug='obp', category=self.category,
+                               brand=other_brand, mrp=100, selling_price=90)
+        self.as_staff()
+        names = [r['name'] for r in
+                 self.client.get(f'/api/admin/inventory/?brand={other_brand.id}').data['results']]
+        self.assertEqual(names, ['Other Brand Product'])
+
+    def test_status_filter(self):
+        Product.objects.create(name='Retired', slug='retired', category=self.category,
+                               mrp=100, selling_price=90, is_active=False)
+        self.as_staff()
+        active = [r['name'] for r in self.client.get('/api/admin/inventory/?status=active').data['results']]
+        inactive = [r['name'] for r in self.client.get('/api/admin/inventory/?status=inactive').data['results']]
+        self.assertNotIn('Retired', active)
+        self.assertEqual(inactive, ['Retired'])
+
+
+class ProductCreateTest(StaffApiTestCase):
+    def test_creates_a_product_with_defaults(self):
+        self.as_staff()
+        response = self.client.post('/api/admin/products/', {
+            'name': 'New Arrival', 'category': self.category.id,
+            'mrp': '999', 'selling_price': '799',
+        })
+        self.assertEqual(response.status_code, 201)
+        product = Product.objects.get(name='New Arrival')
+        self.assertEqual(product.slug, 'new-arrival')
+        self.assertTrue(product.is_active)
+        self.assertEqual(product.total_stock, 0)
+
+    def test_rejects_selling_price_above_mrp(self):
+        self.as_staff()
+        response = self.client.post('/api/admin/products/', {
+            'name': 'Overpriced', 'category': self.category.id,
+            'mrp': '100', 'selling_price': '150',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('selling_price', response.data)
+        self.assertFalse(Product.objects.filter(name='Overpriced').exists())
+
+    def test_rejects_zero_or_negative_prices(self):
+        self.as_staff()
+        response = self.client.post('/api/admin/products/', {
+            'name': 'Free', 'category': self.category.id,
+            'mrp': '0', 'selling_price': '0',
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_requires_a_category(self):
+        self.as_staff()
+        response = self.client.post('/api/admin/products/', {
+            'name': 'No Category', 'mrp': '100', 'selling_price': '90',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('category', response.data)
+
+    def test_customer_cannot_create_products(self):
+        self.as_customer()
+        response = self.client.post('/api/admin/products/', {
+            'name': 'Sneaky', 'category': self.category.id,
+            'mrp': '100', 'selling_price': '90',
+        })
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Product.objects.filter(name='Sneaky').exists())
 
 
 class ReviewQueueTest(StaffApiTestCase):

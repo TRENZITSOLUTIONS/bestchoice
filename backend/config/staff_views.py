@@ -259,6 +259,20 @@ def inventory_list(request):
     if search:
         qs = qs.filter(Q(name__icontains=search) | Q(auto_product_id__icontains=search))
 
+    category = request.query_params.get('category')
+    if category:
+        # A department id matches products filed directly under it too, not
+        # just its subcategories - same rule the storefront filter uses.
+        qs = qs.filter(Q(category_id=category) | Q(category__parent_id=category))
+    brand = request.query_params.get('brand')
+    if brand:
+        qs = qs.filter(brand_id=brand)
+    status_filter = request.query_params.get('status')
+    if status_filter == 'active':
+        qs = qs.filter(is_active=True)
+    elif status_filter == 'inactive':
+        qs = qs.filter(is_active=False)
+
     try:
         low_threshold = max(0, int(request.query_params.get('low_stock_below', 10)))
     except ValueError:
@@ -271,9 +285,15 @@ def inventory_list(request):
             'name': product.name,
             'slug': product.slug,
             'category': product.category.name if product.category else None,
+            'category_id': product.category_id,
             'brand': product.brand.name if product.brand else None,
+            'brand_id': product.brand_id,
+            'mrp': str(product.mrp),
             'selling_price': str(product.selling_price),
             'total_stock': product.total_stock,
+            'weight_g': product.weight_g,
+            'short_description': product.short_description,
+            'description': product.description,
             'is_active': product.is_active,
             'variant_count': product.variants.count(),
             'stock_state': (

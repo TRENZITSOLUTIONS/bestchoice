@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import Category, Brand, Product
 from .serializers import (
     CategorySerializer, BrandSerializer,
-    ProductListSerializer, ProductDetailSerializer,
+    ProductListSerializer, ProductDetailSerializer, AdminProductWriteSerializer,
 )
 
 
@@ -117,6 +117,15 @@ class ProductByCategoryViewSet(viewsets.ReadOnlyModelViewSet):
         ))
 
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_create_product(request):
+    serializer = AdminProductWriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    product = serializer.save()
+    return Response(ProductListSerializer(product).data, status=status.HTTP_201_CREATED)
+
+
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAdminUser])
 def admin_update_product(request, pk):
@@ -125,11 +134,8 @@ def admin_update_product(request, pk):
     except Product.DoesNotExist:
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    allowed = ('name', 'slug', 'mrp', 'selling_price', 'total_stock', 'is_active', 'weight_g',
-               'short_description', 'description', 'category_id', 'brand_id', 'hide_if_out_of_stock')
-    data = {k: v for k, v in request.data.items() if k in allowed}
-
-    for attr, value in data.items():
-        setattr(product, attr, value)
-    product.save()
-    return Response({'updated': list(data.keys()), 'name': product.name})
+    serializer = AdminProductWriteSerializer(
+        product, data=request.data, partial=(request.method == 'PATCH'))
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response({'updated': list(serializer.validated_data.keys()), 'name': product.name})

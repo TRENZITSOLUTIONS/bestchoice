@@ -107,6 +107,60 @@ class ProductListSerializer(serializers.ModelSerializer):
         return obj.reviews.filter(is_approved=True).count()
 
 
+class AdminProductWriteSerializer(serializers.ModelSerializer):
+    """Create/edit a product from the staff dashboard.
+
+    Deliberately scoped to what a staff member fills in by hand - images and
+    variants stay in Django Admin, where the inline formsets for them
+    already live. `category`/`brand` accept a plain id, matching every
+    other FK the staff API takes.
+    """
+
+    class Meta:
+        model = Product
+        fields = (
+            'name', 'category', 'brand', 'mrp', 'selling_price', 'total_stock',
+            'is_active', 'hide_if_out_of_stock', 'weight_g',
+            'short_description', 'description',
+        )
+        # DRF infers `required` from the model field's null/blank, which for a
+        # nullable-but-mandatory FK like category isn't what we want here, and
+        # it never pulls a model field's `default` through onto the generated
+        # serializer field - so a create request that just omits `is_active`
+        # would leave it out of validated_data instead of defaulting to True.
+        # Both are made explicit rather than relying on that inference.
+        extra_kwargs = {
+            'category': {'required': True, 'allow_null': False},
+            'is_active': {'default': True},
+            'hide_if_out_of_stock': {'default': False},
+            'total_stock': {'default': 0},
+            'weight_g': {'default': 500},
+        }
+
+    def validate_mrp(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Must be greater than zero.')
+        return value
+
+    def validate_selling_price(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Must be greater than zero.')
+        return value
+
+    def validate_total_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Cannot be negative.')
+        return value
+
+    def validate(self, attrs):
+        mrp = attrs.get('mrp', getattr(self.instance, 'mrp', None))
+        selling_price = attrs.get('selling_price', getattr(self.instance, 'selling_price', None))
+        if mrp is not None and selling_price is not None and selling_price > mrp:
+            raise serializers.ValidationError(
+                {'selling_price': 'Cannot exceed MRP.'})
+        return attrs
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)

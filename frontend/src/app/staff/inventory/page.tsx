@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useInventory, useUpdateProduct } from '@/hooks/useStaff';
+import { useCreateProduct, useInventory, useUpdateProduct } from '@/hooks/useStaff';
+import { useCategories, useBrands } from '@/hooks/useProducts';
 import {
   EmptyState,
   ErrorState,
@@ -11,46 +12,166 @@ import {
   TableScroll,
   money,
 } from '@/components/staff/ui';
+import {
+  EMPTY_PRODUCT_DRAFT,
+  ProductForm,
+  draftFromRow,
+  draftToPayload,
+  flattenCategories,
+  type ProductDraft,
+} from '@/components/staff/ProductForm';
+import type { InventoryRow } from '@/lib/staff-types';
+
+const inputClass = 'border border-line bg-card px-3 py-2 text-sm outline-none focus:border-marigold';
+
+function firstError(err: unknown): string | undefined {
+  const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+  if (!data) return err ? 'Could not save that product.' : undefined;
+  const [field, msg] = Object.entries(data)[0] ?? [];
+  if (!field) return 'Could not save that product.';
+  return `${field}: ${Array.isArray(msg) ? msg.join(' ') : String(msg)}`;
+}
 
 export default function StaffInventoryPage() {
-  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ search: '', category: '', brand: '', status: '' });
   const [outOnly, setOutOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<number | null>(null);
-  const [draft, setDraft] = useState({ selling_price: '', total_stock: '' });
+  const [editing, setEditing] = useState<number | 'new' | null>(null);
+  const [draft, setDraft] = useState<ProductDraft>(EMPTY_PRODUCT_DRAFT);
 
   const { data, isLoading, isError } = useInventory({
-    search,
+    ...filters,
     out_of_stock: outOnly ? 'true' : '',
     page: String(page),
   });
+  const { data: categories } = useCategories();
+  const { data: brands } = useBrands();
+  const categoryOptions = categories ? flattenCategories(categories) : [];
+  const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const saving = createProduct.isPending || updateProduct.isPending;
+  const saveError = createProduct.isError
+    ? firstError(createProduct.error)
+    : updateProduct.isError
+      ? firstError(updateProduct.error)
+      : undefined;
 
-  function startEdit(row: { id: number; selling_price: string; total_stock: number }) {
+  function setFilter(key: keyof typeof filters, value: string) {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setPage(1);
+  }
+
+  function startCreate() {
+    setEditing('new');
+    setDraft(EMPTY_PRODUCT_DRAFT);
+  }
+
+  function startEdit(row: InventoryRow) {
     setEditing(row.id);
-    setDraft({ selling_price: row.selling_price, total_stock: String(row.total_stock) });
+    setDraft(draftFromRow(row));
   }
 
-  function save(id: number, hasVariants: boolean) {
-    const fields: Record<string, unknown> = { selling_price: draft.selling_price };
-    // Stock is derived from variants when a product has them, so only send it
-    // for variant-less products where it is the authoritative number.
-    if (!hasVariants) fields.total_stock = Number(draft.total_stock);
-    updateProduct.mutate({ id, ...fields }, { onSuccess: () => setEditing(null) });
+  function cancel() {
+    setEditing(null);
+    createProduct.reset();
+    updateProduct.reset();
   }
+
+  function save(hasVariants: boolean) {
+    const payload = draftToPayload(draft);
+    if (editing === 'new') {
+      createProduct.mutate(payload, { onSuccess: () => setEditing(null) });
+    } else if (editing !== null) {
+      // Stock is derived from variants once a product has any - sending it
+      // back would fight the denormalisation that keeps it in sync.
+      const { total_stock, ...rest } = payload;
+      const fields = hasVariants ? rest : { ...rest, total_stock };
+      updateProduct.mutate({ id: editing, ...fields }, { onSuccess: () => setEditing(null) });
+    }
+  }
+
+  const editingRow = editing !== null && editing !== 'new'
+    ? data?.results.find((r) => r.id === editing)
+    : undefined;
 
   return (
     <div className="grid gap-5">
+      <Panel
+        title={editing === 'new' ? 'New product' : editingRow ? `Editing ${editingRow.name}` : 'Add a product'}
+        action={
+          editing === null ? (
+            <button
+              onClick={startCreate}
+              className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5"
+            >
+              New product
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => save(!!editingRow && editingRow.variant_count > 0)}
+                disabled={saving}
+                className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={cancel} className="text-xs text-ink-soft hover:text-ink">
+                Cancel
+              </button>
+            </div>
+          )
+        }
+      >
+        {editing !== null ? (
+          <ProductForm
+            draft={draft}
+            onChange={setDraft}
+            hasVariants={!!editingRow && editingRow.variant_count > 0}
+            error={saveError}
+          />
+        ) : (
+          <p className="text-sm text-ink-soft">
+            Add new stock, or pick a row below to edit it.
+          </p>
+        )}
+      </Panel>
+
       <div className="flex flex-wrap gap-2.5 items-center">
         <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          value={filters.search}
+          onChange={(e) => setFilter('search', e.target.value)}
           placeholder="Product name or id"
-          className="border border-line px-3 py-2 bg-card text-sm min-w-[220px] flex-1"
+          className={`${inputClass} min-w-[200px] flex-1`}
         />
+        <select
+          value={filters.category}
+          onChange={(e) => setFilter('category', e.target.value)}
+          className={inputClass}
+        >
+          <option value="">All categories</option>
+          {categoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.label}</option>
+          ))}
+        </select>
+        <select
+          value={filters.brand}
+          onChange={(e) => setFilter('brand', e.target.value)}
+          className={inputClass}
+        >
+          <option value="">All brands</option>
+          {brands?.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+        <select
+          value={filters.status}
+          onChange={(e) => setFilter('status', e.target.value)}
+          className={inputClass}
+        >
+          <option value="">Active + inactive</option>
+          <option value="active">Active only</option>
+          <option value="inactive">Inactive only</option>
+        </select>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -92,89 +213,42 @@ export default function StaffInventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.results.map((row) => {
-                    const isEditing = editing === row.id;
-                    const hasVariants = row.variant_count > 0;
-                    return (
-                      <tr key={row.id} className="border-t border-line">
-                        <td className="py-2.5">
-                          <Link
-                            href={`/products/${row.slug}`}
-                            className="font-bold hover:underline"
-                          >
-                            {row.name}
-                          </Link>
-                          <span className="block text-xs text-ink-soft num">
-                            {row.auto_product_id}
-                          </span>
-                        </td>
-                        <td className="py-2.5 text-ink-soft">{row.category ?? '—'}</td>
-                        <td className="py-2.5 num">{row.variant_count}</td>
-                        <td className="py-2.5 text-right">
-                          {isEditing ? (
-                            <input
-                              value={draft.selling_price}
-                              onChange={(e) =>
-                                setDraft((d) => ({ ...d, selling_price: e.target.value }))
-                              }
-                              className="border border-line px-2 py-1 bg-ivory text-sm w-24 text-right num"
-                            />
-                          ) : (
-                            <span className="num">{money(row.selling_price)}</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-right pr-4">
-                          {isEditing && !hasVariants ? (
-                            <input
-                              value={draft.total_stock}
-                              onChange={(e) =>
-                                setDraft((d) => ({ ...d, total_stock: e.target.value }))
-                              }
-                              className="border border-line px-2 py-1 bg-ivory text-sm w-20 text-right num"
-                            />
-                          ) : (
-                            <span className="num" title={hasVariants ? 'Sum of variant stock' : undefined}>
-                              {row.total_stock}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 pl-2"><StatusPill value={row.stock_state} /></td>
-                        <td className="py-2.5 text-right whitespace-nowrap">
-                          {isEditing ? (
-                            <>
-                              <button
-                                onClick={() => save(row.id, hasVariants)}
-                                disabled={updateProduct.isPending}
-                                className="text-xs font-bold underline disabled:opacity-50"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => setEditing(null)}
-                                className="text-xs text-ink-soft ml-3"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => startEdit(row)}
-                              className="text-xs font-bold underline"
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {data.results.map((row) => (
+                    <tr key={row.id} className={`border-t border-line ${editing === row.id ? 'bg-ivory-raised' : ''}`}>
+                      <td className="py-2.5">
+                        <Link href={`/products/${row.slug}`} className="font-bold hover:underline">
+                          {row.name}
+                        </Link>
+                        <span className="block text-xs text-ink-soft num">{row.auto_product_id}</span>
+                      </td>
+                      <td className="py-2.5 text-ink-soft">{row.category ?? '—'}</td>
+                      <td className="py-2.5 num">{row.variant_count}</td>
+                      <td className="py-2.5 text-right num">{money(row.selling_price)}</td>
+                      <td
+                        className="py-2.5 text-right pr-4 num"
+                        title={row.variant_count > 0 ? 'Sum of variant stock' : undefined}
+                      >
+                        {row.total_stock}
+                      </td>
+                      <td className="py-2.5 pl-2">
+                        <StatusPill
+                          value={row.is_active ? row.stock_state : 'cancelled'}
+                          label={row.is_active ? undefined : 'Inactive'}
+                        />
+                      </td>
+                      <td className="py-2.5 text-right whitespace-nowrap">
+                        <button onClick={() => startEdit(row)} className="text-xs font-bold underline">
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </TableScroll>
 
             <p className="text-xs text-ink-soft mt-3">
-              Stock for products with variants is the sum of their variant stock — edit it on
-              the variant in Django Admin.
+              Photos, colours/sizes and other variants are managed in Django Admin.
             </p>
 
             {data.num_pages > 1 && (

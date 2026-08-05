@@ -86,6 +86,15 @@ export function useInventory(filters: Record<string, string> = {}) {
   });
 }
 
+export function useCreateProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: Record<string, unknown>) =>
+      (await api.post('/admin/products/', fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'inventory'] }),
+  });
+}
+
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
