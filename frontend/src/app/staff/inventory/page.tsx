@@ -20,6 +20,8 @@ import {
   flattenCategories,
   type ProductDraft,
 } from '@/components/staff/ProductForm';
+import { ImageManager } from '@/components/staff/ImageManager';
+import { VariantManager } from '@/components/staff/VariantManager';
 import type { InventoryRow } from '@/lib/staff-types';
 
 const inputClass = 'border border-line bg-card px-3 py-2 text-sm outline-none focus:border-marigold';
@@ -80,7 +82,13 @@ export default function StaffInventoryPage() {
   function save(hasVariants: boolean) {
     const payload = draftToPayload(draft);
     if (editing === 'new') {
-      createProduct.mutate(payload, { onSuccess: () => setEditing(null) });
+      // Stay open on the freshly-made product instead of closing the panel -
+      // staff almost always want to add a photo or a variant right after,
+      // and re-finding it in the table to click Edit again is a step nobody
+      // wants after just filling in the same form once.
+      createProduct.mutate(payload, {
+        onSuccess: (created) => setEditing(created.id),
+      });
     } else if (editing !== null) {
       // Stock is derived from variants once a product has any - sending it
       // back would fight the denormalisation that keeps it in sync.
@@ -123,12 +131,28 @@ export default function StaffInventoryPage() {
         }
       >
         {editing !== null ? (
-          <ProductForm
-            draft={draft}
-            onChange={setDraft}
-            hasVariants={!!editingRow && editingRow.variant_count > 0}
-            error={saveError}
-          />
+          <div className="grid gap-6">
+            <ProductForm
+              draft={draft}
+              onChange={setDraft}
+              hasVariants={!!editingRow && editingRow.variant_count > 0}
+              error={saveError}
+            />
+            {typeof editing === 'number' ? (
+              <>
+                <div className="border-t border-line pt-5">
+                  <ImageManager productId={editing} />
+                </div>
+                <div className="border-t border-line pt-5">
+                  <VariantManager productId={editing} />
+                </div>
+              </>
+            ) : (
+              <p className="border-t border-line pt-5 text-sm text-ink-soft">
+                Save the product first to add photos or variants.
+              </p>
+            )}
+          </div>
         ) : (
           <p className="text-sm text-ink-soft">
             Add new stock, or pick a row below to edit it.
@@ -246,10 +270,6 @@ export default function StaffInventoryPage() {
                 </tbody>
               </table>
             </TableScroll>
-
-            <p className="text-xs text-ink-soft mt-3">
-              Photos, colours/sizes and other variants are managed in Django Admin.
-            </p>
 
             {data.num_pages > 1 && (
               <div className="flex items-center gap-3 mt-4 text-sm">

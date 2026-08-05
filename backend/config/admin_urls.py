@@ -1,7 +1,11 @@
 from django.urls import path
 
 from orders.views import admin_update_order_status, admin_update_refund_status
-from products.views import admin_create_product, admin_update_product
+from products.views import (
+    admin_create_product, admin_update_product,
+    admin_product_images, admin_product_image_detail,
+    admin_product_variants, admin_product_variant_detail,
+)
 
 from . import staff_views
 
@@ -23,6 +27,10 @@ urlpatterns = [
     path('inventory/', staff_views.inventory_list, name='admin-inventory'),
     path('products/', admin_create_product, name='admin-product-create'),
     path('products/<int:pk>/', admin_update_product, name='admin-product-update'),
+    path('products/<int:product_id>/images/', admin_product_images, name='admin-product-images'),
+    path('products/<int:product_id>/images/<int:image_id>/', admin_product_image_detail, name='admin-product-image-detail'),
+    path('products/<int:product_id>/variants/', admin_product_variants, name='admin-product-variants'),
+    path('products/<int:product_id>/variants/<int:variant_id>/', admin_product_variant_detail, name='admin-product-variant-detail'),
 
     # Reviews
     path('reviews/', staff_views.review_queue, name='admin-review-queue'),

@@ -93,6 +93,36 @@ export interface InventoryResponse extends Paginated<InventoryRow> {
   out_of_stock_count: number;
 }
 
+export interface ProductImageRow {
+  id: number;
+  image: string;
+  thumb: string;
+  small: string;
+  medium: string;
+  large: string;
+  alt_text: string;
+  is_primary: boolean;
+  sort_order: number;
+}
+
+export interface VariantRow {
+  id: number;
+  color: string;
+  size: string;
+  sku: string;
+  stock: number;
+  price_override: string | null;
+  fabric: string;
+  fit: string;
+  age_group: string;
+  sleeve_type: string;
+  occasion: string;
+  shade: string;
+  volume: string;
+  skin_type: string;
+  is_active: boolean;
+}
+
 export interface ReviewRow {
   id: number;
   product: string;

@@ -11,7 +11,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from coupons.models import Coupon
 from delivery.models import DeliveryPincode
 from orders.models import Order, OrderItem, Refund
-from products.models import Brand, Category, Product, ProductVariant
+from products.models import Brand, Category, Product, ProductImage, ProductVariant
+from products.tests import make_test_image
 from reviews.models import Review
 
 User = get_user_model()
@@ -619,3 +620,109 @@ class DeliveryRateEditTest(StaffApiTestCase):
         self.assertEqual(res.status_code, 403)
         # The rejection must actually have left the stored rate alone.
         self.assertEqual(TamilNaduDeliveryRate.get_config().local_charge, Decimal('30'))
+
+
+class ProductImageTest(StaffApiTestCase):
+    def test_upload_becomes_primary_automatically(self):
+        self.as_staff()
+        res = self.client.post(
+            f'/api/admin/products/{self.product.id}/images/',
+            {'image': make_test_image()}, format='multipart')
+        self.assertEqual(res.status_code, 201)
+        self.assertTrue(res.data['is_primary'])
+        self.assertTrue(res.data['thumb'])  # derived sizes were generated
+
+    def test_second_upload_does_not_steal_primary(self):
+        self.as_staff()
+        self.client.post(f'/api/admin/products/{self.product.id}/images/',
+                         {'image': make_test_image()}, format='multipart')
+        second = self.client.post(f'/api/admin/products/{self.product.id}/images/',
+                                  {'image': make_test_image(name='two.png')}, format='multipart')
+        self.assertFalse(second.data['is_primary'])
+        self.assertEqual(
+            ProductImage.objects.filter(product=self.product, is_primary=True).count(), 1)
+
+    def test_setting_a_new_primary_demotes_the_old_one(self):
+        first = ProductImage.objects.create(product=self.product, image=make_test_image(), is_primary=True)
+        second = ProductImage.objects.create(product=self.product, image=make_test_image(name='two.png'))
+
+        self.as_staff()
+        res = self.client.patch(
+            f'/api/admin/products/{self.product.id}/images/{second.id}/',
+            {'is_primary': True}, format='json')
+        self.assertEqual(res.status_code, 200)
+        first.refresh_from_db()
+        self.assertFalse(first.is_primary)
+
+    def test_deleting_the_primary_hands_it_to_the_next_image(self):
+        first = ProductImage.objects.create(
+            product=self.product, image=make_test_image(), is_primary=True, sort_order=0)
+        second = ProductImage.objects.create(
+            product=self.product, image=make_test_image(name='two.png'), sort_order=1)
+
+        self.as_staff()
+        res = self.client.delete(f'/api/admin/products/{self.product.id}/images/{first.id}/')
+        self.assertEqual(res.status_code, 204)
+        second.refresh_from_db()
+        self.assertTrue(second.is_primary)
+
+    def test_customer_cannot_upload(self):
+        self.as_customer()
+        res = self.client.post(
+            f'/api/admin/products/{self.product.id}/images/',
+            {'image': make_test_image()}, format='multipart')
+        self.assertEqual(res.status_code, 403)
+
+
+class ProductVariantManagementTest(StaffApiTestCase):
+    def test_creates_a_variant_and_generates_a_sku(self):
+        self.as_staff()
+        res = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                               {'color': 'Blue', 'size': 'L', 'stock': 10}, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertTrue(res.data['sku'])
+
+    def test_variant_stock_rolls_up_into_product_total_stock(self):
+        self.variant.delete()  # the fixture variant would otherwise add its own stock to the total
+        self.as_staff()
+        self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                         {'color': 'Blue', 'size': 'L', 'stock': 10}, format='json')
+        self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                         {'color': 'Green', 'size': 'S', 'stock': 5}, format='json')
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 15)
+
+    def test_deleting_a_variant_resyncs_total_stock(self):
+        self.variant.delete()
+        self.as_staff()
+        created = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                                   {'color': 'Blue', 'size': 'L', 'stock': 10}, format='json').data
+        self.client.delete(f'/api/admin/products/{self.product.id}/variants/{created["id"]}/')
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 0)
+
+    def test_rejects_a_second_identical_variant(self):
+        self.as_staff()
+        self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                         {'color': 'Blue', 'size': 'L', 'stock': 10}, format='json')
+        dupe = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                                {'color': 'Blue', 'size': 'L', 'stock': 3}, format='json')
+        self.assertEqual(dupe.status_code, 400)
+
+    def test_rejects_negative_stock(self):
+        self.as_staff()
+        res = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                               {'color': 'Blue', 'size': 'L', 'stock': -1}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_cannot_set_sku_by_hand(self):
+        self.as_staff()
+        res = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                               {'color': 'Blue', 'size': 'L', 'stock': 1, 'sku': 'HACKED'}, format='json')
+        self.assertNotEqual(res.data['sku'], 'HACKED')
+
+    def test_customer_cannot_manage_variants(self):
+        self.as_customer()
+        res = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
+                               {'color': 'Blue', 'size': 'L', 'stock': 1}, format='json')
+        self.assertEqual(res.status_code, 403)

@@ -4,10 +4,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Category, Brand, Product
+from .models import Category, Brand, Product, ProductImage, ProductVariant
 from .serializers import (
     CategorySerializer, BrandSerializer,
     ProductListSerializer, ProductDetailSerializer, AdminProductWriteSerializer,
+    ProductImageSerializer, AdminProductVariantSerializer,
 )
 
 
@@ -139,3 +140,96 @@ def admin_update_product(request, pk):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response({'updated': list(serializer.validated_data.keys()), 'name': product.name})
+
+
+def _get_product_or_404(pk):
+    try:
+        return Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return None
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def admin_product_images(request, product_id):
+    product = _get_product_or_404(product_id)
+    if not product:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(ProductImageSerializer(product.images.all(), many=True).data)
+
+    serializer = ProductImageSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    image = serializer.save(product=product)
+    # The first photo on a product becomes its primary automatically -
+    # otherwise a freshly-created product would show no image anywhere
+    # until staff remembered to flag one.
+    if not product.images.exclude(pk=image.pk).exists():
+        image.is_primary = True
+        image.save(update_fields=['is_primary'])
+    return Response(ProductImageSerializer(image).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def admin_product_image_detail(request, product_id, image_id):
+    try:
+        image = ProductImage.objects.get(pk=image_id, product_id=product_id)
+    except ProductImage.DoesNotExist:
+        return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        was_primary = image.is_primary
+        image.delete()
+        if was_primary:
+            # Hand primary status to whatever's now first, so the product
+            # never silently ends up with photos but no primary one.
+            successor = ProductImage.objects.filter(product_id=product_id).order_by('sort_order').first()
+            if successor:
+                successor.is_primary = True
+                successor.save(update_fields=['is_primary'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = ProductImageSerializer(image, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    if serializer.validated_data.get('is_primary'):
+        # Only one primary image per product.
+        ProductImage.objects.filter(product_id=product_id).exclude(pk=image.pk).update(is_primary=False)
+    return Response(ProductImageSerializer(image).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def admin_product_variants(request, product_id):
+    product = _get_product_or_404(product_id)
+    if not product:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(AdminProductVariantSerializer(product.variants.all(), many=True).data)
+
+    serializer = AdminProductVariantSerializer(data=request.data, context={'product': product})
+    serializer.is_valid(raise_exception=True)
+    variant = serializer.save(product=product)
+    return Response(AdminProductVariantSerializer(variant).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def admin_product_variant_detail(request, product_id, variant_id):
+    try:
+        variant = ProductVariant.objects.get(pk=variant_id, product_id=product_id)
+    except ProductVariant.DoesNotExist:
+        return Response({'error': 'Variant not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        variant.delete()  # also resyncs the product's total_stock
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = AdminProductVariantSerializer(
+        variant, data=request.data, partial=True, context={'product': variant.product})
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(AdminProductVariantSerializer(variant).data)

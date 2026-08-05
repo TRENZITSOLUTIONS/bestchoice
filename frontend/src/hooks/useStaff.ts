@@ -8,9 +8,11 @@ import type {
   OrderListItem,
   PincodeResponse,
   Paginated,
+  ProductImageRow,
   Refund,
   ReportsResponse,
   ReviewQueueResponse,
+  VariantRow,
 } from '@/lib/staff-types';
 
 export function useDashboardStats(days = 7) {
@@ -90,7 +92,7 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (fields: Record<string, unknown>) =>
-      (await api.post('/admin/products/', fields)).data,
+      (await api.post<{ id: number }>('/admin/products/', fields)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'inventory'] }),
   });
 }
@@ -101,6 +103,90 @@ export function useUpdateProduct() {
     mutationFn: async ({ id, ...fields }: { id: number } & Record<string, unknown>) =>
       (await api.patch(`/admin/products/${id}/`, fields)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff'] }),
+  });
+}
+
+export function useProductImages(productId: number | null) {
+  return useQuery({
+    queryKey: ['staff', 'product-images', productId],
+    queryFn: async () => (await api.get(`/admin/products/${productId}/images/`)).data as ProductImageRow[],
+    enabled: productId !== null,
+  });
+}
+
+export function useUploadProductImage(productId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const body = new FormData();
+      body.append('image', file);
+      return (await api.post(`/admin/products/${productId}/images/`, body)).data;
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['staff', 'product-images', productId] }),
+  });
+}
+
+export function useUpdateProductImage(productId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: number } & Record<string, unknown>) =>
+      (await api.patch(`/admin/products/${productId}/images/${id}/`, fields)).data,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['staff', 'product-images', productId] }),
+  });
+}
+
+export function useDeleteProductImage(productId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) =>
+      (await api.delete(`/admin/products/${productId}/images/${id}/`)).data,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['staff', 'product-images', productId] }),
+  });
+}
+
+export function useProductVariants(productId: number | null) {
+  return useQuery({
+    queryKey: ['staff', 'product-variants', productId],
+    queryFn: async () => (await api.get(`/admin/products/${productId}/variants/`)).data as VariantRow[],
+    enabled: productId !== null,
+  });
+}
+
+function invalidateVariants(queryClient: ReturnType<typeof useQueryClient>, productId: number) {
+  // A variant change also moves the product's rolled-up stock, which the
+  // inventory list and overview cards both show.
+  queryClient.invalidateQueries({ queryKey: ['staff', 'product-variants', productId] });
+  queryClient.invalidateQueries({ queryKey: ['staff', 'inventory'] });
+  queryClient.invalidateQueries({ queryKey: ['staff', 'stats'] });
+}
+
+export function useCreateProductVariant(productId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: Record<string, unknown>) =>
+      (await api.post(`/admin/products/${productId}/variants/`, fields)).data,
+    onSuccess: () => invalidateVariants(queryClient, productId),
+  });
+}
+
+export function useUpdateProductVariant(productId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: number } & Record<string, unknown>) =>
+      (await api.patch(`/admin/products/${productId}/variants/${id}/`, fields)).data,
+    onSuccess: () => invalidateVariants(queryClient, productId),
+  });
+}
+
+export function useDeleteProductVariant(productId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) =>
+      (await api.delete(`/admin/products/${productId}/variants/${id}/`)).data,
+    onSuccess: () => invalidateVariants(queryClient, productId),
   });
 }
 

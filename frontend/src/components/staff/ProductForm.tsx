@@ -164,7 +164,7 @@ export function ProductForm({
             type="number"
             min="0"
             disabled={hasVariants}
-            title={hasVariants ? 'This product has variants - edit their stock in Django Admin.' : undefined}
+            title={hasVariants ? 'This product has variants - edit their stock in the Variants section below.' : undefined}
             value={draft.total_stock}
             onChange={(e) => field('total_stock', e.target.value)}
             className={`${inputClass} num disabled:opacity-50`}
@@ -208,9 +208,6 @@ export function ProductForm({
         />
       </label>
       {error && <p className="text-sm text-kumkum">{error}</p>}
-      <p className="text-xs text-ink-faint">
-        Photos, colours/sizes and other variants are managed in Django Admin.
-      </p>
     </div>
   );
 }

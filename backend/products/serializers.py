@@ -46,6 +46,50 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         )
 
 
+class AdminProductVariantSerializer(serializers.ModelSerializer):
+    """Create/edit a variant from the staff dashboard.
+
+    `sku` is derived by ProductVariant.build_sku() and read-only here -
+    letting staff type one by hand risks colliding with (or duplicating
+    the shape of) the auto-generated ones.
+    """
+
+    class Meta:
+        model = ProductVariant
+        fields = (
+            'id', 'color', 'size', 'sku', 'stock', 'price_override',
+            'fabric', 'fit', 'age_group', 'sleeve_type', 'occasion',
+            'shade', 'volume', 'skin_type', 'is_active',
+        )
+        read_only_fields = ('sku',)
+
+    def validate_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Cannot be negative.')
+        return value
+
+    def validate_price_override(self, value):
+        if value is not None and value <= 0:
+            raise serializers.ValidationError('Must be greater than zero.')
+        return value
+
+    def validate(self, attrs):
+        # Two variants identical on every option axis would still get
+        # distinct SKUs (the auto-generator disambiguates with a numeric
+        # suffix), which just looks like a silent duplicate to staff.
+        product = self.context['product']
+        axes = ('color', 'size', 'shade', 'volume')
+        candidate = {
+            axis: attrs.get(axis, getattr(self.instance, axis, '') if self.instance else '')
+            for axis in axes
+        }
+        others = product.variants.exclude(pk=self.instance.pk if self.instance else None)
+        for existing in others:
+            if all(getattr(existing, axis) == candidate[axis] for axis in axes):
+                raise serializers.ValidationError('A variant with these exact options already exists.')
+        return attrs
+
+
 class ProductHighlightSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductHighlight
