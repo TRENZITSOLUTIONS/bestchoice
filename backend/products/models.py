@@ -131,13 +131,19 @@ class Product(models.Model):
                 self.slug = f'{base}-{self.auto_product_id.lower()}'
         super().save(*args, **kwargs)
 
-    def sync_total_stock(self):
+    def sync_total_stock(self, force=False):
         """Recompute total_stock from this product's variants.
 
-        No-op for products without variants - there total_stock is the authoritative
-        value, set directly. Writes with .update() to avoid recursing through save().
+        No-op for products that have never had a variant - there total_stock is
+        the authoritative value, set directly, and recomputing would zero it
+        out. `force=True` skips that guard for the one caller that needs to:
+        deleting a product's last variant must reset stock to 0, not leave it
+        stuck at whatever the total was before that variant disappeared - a
+        real bug this method used to have, since at that point
+        `self.variants.exists()` is already False.
+        Writes with .update() to avoid recursing through save().
         """
-        if not self.variants.exists():
+        if not force and not self.variants.exists():
             return
         total = self.variants.aggregate(total=models.Sum('stock'))['total'] or 0
         if total != self.total_stock:
@@ -253,7 +259,7 @@ class ProductVariant(models.Model):
     def delete(self, *args, **kwargs):
         product = self.product
         super().delete(*args, **kwargs)
-        product.sync_total_stock()
+        product.sync_total_stock(force=True)
 
     def __str__(self):
         return self.sku

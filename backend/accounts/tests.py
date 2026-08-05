@@ -1033,6 +1033,14 @@ class TotalStockSyncTest(BaseTestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.total_stock, 7)
 
+    def test_deleting_the_last_variant_resets_stock_to_zero(self):
+        # variants.exists() is already False by the time delete() calls back
+        # into sync_total_stock() here, which used to make it a no-op and
+        # leave total_stock stuck at whatever it was before.
+        self.variant.delete()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.total_stock, 0)
+
     def test_variantless_product_keeps_its_manual_value(self):
         p = Product.objects.create(
             name='No Variants', slug='no-variants', category=self.cat,
