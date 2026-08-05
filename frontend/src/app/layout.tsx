@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { SiteChrome } from "@/components/layout/SiteChrome";
 
 export const metadata: Metadata = {
   title: "Best Choice — Clothing, Cosmetics & Accessories",
@@ -18,9 +19,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <Providers>
-          <Header />
+          <SiteChrome><Header /></SiteChrome>
           <main className="flex-1">{children}</main>
-          <Footer />
+          <SiteChrome><Footer /></SiteChrome>
         </Providers>
       </body>
     </html>
