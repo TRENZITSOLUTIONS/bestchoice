@@ -132,7 +132,7 @@ export default function StaffInventoryPage() {
             <div>
               <p className="eyebrow mb-1">{editing === 'new' ? 'New product' : 'Editing product'}</p>
               <h2 className="text-lg font-bold tracking-tight">
-                {editing === 'new' ? 'Untitled product' : editingRow?.name ?? draft.name}
+                {draft.name || 'Untitled product'}
               </h2>
             </div>
             <div className="ml-auto flex items-center gap-3">
