@@ -14,6 +14,19 @@ class RefundSerializer(serializers.ModelSerializer):
         fields = ('id', 'amount', 'reason', 'status', 'created_at')
 
 
+class StaffRefundSerializer(RefundSerializer):
+    """Refunds as staff need them - with the order they belong to.
+
+    The base serializer omits it because a customer requesting or viewing
+    their own refund already has that context; staff triaging a queue of
+    refunds from every customer do not.
+    """
+    order_id = serializers.CharField(source='order.order_id', read_only=True)
+
+    class Meta(RefundSerializer.Meta):
+        fields = RefundSerializer.Meta.fields + ('order_id',)
+
+
 class OrderListSerializer(serializers.ModelSerializer):
     item_count = serializers.SerializerMethodField()
 

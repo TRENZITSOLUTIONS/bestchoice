@@ -81,7 +81,7 @@ export default function StaffCouponsPage() {
         action={
           <button
             onClick={() => setShowForm((s) => !s)}
-            className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold rounded px-3.5 py-1.5"
+            className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5"
           >
             {showForm ? 'Cancel' : 'New coupon'}
           </button>
@@ -97,7 +97,7 @@ export default function StaffCouponsPage() {
                   value={form.code}
                   onChange={(e) => field('code', e.target.value.toUpperCase())}
                   placeholder="DIWALI25"
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm"
+                  className="border border-line px-3 py-2 bg-ivory text-sm"
                 />
               </label>
               <label className="grid gap-1">
@@ -105,7 +105,7 @@ export default function StaffCouponsPage() {
                 <select
                   value={form.discount_type}
                   onChange={(e) => field('discount_type', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm"
+                  className="border border-line px-3 py-2 bg-ivory text-sm"
                 >
                   <option value="percentage">Percentage</option>
                   <option value="fixed">Fixed amount</option>
@@ -122,7 +122,7 @@ export default function StaffCouponsPage() {
                   max={form.discount_type === 'percentage' ? '100' : undefined}
                   value={form.discount_value}
                   onChange={(e) => field('discount_value', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm num"
+                  className="border border-line px-3 py-2 bg-ivory text-sm num"
                 />
               </label>
               <label className="grid gap-1">
@@ -132,7 +132,7 @@ export default function StaffCouponsPage() {
                   min="0"
                   value={form.min_cart_value}
                   onChange={(e) => field('min_cart_value', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm num"
+                  className="border border-line px-3 py-2 bg-ivory text-sm num"
                 />
               </label>
               <label className="grid gap-1">
@@ -143,7 +143,7 @@ export default function StaffCouponsPage() {
                   value={form.max_discount}
                   onChange={(e) => field('max_discount', e.target.value)}
                   placeholder="No cap"
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm num"
+                  className="border border-line px-3 py-2 bg-ivory text-sm num"
                 />
               </label>
               <label className="grid gap-1">
@@ -153,7 +153,7 @@ export default function StaffCouponsPage() {
                   min="0"
                   value={form.usage_limit}
                   onChange={(e) => field('usage_limit', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm num"
+                  className="border border-line px-3 py-2 bg-ivory text-sm num"
                 />
               </label>
               <label className="grid gap-1">
@@ -163,7 +163,7 @@ export default function StaffCouponsPage() {
                   min="1"
                   value={form.per_user_limit}
                   onChange={(e) => field('per_user_limit', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm num"
+                  className="border border-line px-3 py-2 bg-ivory text-sm num"
                 />
               </label>
               <label className="grid gap-1">
@@ -173,7 +173,7 @@ export default function StaffCouponsPage() {
                   type="datetime-local"
                   value={form.valid_from}
                   onChange={(e) => field('valid_from', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm"
+                  className="border border-line px-3 py-2 bg-ivory text-sm"
                 />
               </label>
               <label className="grid gap-1">
@@ -183,7 +183,7 @@ export default function StaffCouponsPage() {
                   type="datetime-local"
                   value={form.valid_till}
                   onChange={(e) => field('valid_till', e.target.value)}
-                  className="border border-line rounded px-3 py-2 bg-ivory text-sm"
+                  className="border border-line px-3 py-2 bg-ivory text-sm"
                 />
               </label>
             </div>
@@ -192,14 +192,14 @@ export default function StaffCouponsPage() {
               <input
                 value={form.description}
                 onChange={(e) => field('description', e.target.value)}
-                className="border border-line rounded px-3 py-2 bg-ivory text-sm"
+                className="border border-line px-3 py-2 bg-ivory text-sm"
               />
             </label>
             {error && <p className="text-kumkum text-sm">{error}</p>}
             <button
               type="submit"
               disabled={createCoupon.isPending}
-              className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm rounded px-5 py-2.5 justify-self-start disabled:opacity-50"
+              className="bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-5 py-2.5 justify-self-start disabled:opacity-50"
             >
               {createCoupon.isPending ? 'Creating…' : 'Create coupon'}
             </button>
@@ -221,8 +221,8 @@ export default function StaffCouponsPage() {
                   <th className="font-medium pb-2">Discount</th>
                   <th className="font-medium pb-2">Min cart</th>
                   <th className="font-medium pb-2">Valid</th>
-                  <th className="font-medium pb-2 text-right">Used</th>
-                  <th className="font-medium pb-2">State</th>
+                  <th className="font-medium pb-2 text-right pr-4">Used</th>
+                  <th className="font-medium pb-2 pl-2">State</th>
                   <th className="pb-2" />
                 </tr>
               </thead>
@@ -242,11 +242,11 @@ export default function StaffCouponsPage() {
                     <td className="py-2.5 text-ink-soft whitespace-nowrap">
                       {shortDate(c.valid_from)} – {shortDate(c.valid_till)}
                     </td>
-                    <td className="py-2.5 text-right num">
+                    <td className="py-2.5 text-right pr-4 num">
                       {c.used_count}
                       {c.usage_limit > 0 && <span className="text-ink-soft">/{c.usage_limit}</span>}
                     </td>
-                    <td className="py-2.5">
+                    <td className="py-2.5 pl-2">
                       <StatusPill
                         value={c.is_active ? 'approved' : 'cancelled'}
                         label={c.is_active ? 'Active' : 'Inactive'}

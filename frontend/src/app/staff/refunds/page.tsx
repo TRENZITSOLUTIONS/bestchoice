@@ -44,7 +44,7 @@ export default function StaffRefundsPage() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="border border-line rounded px-3 py-2 bg-card text-sm"
+          className="border border-line px-3 py-2 bg-card text-sm"
         >
           <option value="">All refunds</option>
           {['requested', 'approved', 'rejected', 'processed'].map((s) => (
@@ -70,8 +70,8 @@ export default function StaffRefundsPage() {
                   <th className="font-medium pb-2">Requested</th>
                   <th className="font-medium pb-2">Order</th>
                   <th className="font-medium pb-2">Reason</th>
-                  <th className="font-medium pb-2 text-right">Amount</th>
-                  <th className="font-medium pb-2">Status</th>
+                  <th className="font-medium pb-2 text-right pr-4">Amount</th>
+                  <th className="font-medium pb-2 pl-2">Status</th>
                   <th className="pb-2" />
                 </tr>
               </thead>
@@ -81,12 +81,12 @@ export default function StaffRefundsPage() {
                     <td className="py-3 text-ink-soft whitespace-nowrap">
                       {shortDate(r.created_at)}
                     </td>
-                    <td className="py-3 font-bold whitespace-nowrap">{String(r.order)}</td>
+                    <td className="py-3 font-bold whitespace-nowrap">{r.order_id}</td>
                     <td className="py-3 max-w-[260px]">{r.reason}</td>
-                    <td className="py-3 text-right num font-bold whitespace-nowrap">
+                    <td className="py-3 text-right pr-4 num font-bold whitespace-nowrap">
                       {money(r.amount)}
                     </td>
-                    <td className="py-3"><StatusPill value={r.status} /></td>
+                    <td className="py-3 pl-2"><StatusPill value={r.status} /></td>
                     <td className="py-3 text-right whitespace-nowrap">
                       {r.status === 'requested' &&
                         (confirming?.id === r.id ? (
@@ -100,7 +100,7 @@ export default function StaffRefundsPage() {
                               <button
                                 onClick={() => act(r.id, confirming.action)}
                                 disabled={updateRefund.isPending}
-                                className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold rounded px-3 py-1.5 disabled:opacity-50"
+                                className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50"
                               >
                                 {updateRefund.isPending ? 'Working…' : 'Confirm'}
                               </button>

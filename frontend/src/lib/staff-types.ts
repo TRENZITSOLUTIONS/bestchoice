@@ -62,7 +62,7 @@ export interface OrderListItem {
 
 export interface Refund {
   id: number;
-  order: number | string;
+  order_id: string;
   amount: string;
   reason: string;
   status: string;

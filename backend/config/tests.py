@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from coupons.models import Coupon
 from delivery.models import DeliveryPincode
-from orders.models import Order, OrderItem
+from orders.models import Order, OrderItem, Refund
 from products.models import Brand, Category, Product, ProductVariant
 from reviews.models import Review
 
@@ -414,6 +414,21 @@ class PincodeListTest(StaffApiTestCase):
             self.client.get('/api/admin/pincodes/?search=Coimbatore').data['count'], 1)
         self.assertEqual(
             self.client.get('/api/admin/pincodes/?search=600001').data['count'], 1)
+
+
+class RefundListTest(StaffApiTestCase):
+    """Staff triaging refunds need to know which order each one belongs to -
+    a plain RefundSerializer (built for a customer who already has that
+    context) used to leave it off the wire entirely."""
+
+    def test_includes_the_order_it_belongs_to(self):
+        order = self.make_order(payment_status='paid', order_status='delivered')
+        Refund.objects.create(order=order, amount=Decimal('500'), reason='Wrong size')
+
+        self.as_staff()
+        row = self.client.get('/api/admin/refunds/').data['results'][0]
+
+        self.assertEqual(row['order_id'], order.order_id)
 
 
 class CouponMoneyFormattingTest(TestCase):

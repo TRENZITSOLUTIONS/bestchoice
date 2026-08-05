@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from coupons.models import Coupon
 from delivery.models import DeliveryPincode
 from orders.models import Order, OrderStatusHistory, Refund
-from orders.serializers import OrderListSerializer, RefundSerializer
+from orders.serializers import OrderListSerializer, StaffRefundSerializer
 from products.models import Product
 from reviews.models import Review
 
@@ -245,7 +245,7 @@ def refund_list(request):
     refund_status = request.query_params.get('status')
     if refund_status:
         qs = qs.filter(status=refund_status)
-    return _paginate(request, qs, RefundSerializer)
+    return _paginate(request, qs, StaffRefundSerializer)
 
 
 @api_view(['GET'])
