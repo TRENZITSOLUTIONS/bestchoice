@@ -1,6 +1,19 @@
 from django.db.models import Q
+from django.utils.text import slugify
 from rest_framework import serializers
 from .models import Category, Brand, Product, ProductImage, ProductVariant, ProductHighlight
+
+
+def unique_slug(model, base, instance=None):
+    """Slugify `base`, disambiguating with a numeric suffix if it collides."""
+    slug = slugify(base)[:100] or 'item'
+    candidate = slug
+    n = 2
+    qs = model.objects.exclude(pk=instance.pk) if instance else model.objects.all()
+    while qs.filter(slug=candidate).exists():
+        candidate = f'{slug}-{n}'
+        n += 1
+    return candidate
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -28,6 +41,90 @@ class BrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = Brand
         fields = ('id', 'name', 'slug', 'logo')
+
+
+class AdminCategorySerializer(serializers.ModelSerializer):
+    """The staff catalogue view - unlike the storefront's CategorySerializer,
+    this shows inactive rows too (so staff can find and reactivate them) and
+    nests children regardless of their own active state."""
+    children = serializers.SerializerMethodField()
+    product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = (
+            'id', 'name', 'slug', 'parent', 'image', 'is_active',
+            'sort_order', 'children', 'product_count',
+        )
+
+    def get_children(self, obj):
+        return AdminCategorySerializer(
+            obj.children.order_by('sort_order', 'name'), many=True).data
+
+    def get_product_count(self, obj):
+        return Product.objects.filter(Q(category=obj) | Q(category__parent=obj)).count()
+
+
+class AdminCategoryWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('name', 'slug', 'parent', 'image', 'is_active', 'sort_order')
+        extra_kwargs = {'slug': {'required': False}}
+
+    def validate_parent(self, parent):
+        if parent is None:
+            return parent
+        if self.instance and parent_id_in_ancestry(parent, self.instance.pk):
+            raise serializers.ValidationError(
+                'A category cannot be nested under itself or one of its own subcategories.')
+        return parent
+
+    def create(self, validated_data):
+        if not validated_data.get('slug'):
+            validated_data['slug'] = unique_slug(Category, validated_data['name'])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'slug' in validated_data and not validated_data['slug']:
+            validated_data['slug'] = unique_slug(Category, validated_data.get('name', instance.name), instance)
+        return super().update(instance, validated_data)
+
+
+def parent_id_in_ancestry(candidate_parent, instance_pk):
+    """True if `instance_pk` appears anywhere up candidate_parent's own parent
+    chain - i.e. setting it as parent would create a cycle. The category tree
+    is shallow in practice, but nothing stops staff from chaining it deeper."""
+    node = candidate_parent
+    seen = set()
+    while node is not None:
+        if node.pk == instance_pk or node.pk in seen:
+            return True
+        seen.add(node.pk)
+        node = node.parent
+    return False
+
+
+class AdminBrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ('id', 'name', 'slug', 'logo', 'is_active')
+
+
+class AdminBrandWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ('name', 'slug', 'logo', 'is_active')
+        extra_kwargs = {'slug': {'required': False}}
+
+    def create(self, validated_data):
+        if not validated_data.get('slug'):
+            validated_data['slug'] = unique_slug(Brand, validated_data['name'])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'slug' in validated_data and not validated_data['slug']:
+            validated_data['slug'] = unique_slug(Brand, validated_data.get('name', instance.name), instance)
+        return super().update(instance, validated_data)
 
 
 class ProductImageSerializer(serializers.ModelSerializer):

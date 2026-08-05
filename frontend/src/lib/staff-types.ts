@@ -1,3 +1,23 @@
+export interface CategoryRow {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number | null;
+  image: string;
+  is_active: boolean;
+  sort_order: number;
+  children: CategoryRow[];
+  product_count: number;
+}
+
+export interface BrandRow {
+  id: number;
+  name: string;
+  slug: string;
+  logo: string;
+  is_active: boolean;
+}
+
 export interface Paginated<T> {
   count: number;
   page: number;

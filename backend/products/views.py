@@ -9,6 +9,8 @@ from .serializers import (
     CategorySerializer, BrandSerializer,
     ProductListSerializer, ProductDetailSerializer, AdminProductWriteSerializer,
     ProductImageSerializer, AdminProductVariantSerializer,
+    AdminCategorySerializer, AdminCategoryWriteSerializer,
+    AdminBrandSerializer, AdminBrandWriteSerializer,
 )
 
 
@@ -233,3 +235,71 @@ def admin_product_variant_detail(request, product_id, variant_id):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(AdminProductVariantSerializer(variant).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def admin_category_collection(request):
+    if request.method == 'GET':
+        top_level = Category.objects.filter(parent=None).order_by('sort_order', 'name')
+        return Response(AdminCategorySerializer(top_level, many=True).data)
+
+    serializer = AdminCategoryWriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    category = serializer.save()
+    return Response(AdminCategorySerializer(category).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def admin_category_detail(request, pk):
+    try:
+        category = Category.objects.get(pk=pk)
+    except Category.DoesNotExist:
+        return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        # Not an actual delete: parent->children is CASCADE, so removing a
+        # department would take its whole subcategory tree with it, and any
+        # product still filed here would need somewhere to land first.
+        # Deactivating hides it from the storefront and from the picker on
+        # new products without touching what already points to it.
+        category.is_active = False
+        category.save(update_fields=['is_active'])
+        return Response(AdminCategorySerializer(category).data)
+
+    serializer = AdminCategoryWriteSerializer(category, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(AdminCategorySerializer(category).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def admin_brand_collection(request):
+    if request.method == 'GET':
+        return Response(AdminBrandSerializer(Brand.objects.order_by('name'), many=True).data)
+
+    serializer = AdminBrandWriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    brand = serializer.save()
+    return Response(AdminBrandSerializer(brand).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def admin_brand_detail(request, pk):
+    try:
+        brand = Brand.objects.get(pk=pk)
+    except Brand.DoesNotExist:
+        return Response({'error': 'Brand not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        brand.is_active = False
+        brand.save(update_fields=['is_active'])
+        return Response(AdminBrandSerializer(brand).data)
+
+    serializer = AdminBrandWriteSerializer(brand, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(AdminBrandSerializer(brand).data)

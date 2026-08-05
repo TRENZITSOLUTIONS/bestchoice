@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type {
+  BrandRow,
+  CategoryRow,
   CouponRow,
   DashboardStats,
   DeliveryRates,
@@ -262,5 +264,71 @@ export function useStaffPincodes(search = '') {
     queryKey: ['staff', 'pincodes', search],
     queryFn: async () =>
       (await api.get<PincodeResponse>(`/admin/pincodes/${search ? `?search=${search}` : ''}`)).data,
+  });
+}
+
+export function useStaffCategories() {
+  return useQuery({
+    queryKey: ['staff', 'categories'],
+    queryFn: async () => (await api.get<CategoryRow[]>('/admin/categories/')).data,
+  });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: Record<string, unknown>) =>
+      (await api.post('/admin/categories/', fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'categories'] }),
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: number } & Record<string, unknown>) =>
+      (await api.patch(`/admin/categories/${id}/`, fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'categories'] }),
+  });
+}
+
+export function useDeactivateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/admin/categories/${id}/`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'categories'] }),
+  });
+}
+
+export function useStaffBrands() {
+  return useQuery({
+    queryKey: ['staff', 'brands'],
+    queryFn: async () => (await api.get<BrandRow[]>('/admin/brands/')).data,
+  });
+}
+
+export function useCreateBrand() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (fields: Record<string, unknown>) =>
+      (await api.post('/admin/brands/', fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'brands'] }),
+  });
+}
+
+export function useUpdateBrand() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: number } & Record<string, unknown>) =>
+      (await api.patch(`/admin/brands/${id}/`, fields)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'brands'] }),
+  });
+}
+
+export function useDeactivateBrand() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/admin/brands/${id}/`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'brands'] }),
   });
 }

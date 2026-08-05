@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/staff', label: 'Overview' },
   { href: '/staff/orders', label: 'Orders' },
   { href: '/staff/inventory', label: 'Inventory' },
+  { href: '/staff/categories', label: 'Categories' },
   { href: '/staff/refunds', label: 'Refunds' },
   { href: '/staff/reviews', label: 'Reviews' },
   { href: '/staff/coupons', label: 'Coupons' },

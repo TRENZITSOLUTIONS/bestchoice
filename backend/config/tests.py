@@ -87,6 +87,10 @@ class StaffApiPermissionTest(StaffApiTestCase):
         ('get', '/api/admin/reviews/'),
         ('get', '/api/admin/coupons/'),
         ('post', '/api/admin/coupons/'),
+        ('get', '/api/admin/categories/'),
+        ('post', '/api/admin/categories/'),
+        ('get', '/api/admin/brands/'),
+        ('post', '/api/admin/brands/'),
         ('get', '/api/admin/pincodes/'),
         ('get', '/api/admin/delivery-rates/'),
         ('patch', '/api/admin/delivery-rates/tamil-nadu/'),
@@ -725,4 +729,100 @@ class ProductVariantManagementTest(StaffApiTestCase):
         self.as_customer()
         res = self.client.post(f'/api/admin/products/{self.product.id}/variants/',
                                {'color': 'Blue', 'size': 'L', 'stock': 1}, format='json')
+        self.assertEqual(res.status_code, 403)
+
+
+class CategoryManagementTest(StaffApiTestCase):
+    def test_creates_a_department_with_an_auto_slug(self):
+        self.as_staff()
+        res = self.client.post('/api/admin/categories/', {'name': 'Home & Kitchen'}, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data['slug'], 'home-kitchen')
+        self.assertIsNone(res.data['parent'])
+
+    def test_auto_slug_disambiguates_on_collision(self):
+        self.as_staff()
+        self.client.post('/api/admin/categories/', {'name': 'Footwear'}, format='json')
+        second = self.client.post('/api/admin/categories/', {'name': 'Footwear'}, format='json')
+        self.assertEqual(second.data['slug'], 'footwear-2')
+
+    def test_creates_a_subcategory_under_a_department(self):
+        department = Category.objects.create(name='Wear', slug='wear')
+        self.as_staff()
+        res = self.client.post('/api/admin/categories/',
+                               {'name': 'Jackets', 'parent': department.id}, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data['parent'], department.id)
+
+    def test_rejects_a_category_as_its_own_parent(self):
+        self.as_staff()
+        res = self.client.patch(f'/api/admin/categories/{self.category.id}/',
+                                {'parent': self.category.id}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_rejects_a_cycle_through_a_descendant(self):
+        department = Category.objects.create(name='Wear', slug='wear')
+        self.category.parent = department
+        self.category.save()
+        self.as_staff()
+        # Making the department a child of its own subcategory would cycle.
+        res = self.client.patch(f'/api/admin/categories/{department.id}/',
+                                {'parent': self.category.id}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_delete_deactivates_instead_of_removing(self):
+        self.as_staff()
+        res = self.client.delete(f'/api/admin/categories/{self.category.id}/')
+        self.assertEqual(res.status_code, 200)
+        self.category.refresh_from_db()
+        self.assertFalse(self.category.is_active)
+        self.assertTrue(Category.objects.filter(pk=self.category.pk).exists())
+
+    def test_list_includes_inactive_rows_and_nested_children(self):
+        department = Category.objects.create(name='Wear', slug='wear', is_active=False)
+        Category.objects.create(name='Jackets', slug='jackets', parent=department)
+        self.as_staff()
+        rows = {r['name']: r for r in self.client.get('/api/admin/categories/').data}
+        self.assertIn('Wear', rows)
+        self.assertEqual([c['name'] for c in rows['Wear']['children']], ['Jackets'])
+
+    def test_customer_cannot_manage_categories(self):
+        self.as_customer()
+        res = self.client.post('/api/admin/categories/', {'name': 'Sneaky'}, format='json')
+        self.assertEqual(res.status_code, 403)
+
+
+class BrandManagementTest(StaffApiTestCase):
+    def test_creates_a_brand_with_an_auto_slug(self):
+        self.as_staff()
+        res = self.client.post('/api/admin/brands/', {'name': 'Acme Co'}, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data['slug'], 'acme-co')
+        self.assertTrue(res.data['is_active'])
+
+    def test_auto_slug_disambiguates_on_collision(self):
+        self.as_staff()
+        self.client.post('/api/admin/brands/', {'name': 'Acme'}, format='json')
+        second = self.client.post('/api/admin/brands/', {'name': 'Acme'}, format='json')
+        self.assertEqual(second.data['slug'], 'acme-2')
+
+    def test_delete_deactivates_instead_of_removing(self):
+        self.as_staff()
+        res = self.client.delete(f'/api/admin/brands/{self.brand.id}/')
+        self.assertEqual(res.status_code, 200)
+        self.brand.refresh_from_db()
+        self.assertFalse(self.brand.is_active)
+        self.assertTrue(Brand.objects.filter(pk=self.brand.pk).exists())
+
+    def test_reactivating_a_deactivated_brand(self):
+        self.brand.is_active = False
+        self.brand.save()
+        self.as_staff()
+        res = self.client.patch(f'/api/admin/brands/{self.brand.id}/', {'is_active': True}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.data['is_active'])
+
+    def test_customer_cannot_manage_brands(self):
+        self.as_customer()
+        res = self.client.post('/api/admin/brands/', {'name': 'Sneaky'}, format='json')
         self.assertEqual(res.status_code, 403)
