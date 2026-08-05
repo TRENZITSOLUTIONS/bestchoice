@@ -23,13 +23,13 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const logout = useLogout();
 
   // The sign-in page itself is public; everything else needs a staff account.
-  if (pathname === '/staff/login') return <>{children}</>;
+  if (pathname === '/staff/login') return <div className="admin-shell">{children}</div>;
 
   if (!isAuthenticated) {
     return (
-      <div className="mx-auto max-w-[520px] px-4 py-24 text-center">
+      <div className="admin-shell mx-auto max-w-[520px] px-4 py-24 text-center">
         <p className="eyebrow">Staff area</p>
-        <h1 className="display text-2xl mt-2 mb-4">Sign in to continue</h1>
+        <h1 className="text-2xl font-bold mt-2 mb-4">Sign in to continue</h1>
         <Link
           href="/staff/login"
           className="inline-block bg-kumkum hover:bg-kumkum-deep text-white font-bold text-sm px-6 py-3"
@@ -42,9 +42,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
   if (!user?.is_staff) {
     return (
-      <div className="mx-auto max-w-[520px] px-4 py-24 text-center">
+      <div className="admin-shell mx-auto max-w-[520px] px-4 py-24 text-center">
         <p className="eyebrow">Staff area</p>
-        <h1 className="display text-2xl mt-2 mb-3">You don&apos;t have access</h1>
+        <h1 className="text-2xl font-bold mt-2 mb-3">You don&apos;t have access</h1>
         <p className="text-ink-soft mb-7">
           You&apos;re signed in as {user?.email}, which isn&apos;t a staff account. If you
           manage this store, sign in with your staff credentials.
@@ -65,9 +65,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 sm:px-7 py-7">
+    <div className="admin-shell mx-auto max-w-[1400px] px-4 sm:px-7 py-7">
       <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-6">
-        <h1 className="display text-xl">Store management</h1>
+        <h1 className="text-xl font-bold tracking-tight">Store management</h1>
         <p className="text-sm text-ink-soft">{user.email}</p>
         <Link href="/" className="ml-auto text-sm font-bold text-kumkum-deep">
           View storefront →

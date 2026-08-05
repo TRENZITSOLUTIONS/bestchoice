@@ -104,14 +104,13 @@ export function VariantManager({ productId }: { productId: number }) {
 
   return (
     <div className="grid gap-3">
-      <div className="flex items-center justify-between">
-        <span className="eyebrow">Variants</span>
-        {editing === null && (
-          <button onClick={startCreate} className="text-xs font-bold underline">
+      {editing === null && (
+        <div className="flex items-center justify-end">
+          <button onClick={startCreate} className="text-xs font-bold text-marigold-lit">
             + Add variant
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-ink-soft">Loading…</p>

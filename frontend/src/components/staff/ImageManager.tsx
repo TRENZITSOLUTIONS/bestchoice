@@ -25,11 +25,13 @@ export function ImageManager({ productId }: { productId: number }) {
   return (
     <div className="grid gap-3">
       <div className="flex items-center justify-between">
-        <span className="eyebrow">Photos</span>
+        <span className="text-xs text-ink-faint">
+          The photo marked Primary is used as the default everywhere.
+        </span>
         <button
           onClick={() => fileInput.current?.click()}
           disabled={upload.isPending}
-          className="text-xs font-bold underline disabled:opacity-50"
+          className="text-xs font-bold text-marigold-lit whitespace-nowrap disabled:opacity-50"
         >
           {upload.isPending ? 'Uploading…' : '+ Upload photo'}
         </button>

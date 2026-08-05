@@ -45,6 +45,10 @@
   /* A couture serif answers the crest's classical laurel. Didot and Bodoni ship
      on macOS/Windows respectively; Georgia is the universal floor. */
   --font-serif: "Didot", "Bodoni MT", "Hoefler Text", Garamond, Georgia, serif;
+  /* The staff dashboard is a data-management tool, not a storefront - Inter is
+     built for scanning tables and forms at small sizes, not for carrying a
+     couture brand mark. --font-inter comes from next/font in layout.tsx. */
+  --font-admin: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -72,6 +76,13 @@ body::before {
   letter-spacing: -0.01em;
   text-wrap: balance;
   line-height: 1.06;
+}
+
+/* Scopes the whole staff dashboard to Inter, overriding the storefront's
+   default sans and blocking the serif .display class from leaking in. */
+.admin-shell,
+.admin-shell .display {
+  font-family: var(--font-admin);
 }
 
 .eyebrow {

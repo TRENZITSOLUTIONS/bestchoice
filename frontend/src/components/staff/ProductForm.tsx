@@ -1,6 +1,7 @@
 'use client';
 
 import { useCategories, useBrands } from '@/hooks/useProducts';
+import { rupees } from '@/lib/format';
 import type { InventoryRow } from '@/lib/staff-types';
 import type { Category } from '@/lib/types';
 
@@ -69,145 +70,187 @@ export function flattenCategories(categories: Category[]) {
   ]);
 }
 
-const inputClass =
+/** A sentence-case field label, not the shared uppercase gold .eyebrow - that
+ * treatment is for page-level meta text, not a form field staff reads dozens
+ * of times a day. */
+export const fieldLabelClass = 'text-xs font-semibold text-ink-soft';
+export const fieldInputClass =
   'border border-line bg-ivory px-3 py-2 text-sm text-ink outline-none focus:border-marigold';
 
-export function ProductForm({
-  draft,
-  onChange,
-  hasVariants,
-  error,
-}: {
-  draft: ProductDraft;
-  onChange: (draft: ProductDraft) => void;
-  /** Stock is derived from variants once a product has any - editing it here would be overwritten. */
-  hasVariants?: boolean;
-  error?: string;
-}) {
+type Fields<K extends keyof ProductDraft> = {
+  draft: Pick<ProductDraft, K>;
+  onChange: (patch: Partial<ProductDraft>) => void;
+};
+
+export function ProductDetailsFields({ draft, onChange }: Fields<'name' | 'short_description' | 'description'>) {
+  return (
+    <div className="grid gap-4">
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Name</span>
+        <input
+          required
+          value={draft.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          placeholder="Cotton Casual Shirt"
+          className={fieldInputClass}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Short description</span>
+        <input
+          value={draft.short_description}
+          onChange={(e) => onChange({ short_description: e.target.value })}
+          placeholder="Shown on product cards and search results"
+          className={fieldInputClass}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Description</span>
+        <textarea
+          rows={4}
+          value={draft.description}
+          onChange={(e) => onChange({ description: e.target.value })}
+          placeholder="Shown on the full product page"
+          className={fieldInputClass}
+        />
+      </label>
+    </div>
+  );
+}
+
+export function ProductPricingFields({ draft, onChange }: Fields<'mrp' | 'selling_price'>) {
+  const mrp = Number(draft.mrp);
+  const sellingPrice = Number(draft.selling_price);
+  const discount = mrp > 0 && sellingPrice > 0 && sellingPrice <= mrp
+    ? Math.round(((mrp - sellingPrice) / mrp) * 100)
+    : null;
+
+  return (
+    <div className="grid gap-4">
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>MRP (₹)</span>
+        <input
+          required
+          type="number"
+          min="1"
+          step="0.01"
+          value={draft.mrp}
+          onChange={(e) => onChange({ mrp: e.target.value })}
+          className={`${fieldInputClass} num`}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Selling price (₹)</span>
+        <input
+          required
+          type="number"
+          min="1"
+          step="0.01"
+          value={draft.selling_price}
+          onChange={(e) => onChange({ selling_price: e.target.value })}
+          className={`${fieldInputClass} num`}
+        />
+      </label>
+      {sellingPrice > 0 && (
+        <>
+          <div className="h-px bg-line" />
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs text-ink-soft">Customer sees</span>
+            <span className="num text-[0.95rem] font-bold">
+              {rupees(sellingPrice)}
+              {discount !== null && discount > 0 && (
+                <span className="ml-2 text-xs font-bold text-leaf">{discount}% off</span>
+              )}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function ProductOrganizationFields({ draft, onChange }: Fields<'category' | 'brand' | 'weight_g'>) {
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
   const categoryOptions = categories ? flattenCategories(categories) : [];
 
-  function field<K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) {
-    onChange({ ...draft, [key]: value });
-  }
-
   return (
-    <div className="grid gap-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="grid gap-1">
-          <span className="eyebrow">Name</span>
-          <input
-            required
-            value={draft.name}
-            onChange={(e) => field('name', e.target.value)}
-            placeholder="Cotton Casual Shirt"
-            className={inputClass}
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="eyebrow">Category</span>
-          <select
-            required
-            value={draft.category}
-            onChange={(e) => field('category', e.target.value)}
-            className={inputClass}
-          >
-            <option value="" disabled>Choose one</option>
-            {categoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="eyebrow">Brand (optional)</span>
-          <select
-            value={draft.brand}
-            onChange={(e) => field('brand', e.target.value)}
-            className={inputClass}
-          >
-            <option value="">No brand</option>
-            {brands?.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="eyebrow">MRP (₹)</span>
-          <input
-            required
-            type="number"
-            min="1"
-            step="0.01"
-            value={draft.mrp}
-            onChange={(e) => field('mrp', e.target.value)}
-            className={`${inputClass} num`}
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="eyebrow">Selling price (₹)</span>
-          <input
-            required
-            type="number"
-            min="1"
-            step="0.01"
-            value={draft.selling_price}
-            onChange={(e) => field('selling_price', e.target.value)}
-            className={`${inputClass} num`}
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="eyebrow">
-            Stock{hasVariants ? ' (from variants)' : ''}
-          </span>
-          <input
-            type="number"
-            min="0"
-            disabled={hasVariants}
-            title={hasVariants ? 'This product has variants - edit their stock in the Variants section below.' : undefined}
-            value={draft.total_stock}
-            onChange={(e) => field('total_stock', e.target.value)}
-            className={`${inputClass} num disabled:opacity-50`}
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="eyebrow">Weight (g)</span>
-          <input
-            type="number"
-            min="1"
-            value={draft.weight_g}
-            onChange={(e) => field('weight_g', e.target.value)}
-            className={`${inputClass} num`}
-          />
-        </label>
-        <label className="flex items-center gap-2 self-end pb-2 text-sm">
-          <input
-            type="checkbox"
-            checked={draft.is_active}
-            onChange={(e) => field('is_active', e.target.checked)}
-          />
-          Visible to shoppers
-        </label>
-      </div>
-      <label className="grid gap-1">
-        <span className="eyebrow">Short description</span>
+    <div className="grid gap-4">
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Category</span>
+        <select
+          required
+          value={draft.category}
+          onChange={(e) => onChange({ category: e.target.value })}
+          className={fieldInputClass}
+        >
+          <option value="" disabled>Choose one</option>
+          {categoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.label}</option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Brand (optional)</span>
+        <select
+          value={draft.brand}
+          onChange={(e) => onChange({ brand: e.target.value })}
+          className={fieldInputClass}
+        >
+          <option value="">No brand</option>
+          {brands?.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Weight (g)</span>
         <input
-          value={draft.short_description}
-          onChange={(e) => field('short_description', e.target.value)}
-          placeholder="Shown on product cards and search results"
-          className={inputClass}
+          type="number"
+          min="1"
+          value={draft.weight_g}
+          onChange={(e) => onChange({ weight_g: e.target.value })}
+          className={`${fieldInputClass} num`}
         />
       </label>
-      <label className="grid gap-1">
-        <span className="eyebrow">Description</span>
-        <textarea
-          rows={3}
-          value={draft.description}
-          onChange={(e) => field('description', e.target.value)}
-          className={inputClass}
+    </div>
+  );
+}
+
+export function ProductStatusFields({
+  draft,
+  onChange,
+  hasVariants,
+}: Fields<'is_active' | 'total_stock'> & {
+  /** Stock is derived from variants once a product has any - editing it here would be overwritten. */
+  hasVariants?: boolean;
+}) {
+  return (
+    <div className="grid gap-4">
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium">Visible to shoppers</span>
+        <input
+          type="checkbox"
+          checked={draft.is_active}
+          onChange={(e) => onChange({ is_active: e.target.checked })}
+          className="h-4 w-4 accent-leaf"
         />
       </label>
-      {error && <p className="text-sm text-kumkum">{error}</p>}
+      <div className="h-px bg-line" />
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>
+          Stock{hasVariants ? ' (from variants)' : ''}
+        </span>
+        <input
+          type="number"
+          min="0"
+          disabled={hasVariants}
+          title={hasVariants ? 'This product has variants - edit their stock in the Variants section below.' : undefined}
+          value={draft.total_stock}
+          onChange={(e) => onChange({ total_stock: e.target.value })}
+          className={`${fieldInputClass} num disabled:opacity-50`}
+        />
+      </label>
     </div>
   );
 }

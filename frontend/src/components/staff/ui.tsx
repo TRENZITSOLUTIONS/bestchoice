@@ -69,7 +69,7 @@ export function Panel({
   return (
     <section className="border border-line bg-card">
       <header className="flex items-center gap-3 border-b border-line px-5 py-3.5">
-        <h2 className="text-[0.7rem] font-bold uppercase tracking-[0.16em] text-marigold">{title}</h2>
+        <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.05em] text-ink">{title}</h2>
         {action && <div className="ml-auto">{action}</div>}
       </header>
       <div className="p-5">{children}</div>

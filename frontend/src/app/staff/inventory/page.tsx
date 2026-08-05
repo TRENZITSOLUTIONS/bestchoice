@@ -14,7 +14,10 @@ import {
 } from '@/components/staff/ui';
 import {
   EMPTY_PRODUCT_DRAFT,
-  ProductForm,
+  ProductDetailsFields,
+  ProductPricingFields,
+  ProductOrganizationFields,
+  ProductStatusFields,
   draftFromRow,
   draftToPayload,
   flattenCategories,
@@ -57,6 +60,10 @@ export default function StaffInventoryPage() {
     : updateProduct.isError
       ? firstError(updateProduct.error)
       : undefined;
+
+  function patchDraft(patch: Partial<ProductDraft>) {
+    setDraft((d) => ({ ...d, ...patch }));
+  }
 
   function setFilter(key: keyof typeof filters, value: string) {
     setFilters((f) => ({ ...f, [key]: value }));
@@ -101,64 +108,83 @@ export default function StaffInventoryPage() {
   const editingRow = editing !== null && editing !== 'new'
     ? data?.results.find((r) => r.id === editing)
     : undefined;
+  const hasVariants = !!editingRow && editingRow.variant_count > 0;
 
   return (
     <div className="grid gap-5">
-      <Panel
-        title={editing === 'new' ? 'New product' : editingRow ? `Editing ${editingRow.name}` : 'Add a product'}
-        action={
-          editing === null ? (
+      {editing === null ? (
+        <Panel
+          title="Add a product"
+          action={
             <button
               onClick={startCreate}
               className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5"
             >
               New product
             </button>
-          ) : (
-            <div className="flex items-center gap-3">
+          }
+        >
+          <p className="text-sm text-ink-soft">Add new stock, or pick a row below to edit it.</p>
+        </Panel>
+      ) : (
+        <div className="grid gap-5">
+          <div className="flex flex-wrap items-center gap-3 border-b border-line pb-4">
+            <div>
+              <p className="eyebrow mb-1">{editing === 'new' ? 'New product' : 'Editing product'}</p>
+              <h2 className="text-lg font-bold tracking-tight">
+                {editing === 'new' ? 'Untitled product' : editingRow?.name ?? draft.name}
+              </h2>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
               <button
-                onClick={() => save(!!editingRow && editingRow.variant_count > 0)}
+                onClick={() => save(hasVariants)}
                 disabled={saving}
-                className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5 disabled:opacity-50"
+                className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-4 py-2 disabled:opacity-50"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? 'Saving…' : 'Save changes'}
               </button>
-              <button onClick={cancel} className="text-xs text-ink-soft hover:text-ink">
+              <button onClick={cancel} className="text-xs font-bold text-ink-soft hover:text-ink">
                 Cancel
               </button>
             </div>
-          )
-        }
-      >
-        {editing !== null ? (
-          <div className="grid gap-6">
-            <ProductForm
-              draft={draft}
-              onChange={setDraft}
-              hasVariants={!!editingRow && editingRow.variant_count > 0}
-              error={saveError}
-            />
-            {typeof editing === 'number' ? (
-              <>
-                <div className="border-t border-line pt-5">
-                  <ImageManager productId={editing} />
-                </div>
-                <div className="border-t border-line pt-5">
-                  <VariantManager productId={editing} />
-                </div>
-              </>
-            ) : (
-              <p className="border-t border-line pt-5 text-sm text-ink-soft">
-                Save the product first to add photos or variants.
-              </p>
-            )}
           </div>
-        ) : (
-          <p className="text-sm text-ink-soft">
-            Add new stock, or pick a row below to edit it.
-          </p>
-        )}
-      </Panel>
+          {saveError && <p className="text-sm text-kumkum">{saveError}</p>}
+
+          {typeof editing === 'number' && (
+            <Panel title="Photos">
+              <ImageManager productId={editing} />
+            </Panel>
+          )}
+
+          <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+            <div className="grid gap-5">
+              <Panel title="Details">
+                <ProductDetailsFields draft={draft} onChange={patchDraft} />
+              </Panel>
+              {typeof editing === 'number' ? (
+                <Panel title="Variants">
+                  <VariantManager productId={editing} />
+                </Panel>
+              ) : (
+                <Panel title="Variants">
+                  <p className="text-sm text-ink-soft">Save the product first to add variants.</p>
+                </Panel>
+              )}
+            </div>
+            <div className="grid gap-5">
+              <Panel title="Status">
+                <ProductStatusFields draft={draft} onChange={patchDraft} hasVariants={hasVariants} />
+              </Panel>
+              <Panel title="Pricing">
+                <ProductPricingFields draft={draft} onChange={patchDraft} />
+              </Panel>
+              <Panel title="Organization">
+                <ProductOrganizationFields draft={draft} onChange={patchDraft} />
+              </Panel>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2.5 items-center">
         <input

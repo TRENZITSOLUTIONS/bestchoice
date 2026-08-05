@@ -33,7 +33,7 @@ export default function StaffLoginPage() {
   return (
     <div className="mx-auto max-w-[420px] px-4 py-16">
       <p className="eyebrow text-center">Staff access</p>
-      <h1 className="display text-2xl mt-2 mb-2 text-center">Sign in to manage the store</h1>
+      <h1 className="text-2xl font-bold tracking-tight mt-2 mb-2 text-center">Sign in to manage the store</h1>
       <p className="text-sm text-ink-soft text-center mb-8">
         Customers sign in with Google. This page is for Best Choice staff accounts.
       </p>
