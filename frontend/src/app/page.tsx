@@ -4,10 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCategories, useProducts } from '@/hooks/useProducts';
-import { ProductCard } from '@/components/ProductCard';
+import { useCategories } from '@/hooks/useProducts';
 import { CategoryGlyph, GLYPH_WASH, glyphFor } from '@/components/CategoryGlyph';
-import type { ProductListItem } from '@/lib/types';
 
 const CATEGORY_BLURBS: Record<string, string> = {
   'mens-wear': 'Shirts · Denim · Ethnic',
@@ -26,40 +24,10 @@ const TRENDING = [
   'Smart watches',
 ];
 
-/** Pick up to `limit` products, preferring one per department before repeating.
- *  Newest-first ordering otherwise fills the row with whatever was stocked last
- *  - four identical glyphs from a single department. */
-function spreadAcrossDepartments(items: ProductListItem[] | undefined, limit: number) {
-  if (!items?.length) return [];
-  const seen = new Set<string>();
-  const picked: ProductListItem[] = [];
-
-  for (const p of items) {
-    const dept = glyphFor(p.category, p.name);
-    if (!seen.has(dept)) {
-      seen.add(dept);
-      picked.push(p);
-    }
-    if (picked.length === limit) return picked;
-  }
-  // Top up from whatever is left if there weren't enough distinct departments.
-  for (const p of items) {
-    if (picked.length === limit) break;
-    if (!picked.includes(p)) picked.push(p);
-  }
-  return picked;
-}
-
 export default function HomePage() {
   const { data: categories } = useCategories();
-  // Ask for a wider slice than we show, so there's enough to spread.
-  const { data: featured } = useProducts({ discount: '20', ordering: '-created_at', page_size: '40' });
-  const { data: newArrivals } = useProducts({ ordering: '-created_at', page_size: '40' });
   const router = useRouter();
   const [query, setQuery] = useState('');
-
-  const featuredPicks = spreadAcrossDepartments(featured?.results, 4);
-  const arrivalPicks = spreadAcrossDepartments(newArrivals?.results, 4);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -221,84 +189,6 @@ export default function HomePage() {
                 </Link>
               );
             })}
-          </div>
-        </section>
-      </div>
-
-      {/* ---------- Festive band ---------- */}
-      <section className="relative overflow-hidden border-y border-line bg-[#0a0a0c]">
-        <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
-        <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
-          <div>
-            <p className="eyebrow">Festive edit</p>
-            <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
-              The season&apos;s <em className="italic text-marigold-lit">best</em> is already here.
-            </h2>
-            <p className="mb-7 max-w-[400px] leading-relaxed text-ink-soft">
-              Silk-blend sarees, occasion kurtas and the season&apos;s scents — reduced across all
-              five departments while stock lasts.
-            </p>
-            <div className="font-serif text-[4rem] leading-none text-ink num">
-              40<sup className="align-super text-[1.3rem] text-marigold-lit">% off</sup>
-            </div>
-            <Link
-              href="/products?discount=20"
-              className="mt-8 inline-flex items-center gap-3 bg-kumkum hover:bg-kumkum-deep text-white text-[0.76rem] font-extrabold uppercase tracking-[0.16em] px-8 py-4 transition-all hover:-translate-y-0.5"
-            >
-              Shop the edit
-            </Link>
-          </div>
-          <div className="relative hidden min-h-[300px] items-center justify-center lg:flex">
-            <span aria-hidden className="absolute inset-[6%] rounded-full border border-line" />
-            <span aria-hidden className="absolute inset-[18%] rounded-full border border-marigold/25" />
-            <span aria-hidden className="absolute inset-[30%] rounded-full border border-line" />
-            <Image src="/logo-crest.png" alt="" width={700} height={885} aria-hidden className="relative w-[210px]" />
-          </div>
-        </div>
-      </section>
-
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-8">
-        {/* ---------- Featured ---------- */}
-        <section className="py-16 sm:py-22">
-          <div className="mb-10 flex items-end justify-between gap-6">
-            <div>
-              <p className="eyebrow">Handpicked</p>
-              <h2 className="display text-2xl sm:text-[2.4rem] mt-3">Featured this week.</h2>
-            </div>
-            <Link
-              href="/products?discount=20"
-              className="whitespace-nowrap border-b border-marigold pb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.16em] text-marigold-lit"
-            >
-              All products →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
-            {featuredPicks.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </section>
-
-        <div className="hairline" />
-
-        {/* ---------- New arrivals ---------- */}
-        <section className="py-16 sm:py-22">
-          <div className="mb-10 flex items-end justify-between gap-6">
-            <div>
-              <p className="eyebrow">Just in</p>
-              <h2 className="display text-2xl sm:text-[2.4rem] mt-3">New arrivals.</h2>
-            </div>
-            <Link
-              href="/products?ordering=-created_at"
-              className="whitespace-nowrap border-b border-marigold pb-1 text-[0.72rem] font-extrabold uppercase tracking-[0.16em] text-marigold-lit"
-            >
-              See everything →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
-            {arrivalPicks.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
           </div>
         </section>
       </div>
