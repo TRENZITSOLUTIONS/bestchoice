@@ -24,6 +24,12 @@ const TRENDING = [
   'Smart watches',
 ];
 
+// Stand-in only, so the section's layout and click-to-play behaviour can be
+// seen and reviewed now - swap for the client's real introduction video (a
+// file to self-host on S3, or a YouTube/Vimeo link to embed) once it's in
+// hand, then delete this constant and comment.
+const PLACEHOLDER_VIDEO_URL = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+
 export default function HomePage() {
   const { data: categories } = useCategories();
   const router = useRouter();
@@ -193,6 +199,24 @@ export default function HomePage() {
         </section>
       </div>
 
+      {/* ---------- Intro video ---------- */}
+      <section className="relative overflow-hidden border-y border-line bg-[#0a0a0c]">
+        <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
+        <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
+          <div>
+            <p className="eyebrow">Meet Best Choice</p>
+            <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
+              See how <em className="italic text-marigold-lit">we</em> do it.
+            </h2>
+            <p className="max-w-[400px] leading-relaxed text-ink-soft">
+              A quick look inside our Spencer Plaza counter, and how every order finds its way to
+              your door.
+            </p>
+          </div>
+          <IntroVideo />
+        </div>
+      </section>
+
       {/* ---------- Rewards ---------- */}
       <section className="border-y border-line bg-card/40 py-20">
         <div className="mx-auto grid max-w-[1280px] items-center gap-14 px-4 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
@@ -243,6 +267,40 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Click-to-play, not autoplay: nothing (no video bytes, no player) loads
+ *  over the wire until someone actually asks to watch it. */
+function IntroVideo() {
+  const [playing, setPlaying] = useState(false);
+
+  if (playing) {
+    return (
+      <video
+        className="aspect-video w-full border border-line bg-black"
+        controls
+        autoPlay
+        playsInline
+        src={PLACEHOLDER_VIDEO_URL}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setPlaying(true)}
+      aria-label="Play introduction video"
+      className="group relative flex aspect-video w-full items-center justify-center overflow-hidden border border-line bg-sunken"
+    >
+      <span aria-hidden className="absolute inset-[10%] rounded-full border border-line" />
+      <span aria-hidden className="absolute inset-[24%] rounded-full border border-marigold/25" />
+      <span className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-kumkum text-white shadow-[0_14px_40px_-14px_rgba(224,38,28,0.7)] transition-transform duration-300 group-hover:scale-110 sm:h-20 sm:w-20">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </span>
+    </button>
   );
 }
 
