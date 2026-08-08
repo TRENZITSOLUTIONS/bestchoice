@@ -142,17 +142,22 @@ export function Header() {
             </div>
           </div>
 
+          {/* Below md, the compact header search box is hidden, so give it its
+              own always-visible row here instead - it used to live inside the
+              collapsed hamburger menu, which meant a customer had to open the
+              menu just to find the search box at all. */}
+          <form onSubmit={submitSearch} className="md:hidden pb-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search shirts, sarees, lipsticks…"
+              aria-label="Search products"
+              className="w-full bg-card border border-line px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-marigold"
+            />
+          </form>
+
           {mobileOpen && (
             <div className="lg:hidden border-t border-line py-3 grid gap-0.5">
-              <form onSubmit={submitSearch} className="md:hidden pb-2">
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search shirts, sarees, lipsticks…"
-                  aria-label="Search products"
-                  className="w-full bg-card border border-line px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-marigold"
-                />
-              </form>
               {categories?.map((cat) => (
                 <Link
                   key={cat.id}

@@ -16,9 +16,13 @@ export function FilterSidebar() {
 
   const activeCategory = searchParams.get('category');
   const topLevel = categories?.find((c) => c.slug === activeCategory || c.children.some((ch) => ch.slug === activeCategory));
-  const showClothingFilters = topLevel ? CLOTHING_CATEGORY_SLUGS.has(topLevel.slug) : true;
-  const showCosmeticsFilters = topLevel ? topLevel.slug === COSMETICS_SLUG : true;
-  const showMobileFilters = topLevel ? topLevel.slug === MOBILE_SLUG : true;
+  // Category-specific filters (fabric, skin type, etc.) only make sense once
+  // a customer has actually narrowed down to that department - showing all
+  // three departments' filters at once on the unfiltered "All categories"
+  // view just buries the handful that apply under a wall of ones that don't.
+  const showClothingFilters = !!topLevel && CLOTHING_CATEGORY_SLUGS.has(topLevel.slug);
+  const showCosmeticsFilters = topLevel?.slug === COSMETICS_SLUG;
+  const showMobileFilters = topLevel?.slug === MOBILE_SLUG;
 
   function setParam(key: string, value: string | undefined) {
     const params = new URLSearchParams(searchParams.toString());
