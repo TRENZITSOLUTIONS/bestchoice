@@ -272,7 +272,7 @@ docker compose run --rm backend python manage.py process_images
 
 Regenerates the WebP thumbnail/small/medium/large variants. Only needed as a one-off backfill after bulk-importing products whose images skipped the upload pipeline.
 
-Two more are one-offs rather than scheduled: `seed_pincodes` and `import_pincodes` populate Tamil Nadu delivery pincodes — see [DELIVERY.md](DELIVERY.md).
+`seed_pincodes` populates the base set of Tamil Nadu delivery pincodes and is idempotent, so it now runs automatically on every backend container start (see the `backend` service `command` in `docker-compose.yml`) — it can't silently go missing again even if the database is recreated. `import_pincodes` is a separate one-off for loading the full government pincode CSV for fuller coverage — see [DELIVERY.md](DELIVERY.md).
 
 ### Restore a backup
 
