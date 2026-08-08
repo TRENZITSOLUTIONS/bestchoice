@@ -275,9 +275,9 @@ function IntroVideo() {
     return (
       <video
         className="aspect-video w-full border border-line bg-black"
-        controls
         autoPlay
         playsInline
+        onEnded={() => setPlaying(false)}
         src={INTRO_VIDEO_URL}
       />
     );
