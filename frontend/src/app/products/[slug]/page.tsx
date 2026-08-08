@@ -1,7 +1,6 @@
 'use client';
 
 import { use, useMemo, useState } from 'react';
-import Image from 'next/image';
 import { useProduct } from '@/hooks/useProducts';
 import { useAddToCart } from '@/hooks/useCart';
 import { useAddToWishlist } from '@/hooks/useWishlist';
@@ -92,7 +91,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         <div>
           <div className="relative aspect-[4/5] rounded bg-ivory-raised mb-3 overflow-hidden">
             {images ? (
-              <Image src={images[activeImage].large || images[activeImage].image} alt={product.name} fill className="object-cover" />
+              // Plain img: S3-hosted photo, not a host next/image is set up to optimize.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={images[activeImage].large || images[activeImage].image} alt={product.name} className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-ink-soft">{product.name}</div>
             )}
@@ -105,7 +106,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   onClick={() => setActiveImage(i)}
                   className={`relative w-17 h-17 rounded bg-ivory-raised border-2 overflow-hidden ${i === activeImage ? 'border-kumkum' : 'border-line'}`}
                 >
-                  <Image src={img.thumb || img.image} alt="" fill className="object-cover" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img.thumb || img.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
                 </button>
               ))}
             </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useWishlist, useRemoveFromWishlist } from '@/hooks/useWishlist';
 import { AccountNav } from '@/components/account/AccountNav';
 
@@ -22,7 +21,9 @@ export default function WishlistPage() {
               <div key={item.id} className="bg-card border border-line rounded overflow-hidden">
                 <Link href={`/products/${item.product_slug}`} className="block relative aspect-[3/4] bg-ivory-raised">
                   {item.product_image ? (
-                    <Image src={item.product_image} alt={item.product_name} fill className="object-cover" />
+                    // Plain img: S3-hosted photo, not a host next/image is set up to optimize.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.product_image} alt={item.product_name} className="absolute inset-0 h-full w-full object-cover" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-ink-soft text-sm text-center p-2">
                       {item.product_name}

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useCart, useUpdateCartItem, useApplyCoupon, useRemoveCoupon } from '@/hooks/useCart';
 
 export default function CartPage() {
@@ -52,7 +51,9 @@ export default function CartPage() {
             <div key={item.id} className="grid grid-cols-[84px_1fr_auto] gap-4 py-4.5 border-b border-line items-center">
               <div className="relative w-21 h-25 bg-ivory-raised rounded overflow-hidden">
                 {item.product_image ? (
-                  <Image src={item.product_image} alt={item.product_name} fill className="object-cover" />
+                  // Plain img: S3-hosted photo, not a host next/image is set up to optimize.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.product_image} alt={item.product_name} className="absolute inset-0 h-full w-full object-cover" />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-[0.65rem] text-ink-soft text-center p-1">
                     {item.product_name}

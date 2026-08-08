@@ -191,12 +191,12 @@ export default function HomePage() {
                   style={{ background: GLYPH_WASH[glyph] }}
                 >
                   {photo && (
-                    <Image
+                    // Plain img: S3-hosted photo, not a host next/image is set up to optimize.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={photo}
                       alt=""
-                      fill
-                      sizes="(min-width: 1024px) 45vw, 100vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   )}
                   <span

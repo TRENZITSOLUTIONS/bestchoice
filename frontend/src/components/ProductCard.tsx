@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAddToWishlist } from '@/hooks/useWishlist';
 import { CategoryGlyph, GLYPH_WASH, glyphFor } from '@/components/CategoryGlyph';
 import { rupees } from '@/lib/format';
@@ -19,12 +18,16 @@ export function ProductCard({ product, span2 = false }: { product: ProductListIt
         style={product.primary_image ? undefined : { background: GLYPH_WASH[glyph] }}
       >
         {product.primary_image ? (
-          <Image
+          // A plain img, not next/image: product photos live on S3 at a host
+          // next/image can't optimize without also fetching and re-encoding
+          // through its own proxy, which needs the exact bucket domain
+          // allowed up front - not worth the fragility for a handful of
+          // photos per product. See ImageManager for the same tradeoff.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={product.primary_image}
             alt={product.name}
-            fill
-            sizes={span2 ? '(max-width: 640px) 100vw, 50vw' : '(max-width: 640px) 50vw, 25vw'}
-            className="object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
           <>
