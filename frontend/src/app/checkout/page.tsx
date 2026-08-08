@@ -33,7 +33,7 @@ export default function CheckoutPage() {
 
   // Pass the cart subtotal so the quote applies the free-delivery threshold,
   // matching what the server will charge.
-  const { data: delivery } = useDeliveryCheck(
+  const { data: delivery, isError: deliveryFailed } = useDeliveryCheck(
     address.pincode,
     address.state,
     cart ? Number(cart.subtotal) : undefined,
@@ -148,10 +148,15 @@ export default function CheckoutPage() {
                 <input placeholder="City *" value={address.city} onChange={(e) => updateField('city', e.target.value)} className="border border-line rounded px-3 py-2.5 bg-card text-sm col-span-2 sm:col-span-1" />
                 <input placeholder="State *" value={address.state} onChange={(e) => updateField('state', e.target.value)} className="border border-line rounded px-3 py-2.5 bg-card text-sm col-span-2 sm:col-span-1" />
                 <input placeholder="Pincode *" value={address.pincode} onChange={(e) => updateField('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} className="border border-line rounded px-3 py-2.5 bg-card text-sm col-span-2 sm:col-span-1" />
+                {deliveryFailed && address.pincode.length === 6 && (
+                  <p className="col-span-2 text-xs text-kumkum">
+                    Could not check delivery for that pincode - please try again.
+                  </p>
+                )}
                 {delivery && address.pincode.length === 6 && (
                   <p className={`col-span-2 text-xs ${delivery.delivery_available ? 'text-leaf' : 'text-kumkum'}`}>
                     {delivery.delivery_available
-                      ? `Delivery charge: ₹${delivery.delivery_charge ?? '0'} · ${delivery.estimated_days}`
+                      ? `${delivery.city ? `${delivery.city} · ` : ''}Delivery charge: ₹${delivery.delivery_charge ?? '0'} · ${delivery.estimated_days}`
                       : 'Delivery is not available for this address'}
                   </p>
                 )}

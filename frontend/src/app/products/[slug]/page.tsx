@@ -43,7 +43,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     );
   }, [product, color, size, shade, colors, sizes, shades]);
 
-  const { data: delivery } = useDeliveryCheck(pincode);
+  const { data: delivery, isError: deliveryFailed } = useDeliveryCheck(pincode);
 
   if (isLoading) return <p className="text-center py-20 text-ink-soft">Loading...</p>;
   if (!product) return <p className="text-center py-20 text-ink-soft">Product not found.</p>;
@@ -248,12 +248,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               placeholder="Enter 6-digit pincode"
               className="border border-line rounded px-3 py-2 text-sm w-full mt-1.5 bg-card"
             />
+            {deliveryFailed && pincode.length === 6 && (
+              <p className="text-sm text-kumkum mt-2.5">
+                Could not check that pincode right now - please try again.
+              </p>
+            )}
             {delivery && (
               <div className="text-sm mt-2.5 grid gap-0.5">
                 {delivery.delivery_available ? (
                   <>
                     <p className="text-leaf font-semibold">
                       Delivers in {delivery.estimated_days ?? 'a few days'}
+                      {delivery.city && ` to ${delivery.city}`}
                     </p>
                     {delivery.delivery_charge && (
                       <p className="text-ink-soft">

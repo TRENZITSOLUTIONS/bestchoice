@@ -82,10 +82,21 @@ def _quote_outside_tamil_nadu(total_weight_g: int, order_total: Decimal) -> dict
 
 def get_delivery_quote(pincode: str = '', state: str = '', total_weight_g: int = 0, order_total: Decimal = Decimal('0')) -> dict:
     """
-    Tamil Nadu (or no state given, for backward compatibility) is priced per-pincode
-    via DeliveryPincode. Any other state uses the single configurable outside-state rate.
+    Tamil Nadu is priced per-pincode via DeliveryPincode. Any other state uses
+    the single configurable outside-state rate.
+
+    Callers that don't collect a state (the product page only asks for a
+    pincode) used to be routed straight into the Tamil Nadu branch, which
+    only recognises the ~388 pincodes we've seeded - every other pincode in
+    India came back "not available" even though outside-state delivery is
+    genuinely offered. Now a state-less check first looks the pincode up in
+    our own Tamil Nadu list; only a pincode we actually recognise gets the
+    per-pincode Tamil Nadu quote, everything else falls back to the
+    outside-state rate instead of being wrongly declared undeliverable.
     """
-    if is_tamil_nadu(state) or not state:
+    if is_tamil_nadu(state):
+        return _quote_within_tamil_nadu(pincode, total_weight_g, order_total)
+    if not state and DeliveryPincode.objects.filter(pincode=pincode).exists():
         return _quote_within_tamil_nadu(pincode, total_weight_g, order_total)
     return _quote_outside_tamil_nadu(total_weight_g, order_total)
 

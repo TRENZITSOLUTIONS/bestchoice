@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 
 export interface DeliveryCheck {
   pincode: string;
+  city?: string;
   zone?: 'tamilnadu' | 'outside_tamilnadu';
   delivery_available: boolean;
   delivery_type?: string;

@@ -627,10 +627,24 @@ class DeliveryTest(BaseTestCase):
         self.assertEqual(data['delivery_type'], 'local')
 
     def test_check_unavailable_pincode(self):
-        res = self.client.get('/api/delivery/check/999999/')
+        # An unrecognised pincode with an explicit Tamil Nadu state has
+        # nowhere else to fall back to, so it's genuinely undeliverable.
+        res = self.client.get('/api/delivery/check/999999/', {'state': 'Tamil Nadu'})
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.content) if hasattr(res, 'content') else res.data
         self.assertFalse(data['delivery_available'])
+
+    def test_check_unknown_pincode_without_state_falls_back_to_outside_rate(self):
+        # A pincode we don't recognise, with no state given at all (this is
+        # what the product page sends), used to be wrongly forced through
+        # the Tamil-Nadu-only pincode table and declared undeliverable -
+        # covering the vast majority of real Indian pincodes. It should now
+        # resolve via the outside-Tamil-Nadu rate instead.
+        res = self.client.get('/api/delivery/check/560001/')
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.content) if hasattr(res, 'content') else res.data
+        self.assertTrue(data['delivery_available'])
+        self.assertEqual(data['zone'], 'outside_tamilnadu')
 
 
 class WishlistTest(BaseTestCase):

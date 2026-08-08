@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from .models import DeliveryPincode, OutsideStateDeliveryRate, TamilNaduDeliveryRate
-from .utils import get_delivery_quote, is_tamil_nadu
+from .utils import get_delivery_quote
 
 
 @api_view(['GET'])
@@ -22,7 +22,6 @@ def check_pincode(request, pincode):
     except (InvalidOperation, TypeError):
         order_total = Decimal('0')
 
-    outside = state and not is_tamil_nadu(state)
     quote = get_delivery_quote(pincode=pincode, state=state, order_total=order_total)
 
     if not quote['available']:
@@ -33,6 +32,11 @@ def check_pincode(request, pincode):
             'message': 'Delivery is not available at this pincode',
         })
 
+    # Derived from the quote's own zone, not re-checked from `state` - a
+    # state-less request can still resolve to either zone (see
+    # get_delivery_quote), so re-deriving it here from `state` alone would
+    # disagree with which rate/city record the quote actually used.
+    outside = quote['zone'] == 'outside_tamilnadu'
     if outside:
         record = None
         threshold = OutsideStateDeliveryRate.get_config().free_delivery_threshold
