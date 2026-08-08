@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCategories, useProducts } from '@/hooks/useProducts';
 import { ProductCard } from '@/components/ProductCard';
 import { FilterSidebar } from '@/components/products/FilterSidebar';
-import { MobileFilters } from '@/components/products/MobileFilters';
+import { FilterChips } from '@/components/products/FilterChips';
 
 function ProductsPageContent() {
   const router = useRouter();
@@ -81,18 +81,24 @@ function ProductsPageContent() {
       <div className="grid sm:grid-cols-[240px_1fr] gap-9 py-5 pb-16">
         {/* hidden below sm: a full filter sidebar rendered inline used to sit
             above the product grid on mobile, so a phone visitor scrolled past
-            a dozen filter groups before seeing a single product. MobileFilters
-            below gives phones the same filters in an on-demand sheet instead. */}
+            a dozen filter groups before seeing a single product. FilterChips
+            below gives phones a horizontally-scrolling chip bar instead -
+            each chip drops its own options down, grid stays on screen. */}
         <div className="hidden sm:block">
           <FilterSidebar inferredCategorySlug={inferredCategorySlug} />
         </div>
 
-        <div>
-          <div className="flex justify-between items-center mb-5.5 text-sm gap-3">
+        {/* min-w-0: without it, the chip row's shrink-0 chips (deliberately
+            unwrapped so they scroll horizontally within their own strip)
+            instead force this whole grid item wider than the viewport on
+            mobile, blowing out the page instead of just scrolling the strip. */}
+        <div className="min-w-0">
+          <FilterChips inferredCategorySlug={inferredCategorySlug} />
+
+          <div className="flex justify-between items-center mb-5.5 mt-4 sm:mt-0 text-sm gap-3">
             <span>
               <b>{data?.count ?? 0}</b> products
             </span>
-            <MobileFilters inferredCategorySlug={inferredCategorySlug} />
             <select
               value={filters.ordering ?? ''}
               onChange={(e) => setOrdering(e.target.value)}
