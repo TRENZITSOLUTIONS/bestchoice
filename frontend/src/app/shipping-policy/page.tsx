@@ -148,8 +148,15 @@ export default function ShippingPolicyPage() {
               order is ready, and you should bring your order number with you.
             </p>
             <p className="mt-3 text-ink-soft">
+              45, Spencer Plaza Mall, Floor 1, Anna Salai, Chennai, Tamil Nadu 600002.{' '}
+              <Link href="/our-stores" className="font-semibold text-kumkum hover:text-kumkum-deep">
+                Map and directions
+              </Link>
+              .
+            </p>
+            <p className="mt-3 text-ink-soft">
               <code className="rounded border border-line bg-ivory-raised px-1.5 py-0.5 text-[0.85em] font-semibold text-ink">
-                [STORE ADDRESS, PICKUP HOURS AND HOW LONG AN ORDER IS HELD - TO BE PROVIDED]
+                [PICKUP HOURS AND HOW LONG AN ORDER IS HELD - TO BE CONFIRMED]
               </code>
             </p>
           </section>

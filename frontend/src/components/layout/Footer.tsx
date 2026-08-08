@@ -18,6 +18,7 @@ const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] =
       { href: '/account/orders', label: 'Track Order' },
       { href: '/refund-policy', label: 'Returns & Refunds' },
       { href: '/shipping-policy', label: 'Shipping Policy' },
+      { href: '/our-stores', label: 'Our Stores' },
     ],
   },
   {
@@ -44,8 +45,8 @@ export function Footer() {
               className="mb-4 h-24 w-auto"
             />
             <p className="max-w-[250px] text-[0.83rem] leading-relaxed text-ink-faint">
-              Spencer Plaza Branch, Chennai. Clothing, cosmetics &amp; accessories, delivered across
-              Tamil Nadu.
+              Spencer Plaza &amp; Perambur, Chennai. Clothing, cosmetics &amp; accessories, delivered
+              across Tamil Nadu.
             </p>
           </div>
 
