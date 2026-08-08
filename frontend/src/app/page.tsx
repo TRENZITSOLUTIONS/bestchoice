@@ -24,11 +24,7 @@ const TRENDING = [
   'Smart watches',
 ];
 
-// Stand-in only, so the section's layout and click-to-play behaviour can be
-// seen and reviewed now - swap for the client's real introduction video (a
-// file to self-host on S3, or a YouTube/Vimeo link to embed) once it's in
-// hand, then delete this constant and comment.
-const PLACEHOLDER_VIDEO_URL = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+const INTRO_VIDEO_URL = '/intro-video.mp4';
 
 export default function HomePage() {
   const { data: categories } = useCategories();
@@ -282,7 +278,7 @@ function IntroVideo() {
         controls
         autoPlay
         playsInline
-        src={PLACEHOLDER_VIDEO_URL}
+        src={INTRO_VIDEO_URL}
       />
     );
   }
