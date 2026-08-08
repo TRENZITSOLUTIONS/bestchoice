@@ -127,7 +127,12 @@ export default function StaffInventoryPage() {
           <p className="text-sm text-ink-soft">Add new stock, or pick a row below to edit it.</p>
         </Panel>
       ) : (
-        <div className="grid gap-5">
+        // min-w-0: this whole block is itself a grid item of the page's
+        // outer single-column grid above. Without min-w-0 here too, the
+        // Variants table's min-w-[640px] still bubbles all the way up to
+        // this level and blows out the page on mobile, even though the
+        // inner two-column grid's own children already have min-w-0.
+        <div className="grid gap-5 min-w-0">
           <div className="flex flex-wrap items-center gap-3 border-b border-line pb-4">
             <div>
               <p className="eyebrow mb-1">{editing === 'new' ? 'New product' : 'Editing product'}</p>
@@ -157,7 +162,13 @@ export default function StaffInventoryPage() {
           )}
 
           <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-            <div className="grid gap-5">
+            {/* min-w-0 matters here: without it, the Variants table's
+                min-w-[640px] (needed for its own horizontal scroll) instead
+                forces this whole grid track wider than the viewport, and
+                everything on the page scrolls sideways on mobile - the
+                table wants to be scrollable *within* itself, not blow out
+                the column around it. */}
+            <div className="grid gap-5 min-w-0">
               <Panel title="Details">
                 <ProductDetailsFields draft={draft} onChange={patchDraft} />
               </Panel>
@@ -171,7 +182,7 @@ export default function StaffInventoryPage() {
                 </Panel>
               )}
             </div>
-            <div className="grid gap-5">
+            <div className="grid gap-5 min-w-0">
               <Panel title="Status">
                 <ProductStatusFields draft={draft} onChange={patchDraft} hasVariants={hasVariants} />
               </Panel>
