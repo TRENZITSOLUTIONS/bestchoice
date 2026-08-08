@@ -43,6 +43,24 @@ export default function HomePage() {
 
   return (
     <div>
+      {/* ---------- Intro video ---------- */}
+      <section className="relative overflow-hidden border-b border-line bg-[#0a0a0c]">
+        <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
+        <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
+          <div>
+            <p className="eyebrow">Meet Best Choice</p>
+            <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
+              See how <em className="italic text-marigold-lit">we</em> do it.
+            </h2>
+            <p className="max-w-[400px] leading-relaxed text-ink-soft">
+              A quick look inside our Spencer Plaza counter, and how every order finds its way to
+              your door.
+            </p>
+          </div>
+          <IntroVideo />
+        </div>
+      </section>
+
       {/* ---------- Hero ---------- */}
       <section className="relative overflow-hidden border-b border-line py-24 sm:py-32">
         <span
@@ -198,24 +216,6 @@ export default function HomePage() {
           </div>
         </section>
       </div>
-
-      {/* ---------- Intro video ---------- */}
-      <section className="relative overflow-hidden border-y border-line bg-[#0a0a0c]">
-        <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
-        <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
-          <div>
-            <p className="eyebrow">Meet Best Choice</p>
-            <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
-              See how <em className="italic text-marigold-lit">we</em> do it.
-            </h2>
-            <p className="max-w-[400px] leading-relaxed text-ink-soft">
-              A quick look inside our Spencer Plaza counter, and how every order finds its way to
-              your door.
-            </p>
-          </div>
-          <IntroVideo />
-        </div>
-      </section>
 
       {/* ---------- Rewards ---------- */}
       <section className="border-y border-line bg-card/40 py-20">
