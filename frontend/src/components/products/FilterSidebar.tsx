@@ -8,14 +8,25 @@ const CLOTHING_CATEGORY_SLUGS = new Set(['mens-wear', 'womens-wear', 'kids-wear'
 const COSMETICS_SLUG = 'cosmetics';
 const MOBILE_SLUG = 'mobile-accessories';
 
-export function FilterSidebar() {
+export function FilterSidebar({
+  inferredCategorySlug,
+  className = 'border-r border-line pr-7 text-sm',
+}: {
+  /** Best-guess department for the current search results, when the customer
+   * hasn't explicitly picked a category - e.g. searching "kurta" should show
+   * clothing filters without them having to click "Women's Wear" first. Only
+   * used to decide which filter groups to show; it never checks a box. */
+  inferredCategorySlug?: string;
+  className?: string;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
 
   const activeCategory = searchParams.get('category');
-  const topLevel = categories?.find((c) => c.slug === activeCategory || c.children.some((ch) => ch.slug === activeCategory));
+  const scopeSlug = activeCategory ?? inferredCategorySlug;
+  const topLevel = categories?.find((c) => c.slug === scopeSlug || c.children.some((ch) => ch.slug === scopeSlug));
   // Category-specific filters (fabric, skin type, etc.) only make sense once
   // a customer has actually narrowed down to that department - showing all
   // three departments' filters at once on the unfiltered "All categories"
@@ -37,7 +48,7 @@ export function FilterSidebar() {
   }
 
   return (
-    <aside className="border-r border-line pr-7 text-sm">
+    <aside className={className}>
       <FilterGroup title="Category">
         {categories?.map((cat) => (
           <label key={cat.id} className="flex items-center gap-2 py-1 text-ink-soft">

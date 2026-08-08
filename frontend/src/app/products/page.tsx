@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCategories, useProducts } from '@/hooks/useProducts';
 import { ProductCard } from '@/components/ProductCard';
 import { FilterSidebar } from '@/components/products/FilterSidebar';
+import { MobileFilters } from '@/components/products/MobileFilters';
 
 function ProductsPageContent() {
   const router = useRouter();
@@ -34,6 +35,28 @@ function ProductsPageContent() {
   const { data, isLoading } = useProducts(filters);
   const { data: categories } = useCategories();
 
+  // When a customer searches instead of picking a category, guess which
+  // department their results mostly belong to, from the current page of
+  // results, so the filter groups can still be scoped sensibly (fabric/fit
+  // for a clothing search, skin type for a cosmetics one) instead of either
+  // showing every department's filters or none at all.
+  const inferredCategorySlug = useMemo(() => {
+    if (filters.category || !filters.search || !data?.results.length) return undefined;
+    const counts = new Map<string, number>();
+    for (const p of data.results) {
+      if (p.category_slug) counts.set(p.category_slug, (counts.get(p.category_slug) ?? 0) + 1);
+    }
+    let best: string | undefined;
+    let bestCount = 0;
+    for (const [slug, count] of counts) {
+      if (count > bestCount) {
+        best = slug;
+        bestCount = count;
+      }
+    }
+    return best;
+  }, [filters.category, filters.search, data]);
+
   function setOrdering(value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set('ordering', value);
@@ -56,13 +79,20 @@ function ProductsPageContent() {
       </p>
 
       <div className="grid sm:grid-cols-[240px_1fr] gap-9 py-5 pb-16">
-        <FilterSidebar />
+        {/* hidden below sm: a full filter sidebar rendered inline used to sit
+            above the product grid on mobile, so a phone visitor scrolled past
+            a dozen filter groups before seeing a single product. MobileFilters
+            below gives phones the same filters in an on-demand sheet instead. */}
+        <div className="hidden sm:block">
+          <FilterSidebar inferredCategorySlug={inferredCategorySlug} />
+        </div>
 
         <div>
-          <div className="flex justify-between items-center mb-5.5 text-sm">
+          <div className="flex justify-between items-center mb-5.5 text-sm gap-3">
             <span>
               <b>{data?.count ?? 0}</b> products
             </span>
+            <MobileFilters inferredCategorySlug={inferredCategorySlug} />
             <select
               value={filters.ordering ?? ''}
               onChange={(e) => setOrdering(e.target.value)}
