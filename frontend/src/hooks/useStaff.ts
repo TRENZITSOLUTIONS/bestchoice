@@ -300,6 +300,18 @@ export function useDeactivateCategory() {
   });
 }
 
+export function useUploadCategoryImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: number; file: File }) => {
+      const body = new FormData();
+      body.append('image', file);
+      return (await api.post<CategoryRow>(`/admin/categories/${id}/image/`, body)).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'categories'] }),
+  });
+}
+
 export function useStaffBrands() {
   return useQuery({
     queryKey: ['staff', 'brands'],

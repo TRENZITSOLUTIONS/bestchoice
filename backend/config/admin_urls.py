@@ -5,7 +5,7 @@ from products.views import (
     admin_create_product, admin_update_product,
     admin_product_images, admin_product_image_detail,
     admin_product_variants, admin_product_variant_detail,
-    admin_category_collection, admin_category_detail,
+    admin_category_collection, admin_category_detail, admin_category_image,
     admin_brand_collection, admin_brand_detail,
 )
 
@@ -35,6 +35,7 @@ urlpatterns = [
     path('products/<int:product_id>/variants/<int:variant_id>/', admin_product_variant_detail, name='admin-product-variant-detail'),
     path('categories/', admin_category_collection, name='admin-category-list'),
     path('categories/<int:pk>/', admin_category_detail, name='admin-category-detail'),
+    path('categories/<int:pk>/image/', admin_category_image, name='admin-category-image'),
     path('brands/', admin_brand_collection, name='admin-brand-list'),
     path('brands/<int:pk>/', admin_brand_detail, name='admin-brand-detail'),
 

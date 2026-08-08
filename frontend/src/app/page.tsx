@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCategories } from '@/hooks/useProducts';
 import { CategoryGlyph, GLYPH_WASH, glyphFor } from '@/components/CategoryGlyph';
+import { mediaUrl } from '@/lib/format';
 
 const CATEGORY_BLURBS: Record<string, string> = {
   'mens-wear': 'Shirts · Denim · Ethnic',
@@ -177,6 +178,9 @@ export default function HomePage() {
           <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr] lg:grid-rows-2 lg:h-[520px]">
             {categories?.map((cat, i) => {
               const glyph = glyphFor(cat.name);
+              // Staff can upload a real photo per department in Store management ->
+              // Categories - falls back to the generated wash + glyph until they do.
+              const photo = cat.image ? mediaUrl(cat.image) : null;
               return (
                 <Link
                   key={cat.id}
@@ -186,19 +190,31 @@ export default function HomePage() {
                   }`}
                   style={{ background: GLYPH_WASH[glyph] }}
                 >
+                  {photo && (
+                    <Image
+                      src={photo}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 45vw, 100vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  )}
                   <span
                     aria-hidden
                     className="pointer-events-none absolute inset-0"
                     style={{
-                      background:
-                        'radial-gradient(120% 90% at 70% 10%, rgba(255,255,255,0.07), transparent 62%)',
+                      background: photo
+                        ? 'linear-gradient(180deg, rgba(10,10,12,0.05) 40%, rgba(10,10,12,0.82))'
+                        : 'radial-gradient(120% 90% at 70% 10%, rgba(255,255,255,0.07), transparent 62%)',
                     }}
                   />
-                  <span className="absolute right-5 top-5 text-ink/50 transition-all duration-500 group-hover:text-ink/95 group-hover:-translate-y-1">
-                    <CategoryGlyph glyph={glyph} size={i === 0 ? 54 : 40} />
-                  </span>
+                  {!photo && (
+                    <span className="absolute right-5 top-5 text-ink/50 transition-all duration-500 group-hover:text-ink/95 group-hover:-translate-y-1">
+                      <CategoryGlyph glyph={glyph} size={i === 0 ? 54 : 40} />
+                    </span>
+                  )}
                   <span
-                    className={`relative font-serif text-ink ${i === 0 ? 'text-[2rem]' : 'text-[1.45rem]'}`}
+                    className={`relative font-serif ${photo ? 'text-white' : 'text-ink'} ${i === 0 ? 'text-[2rem]' : 'text-[1.45rem]'}`}
                   >
                     {cat.name}
                   </span>

@@ -791,6 +791,30 @@ class CategoryManagementTest(StaffApiTestCase):
         res = self.client.post('/api/admin/categories/', {'name': 'Sneaky'}, format='json')
         self.assertEqual(res.status_code, 403)
 
+    def test_upload_category_image_sets_the_url(self):
+        self.as_staff()
+        res = self.client.post(
+            f'/api/admin/categories/{self.category.id}/image/',
+            {'image': make_test_image()}, format='multipart',
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.data['image'].startswith('http') or res.data['image'].startswith('/'))
+        self.category.refresh_from_db()
+        self.assertEqual(self.category.image, res.data['image'])
+
+    def test_upload_category_image_requires_a_file(self):
+        self.as_staff()
+        res = self.client.post(f'/api/admin/categories/{self.category.id}/image/', {}, format='multipart')
+        self.assertEqual(res.status_code, 400)
+
+    def test_upload_category_image_customer_forbidden(self):
+        self.as_customer()
+        res = self.client.post(
+            f'/api/admin/categories/{self.category.id}/image/',
+            {'image': make_test_image()}, format='multipart',
+        )
+        self.assertEqual(res.status_code, 403)
+
 
 class BrandManagementTest(StaffApiTestCase):
     def test_creates_a_brand_with_an_auto_slug(self):

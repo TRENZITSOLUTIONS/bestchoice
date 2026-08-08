@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   useStaffCategories,
   useCreateCategory,
   useUpdateCategory,
   useDeactivateCategory,
+  useUploadCategoryImage,
   useStaffBrands,
   useCreateBrand,
   useUpdateBrand,
@@ -13,6 +14,7 @@ import {
 } from '@/hooks/useStaff';
 import { EmptyState, ErrorState, Panel, StatusPill } from '@/components/staff/ui';
 import { fieldLabelClass, fieldInputClass } from '@/components/staff/ProductForm';
+import { mediaUrl } from '@/lib/format';
 import type { CategoryRow, BrandRow } from '@/lib/staff-types';
 
 function firstError(err: unknown): string | undefined {
@@ -43,6 +45,7 @@ function CategoriesPanel() {
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const deactivate = useDeactivateCategory();
+  const uploadImage = useUploadCategoryImage();
 
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<CategoryDraft>(EMPTY_CATEGORY);
@@ -154,15 +157,26 @@ function CategoriesPanel() {
               />
             </label>
           </div>
-          <label className="grid gap-1.5">
-            <span className={fieldLabelClass}>Image URL (optional)</span>
-            <input
-              value={draft.image}
-              onChange={(e) => field('image', e.target.value)}
-              placeholder="https://…"
-              className={fieldInputClass}
-            />
-          </label>
+          <div className="grid gap-1.5">
+            <span className={fieldLabelClass}>Department thumbnail photo (optional)</span>
+            {typeof editing === 'number' ? (
+              <CategoryPhotoUpload
+                image={draft.image}
+                uploading={uploadImage.isPending}
+                onUpload={(file) =>
+                  uploadImage.mutate(
+                    { id: editing, file },
+                    { onSuccess: (updated) => field('image', updated.image) }
+                  )
+                }
+              />
+            ) : (
+              <p className="text-xs text-ink-faint">Save this department first, then you can upload a thumbnail photo for it.</p>
+            )}
+            <p className="text-xs text-ink-faint">
+              Shown as the background photo on this department&apos;s tile on the home page.
+            </p>
+          </div>
           {error && <p className="text-sm text-kumkum">{error}</p>}
           <div className="flex items-center gap-3">
             <button
@@ -215,6 +229,52 @@ function CategoriesPanel() {
         </p>
       )}
     </Panel>
+  );
+}
+
+function CategoryPhotoUpload({
+  image,
+  uploading,
+  onUpload,
+}: {
+  image: string;
+  uploading: boolean;
+  onUpload: (file: File) => void;
+}) {
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="flex items-center gap-4">
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={mediaUrl(image)}
+          alt=""
+          className="h-16 w-24 border border-line object-cover"
+        />
+      ) : (
+        <div className="h-16 w-24 border border-line bg-ivory-raised" />
+      )}
+      <button
+        type="button"
+        onClick={() => fileInput.current?.click()}
+        disabled={uploading}
+        className="text-xs font-bold text-marigold-lit disabled:opacity-50"
+      >
+        {uploading ? 'Uploading…' : image ? 'Change thumbnail' : '+ Upload thumbnail'}
+      </button>
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUpload(file);
+          e.target.value = '';
+        }}
+      />
+    </div>
   );
 }
 

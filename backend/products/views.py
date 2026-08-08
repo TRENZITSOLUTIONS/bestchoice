@@ -274,6 +274,36 @@ def admin_category_detail(request, pk):
     return Response(AdminCategorySerializer(category).data)
 
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_category_image(request, pk):
+    """Upload a real photo for a department/category tile.
+
+    Category.image is a plain URLField rather than an ImageField - it always
+    supported pasting a URL, so this stores the upload itself (compressed,
+    same pipeline as product photos) under its own `categories/` prefix in
+    S3, separate from `products/`, and writes the resulting URL back into
+    that same field rather than changing its type.
+    """
+    try:
+        category = Category.objects.get(pk=pk)
+    except Category.DoesNotExist:
+        return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    file_obj = request.FILES.get('image')
+    if not file_obj:
+        return Response({'image': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.core.files.storage import default_storage
+    from .utils.image_utils import compress_original
+
+    compressed = compress_original(file_obj, file_obj.name)
+    path = default_storage.save(f'categories/{category.slug}.jpg', compressed)
+    category.image = default_storage.url(path)
+    category.save(update_fields=['image'])
+    return Response(AdminCategorySerializer(category).data)
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
 def admin_brand_collection(request):
