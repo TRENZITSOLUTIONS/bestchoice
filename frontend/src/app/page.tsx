@@ -47,11 +47,10 @@ export default function HomePage() {
           <div>
             <p className="eyebrow">Best Choice</p>
             <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
-              See how <em className="italic text-marigold-lit">we</em> do it.
+              Classic Style <em className="italic text-marigold-lit">Classic</em> Look.
             </h2>
             <p className="max-w-[400px] leading-relaxed text-ink-soft">
-              A quick look inside our Spencer Plaza counter, and how every order finds its way to
-              your door.
+              Discover premium fashion, carefully selected for every occasion - now available online and at our Spencer Plaza and Perambur stores.
             </p>
           </div>
           <IntroVideo />
