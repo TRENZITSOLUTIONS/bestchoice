@@ -78,7 +78,7 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-[1280px] px-4 sm:px-8">
           <div className="max-w-[700px]">
-            <p className="eyebrow">Spencer Plaza · Perambur · Chennai · For All over Tamil Nadu</p>
+            <p className="eyebrow">SPENCER PLAZA  · PERAMBUR · CHENNAI · INDIA-WIDE DELIVERY</p>
             <h1 className="display text-[2.6rem] sm:text-[3.4rem] lg:text-[4.4rem] mt-5">
               Dressed right,
               <br />
@@ -86,7 +86,8 @@ export default function HomePage() {
             </h1>
             <div className="my-7 h-px w-[260px] bg-gradient-to-r from-marigold to-transparent" />
             <p className="text-ink-soft text-base sm:text-[1.05rem] leading-relaxed max-w-[470px] mb-9">
-              ONE BEST ONE CHOICE for fashion, beauty & everyday essentials - menswear , womenswear , kidswear , mobile accessories and cosmectics. Shop online or visit our Stores directly.
+              "ONE BEST ONE CHOICE" 
+              Fashion, Beauty & Everyday Essentials - Menswear , Womenswear , Kidswear , Mobile accessories and cosmectics. Shop online or visit our Stores directly.
             </p>
             <div className="flex flex-wrap items-center gap-6">
               <Link
