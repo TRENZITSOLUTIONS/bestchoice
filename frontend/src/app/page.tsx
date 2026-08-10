@@ -45,7 +45,7 @@ export default function HomePage() {
         <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
         <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
           <div>
-            <p className="eyebrow">Best Choice</p>
+            <p className="eyebrow">Welcome to Best Choice</p>
             <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
               Classic Style <em className="italic text-marigold-lit">Classic</em> Look.
             </h2>
@@ -78,7 +78,7 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-[1280px] px-4 sm:px-8">
           <div className="max-w-[700px]">
-            <p className="eyebrow">Spencer Plaza · Chennai · For Tamil Nadu</p>
+            <p className="eyebrow">Spencer Plaza · Perambur · Chennai · For Tamil Nadu</p>
             <h1 className="display text-[2.6rem] sm:text-[3.4rem] lg:text-[4.4rem] mt-5">
               Dressed right,
               <br />
