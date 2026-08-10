@@ -164,12 +164,11 @@ export default function HomePage() {
         <section className="py-16 sm:py-22">
           <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p className="eyebrow">The departments</p>
-              <h2 className="display text-2xl sm:text-[2.4rem] mt-3">Five worlds, one counter.</h2>
+              <p className="eyebrow">THE BEST CHOICE COLLECTION</p>
+              <h2 className="display text-2xl sm:text-[2.4rem] mt-3">Everything you need.</h2>
             </div>
             <p className="max-w-[380px] text-[0.94rem] leading-relaxed text-ink-soft">
-              Everything the household needs, stocked the way a neighbourhood store should — and
-              shipped like a modern one.
+              Fahion, beauty & everyday essentials for the whole family -available in-store and online,deliverd across india.
             </p>
           </div>
 
