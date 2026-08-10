@@ -45,7 +45,7 @@ export default function HomePage() {
         <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
         <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
           <div>
-            <p className="eyebrow">Meet Best Choice</p>
+            <p className="eyebrow">Best Choice</p>
             <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
               See how <em className="italic text-marigold-lit">we</em> do it.
             </h2>
