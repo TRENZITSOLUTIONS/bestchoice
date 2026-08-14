@@ -18,9 +18,16 @@ fi
 echo "=== BestChoice deployment ==="
 
 echo "1/6 Backing up the database..."
-mkdir -p "$BACKUP_DIR"
-docker compose exec -T db pg_dump -U bestchoice bestchoice_db | gzip > "$BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
-echo "     saved $BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
+if docker compose config --services | grep -qx db; then
+    mkdir -p "$BACKUP_DIR"
+    docker compose exec -T db pg_dump -U bestchoice bestchoice_db | gzip > "$BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
+    echo "     saved $BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
+else
+    # No local db service - Postgres is RDS on this server, which takes its
+    # own automated daily backups (see infra/terraform/rds.tf). Nothing to
+    # pg_dump from a container that doesn't exist.
+    echo "     skipped - no local db service (Postgres is RDS here, which backs itself up)"
+fi
 
 echo "2/6 Pulling latest code..."
 git pull origin main
@@ -77,4 +84,5 @@ docker builder prune -f --filter until=72h > /dev/null
 
 echo "=== Deployment complete ==="
 
-find "$BACKUP_DIR" -name "bestchoice_*.sql.gz" -mtime +30 -delete
+[ -d "$BACKUP_DIR" ] && find "$BACKUP_DIR" -name "bestchoice_*.sql.gz" -mtime +30 -delete
+true
