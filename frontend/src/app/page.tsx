@@ -45,13 +45,12 @@ export default function HomePage() {
         <span aria-hidden className="band-shimmer pointer-events-none absolute inset-0 opacity-50" />
         <div className="relative mx-auto grid max-w-[1280px] items-center gap-12 px-4 py-20 sm:px-8 lg:grid-cols-2">
           <div>
-            <p className="eyebrow">Meet Best Choice</p>
+            <p className="eyebrow">Welcome to Best Choice</p>
             <h2 className="display text-[2rem] sm:text-[3rem] mt-4 mb-5">
-              See how <em className="italic text-marigold-lit">we</em> do it.
+              Classic Style <em className="italic text-marigold-lit">Classic</em> Look.
             </h2>
             <p className="max-w-[400px] leading-relaxed text-ink-soft">
-              A quick look inside our Spencer Plaza counter, and how every order finds its way to
-              your door.
+              Discover premium fashion, carefully selected for every occasion - now available online and at our Spencer Plaza and Perambur stores.
             </p>
           </div>
           <IntroVideo />
@@ -79,7 +78,7 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-[1280px] px-4 sm:px-8">
           <div className="max-w-[700px]">
-            <p className="eyebrow">Spencer Plaza · Chennai · For Tamil Nadu</p>
+            <p className="eyebrow">SPENCER PLAZA  · PERAMBUR · CHENNAI  · DELIVERING ACROSS INDIA </p>
             <h1 className="display text-[2.6rem] sm:text-[3.4rem] lg:text-[4.4rem] mt-5">
               Dressed right,
               <br />
@@ -87,8 +86,8 @@ export default function HomePage() {
             </h1>
             <div className="my-7 h-px w-[260px] bg-gradient-to-r from-marigold to-transparent" />
             <p className="text-ink-soft text-base sm:text-[1.05rem] leading-relaxed max-w-[470px] mb-9">
-              Five departments under one roof — menswear to mobile accessories — carried to your
-              doorstep across Tamil Nadu, or held for pickup at our Chennai counter.
+              "ONE BEST.ONE CHOICE" - Fashion,Beauty & Everyday essentials for the whole family.
+              Discover Menswear, Womenswear, Kidswear, Cosmetics and Mobile accessories. Shop online or vist us in-store.
             </p>
             <div className="flex flex-wrap items-center gap-6">
               <Link
@@ -100,8 +99,7 @@ export default function HomePage() {
               <Link
                 href="/products?discount=20"
                 className="text-[0.74rem] font-bold uppercase tracking-[0.16em] text-ink hover:text-marigold-lit border-b border-marigold pb-1 transition-colors"
-              >
-                Festive edit · up to 40% off
+            >
               </Link>
             </div>
           </div>
@@ -166,12 +164,11 @@ export default function HomePage() {
         <section className="py-16 sm:py-22">
           <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p className="eyebrow">The departments</p>
-              <h2 className="display text-2xl sm:text-[2.4rem] mt-3">Five worlds, one counter.</h2>
+              <p className="eyebrow">THE BEST CHOICE COLLECTION</p>
+              <h2 className="display text-2xl sm:text-[2.4rem] mt-3">Everything you need.</h2>
             </div>
             <p className="max-w-[380px] text-[0.94rem] leading-relaxed text-ink-soft">
-              Everything the household needs, stocked the way a neighbourhood store should — and
-              shipped like a modern one.
+              Fahion, beauty & everyday essentials for the whole family -available in-store and online,deliverd across india.
             </p>
           </div>
 
