@@ -1,7 +1,7 @@
 # EC2: the app server. Public web traffic in, SSH restricted to your own IP.
 resource "aws_security_group" "app" {
   name        = "${var.project}-app"
-  description = "BestChoice app server - HTTP/HTTPS from anywhere, SSH from the admin's IP only"
+  description = "BestChoice app server - HTTP/HTTPS from anywhere, SSH from the admin IP only"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {

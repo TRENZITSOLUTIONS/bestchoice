@@ -5,10 +5,11 @@ resource "aws_sns_topic" "alerts" {
 }
 
 resource "aws_sns_topic_subscription" "alerts_email" {
+  for_each  = toset(var.alert_emails)
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
-  endpoint  = var.billing_alert_email
-  # AWS emails a confirmation link to this address after `apply` -
+  endpoint  = each.value
+  # AWS emails a confirmation link to each address after `apply` -
   # alarms won't actually notify anyone until that link is clicked.
 }
 
@@ -21,10 +22,11 @@ resource "aws_sns_topic" "billing_alerts" {
 }
 
 resource "aws_sns_topic_subscription" "billing_alerts_email" {
+  for_each  = toset(var.alert_emails)
   provider  = aws.billing
   topic_arn = aws_sns_topic.billing_alerts.arn
   protocol  = "email"
-  endpoint  = var.billing_alert_email
+  endpoint  = each.value
 }
 
 resource "aws_cloudwatch_metric_alarm" "ec2_cpu" {

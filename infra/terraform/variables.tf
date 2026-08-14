@@ -48,9 +48,9 @@ variable "s3_bucket_name" {
   type        = string
 }
 
-variable "billing_alert_email" {
-  description = "Email to notify when estimated charges cross the billing alarm threshold."
-  type        = string
+variable "alert_emails" {
+  description = "Emails to notify for both general alarms (CPU, status checks) and the billing alarm. Each gets its own confirmation email from AWS after apply - the alarms are silent until that link is clicked."
+  type        = list(string)
 }
 
 variable "billing_alert_threshold_usd" {

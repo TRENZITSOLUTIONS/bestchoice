@@ -33,15 +33,20 @@ running server to make sense, not a blank AWS account:
 
 ## Run it
 
+Put your values in `terraform.tfvars` (gitignored - never commit this file):
+```hcl
+my_ip_cidr     = "<your-ip>/32"
+s3_bucket_name = "<your-unique-bucket-name>"
+alert_emails   = ["<email1>", "<email2>"]
+db_password    = "<a-strong-password>"
+```
+
+Then:
 ```bash
 cd infra/terraform
 terraform init
-
-terraform apply \
-  -var="my_ip_cidr=<your-ip>/32" \
-  -var="s3_bucket_name=<your-unique-bucket-name>" \
-  -var="billing_alert_email=<your-email>" \
-  -var="db_password=<a-strong-password>"
+terraform plan   # review what this would create before applying anything
+terraform apply
 ```
 
 Terraform shows exactly what it's about to create and asks for confirmation
@@ -67,17 +72,12 @@ in-container Postgres the current server uses.
 ## Tear it down
 
 ```bash
-terraform destroy \
-  -var="my_ip_cidr=<your-ip>/32" \
-  -var="s3_bucket_name=<your-unique-bucket-name>" \
-  -var="billing_alert_email=<your-email>" \
-  -var="db_password=<a-strong-password>"
+terraform destroy
 ```
 
 Removes everything, in the correct reverse order, automatically. No manual
-console cleanup, no leftover resources, no surprise bill. (Pass the same
-variable values you used for `apply` - Terraform needs them to know exactly
-what it's tearing down.)
+console cleanup, no leftover resources, no surprise bill. (Reads the same
+`terraform.tfvars` automatically - no need to repeat the values.)
 
 ## Why the default VPC?
 

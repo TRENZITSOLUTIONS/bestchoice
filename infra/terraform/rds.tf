@@ -26,7 +26,12 @@ resource "aws_db_instance" "main" {
 
   multi_az = false # not worth 2x the cost at this scale - see infra/terraform/README.md
 
-  backup_retention_period = 7
+  # This account's Free Tier restrictions rejected a 7-day retention outright
+  # (AWS enforces a lower cap for free-tier-restricted accounts, undocumented
+  # exactly where) - 1 day still gets you automated daily backups, just a
+  # shorter window to restore from. Raise this once the account's free-tier
+  # restrictions are lifted.
+  backup_retention_period = 1
   backup_window           = "17:00-17:30" # UTC = 22:30-23:00 IST, off-hours
 
   # Both set for a clean test-and-tear-down cycle - `terraform destroy` just
