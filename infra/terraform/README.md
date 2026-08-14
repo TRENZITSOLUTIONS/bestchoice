@@ -25,17 +25,19 @@ running server to make sense, not a blank AWS account:
 3. **Enable billing alerts** once, by hand: Billing console → Billing
    preferences → check "Receive Billing Alerts". This is an account-level
    toggle Terraform can't set - the billing alarm won't fire without it.
-4. **Your own public IP**, for SSH access: `curl ifconfig.me`, then use it as
-   `<that-ip>/32`.
-5. **A globally-unique S3 bucket name** - bucket names are unique across ALL
+4. **A globally-unique S3 bucket name** - bucket names are unique across ALL
    of AWS, not just your account. Something like `bestchoice-media-<random
    suffix>` is safest.
+
+SSH (port 22) is open to the internet by design, not IP-restricted - GitHub
+Actions' hosted runners need to reach it from a huge, changing set of IPs on
+every deploy. The SSH key is the actual security boundary here, same as it
+always was on the previous server.
 
 ## Run it
 
 Put your values in `terraform.tfvars` (gitignored - never commit this file):
 ```hcl
-my_ip_cidr     = "<your-ip>/32"
 s3_bucket_name = "<your-unique-bucket-name>"
 alert_emails   = ["<email1>", "<email2>"]
 db_password    = "<a-strong-password>"

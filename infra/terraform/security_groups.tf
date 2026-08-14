@@ -1,7 +1,7 @@
-# EC2: the app server. Public web traffic in, SSH restricted to your own IP.
+# EC2: the app server. Public web traffic in.
 resource "aws_security_group" "app" {
   name        = "${var.project}-app"
-  description = "BestChoice app server - HTTP/HTTPS from anywhere, SSH from the admin IP only"
+  description = "BestChoice app server - HTTP/HTTPS/SSH from anywhere, key-based auth only"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -21,11 +21,16 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
-    description = "SSH - admin only"
+    # GitHub Actions' hosted runners come from a huge, frequently-changing
+    # set of IPs (not var.my_ip_cidr) - the deploy workflow needs to SSH in
+    # from there on every push, so this can't be IP-restricted without
+    # breaking that. Same tradeoff the previous server already made; the
+    # real security boundary here is the SSH key, not the source IP.
+    description = "SSH - key-based auth only, not IP-restricted (needed for CI/CD)"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip_cidr]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {

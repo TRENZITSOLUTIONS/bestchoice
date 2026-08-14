@@ -10,11 +10,6 @@ variable "project" {
   default     = "bestchoice"
 }
 
-variable "my_ip_cidr" {
-  description = "Your own IP in CIDR form (e.g. 49.37.12.5/32), for SSH access. Find it with `curl ifconfig.me`."
-  type        = string
-}
-
 variable "ec2_instance_type" {
   description = "App server size. t3.medium is right-sized once Postgres is offloaded to RDS."
   type        = string
