@@ -78,7 +78,7 @@ export default function HomePage() {
 
         <div className="relative mx-auto max-w-[1280px] px-4 sm:px-8">
           <div className="max-w-[700px]">
-            <p className="eyebrow">SPENCER PLAZA  · PERAMBUR · CHENNAI  · DELIVERING ACROSS INDIA </p>
+            <p className="eyebrow">SPENCER PLAZA · PERAMBUR · CHENNAI · DELIVERING ACROSS INDIA</p>
             <h1 className="display text-[2.6rem] sm:text-[3.4rem] lg:text-[4.4rem] mt-5">
               Dressed right,
               <br />
@@ -86,8 +86,8 @@ export default function HomePage() {
             </h1>
             <div className="my-7 h-px w-[260px] bg-gradient-to-r from-marigold to-transparent" />
             <p className="text-ink-soft text-base sm:text-[1.05rem] leading-relaxed max-w-[470px] mb-9">
-              "ONE BEST.ONE CHOICE" - Fashion,Beauty & Everyday essentials for the whole family.
-              Discover Menswear, Womenswear, Kidswear, Cosmetics and Mobile accessories. Shop online or vist us in-store.
+              &quot;ONE BEST. ONE CHOICE&quot; - Fashion, Beauty &amp; Everyday essentials for the whole family.
+              Discover Menswear, Womenswear, Kidswear, Cosmetics and Mobile accessories. Shop online or visit us in-store.
             </p>
             <div className="flex flex-wrap items-center gap-6">
               <Link
@@ -95,11 +95,6 @@ export default function HomePage() {
                 className="inline-flex items-center gap-3 bg-kumkum hover:bg-kumkum-deep text-white text-[0.76rem] font-extrabold uppercase tracking-[0.16em] px-8 py-4 transition-all hover:-translate-y-0.5 shadow-[0_14px_40px_-14px_rgba(224,38,28,0.7)]"
               >
                 Shop new arrivals
-              </Link>
-              <Link
-                href="/products?discount=20"
-                className="text-[0.74rem] font-bold uppercase tracking-[0.16em] text-ink hover:text-marigold-lit border-b border-marigold pb-1 transition-colors"
-            >
               </Link>
             </div>
           </div>
@@ -168,7 +163,7 @@ export default function HomePage() {
               <h2 className="display text-2xl sm:text-[2.4rem] mt-3">Everything you need.</h2>
             </div>
             <p className="max-w-[380px] text-[0.94rem] leading-relaxed text-ink-soft">
-              Fahion, beauty & everyday essentials for the whole family -available in-store and online,deliverd across india.
+              Fashion, beauty &amp; everyday essentials for the whole family - available in-store and online, delivered across India.
             </p>
           </div>
 
