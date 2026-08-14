@@ -1,19 +1,4 @@
 services:
-  db:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: bestchoice_db
-      POSTGRES_USER: bestchoice
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U bestchoice -d bestchoice_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -22,8 +7,6 @@ services:
     build: ./backend
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_started
     environment:
@@ -39,7 +22,7 @@ services:
       DB_NAME: bestchoice_db
       DB_USER: bestchoice
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_HOST: db
+      DB_HOST: ${DB_HOST:?DB_HOST is required - the RDS endpoint}
       DB_PORT: '5432'
       CORS_ALLOWED_ORIGINS: https://${DOMAIN:-bestchoice.in},https://www.${DOMAIN:-bestchoice.in}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
@@ -117,5 +100,4 @@ services:
              sleep 12h & wait $${!}; done"
 
 volumes:
-  postgres_data:
   static_volume:

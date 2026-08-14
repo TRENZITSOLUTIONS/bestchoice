@@ -1,14 +1,11 @@
 #!/bin/bash
 # Deploy the current main branch. Run from the repo root on the server.
 #
-# Backs the database up first, so a failed migration is recoverable - see
-# docs/DEPLOYMENT.md for the restore procedure.
+# Postgres is RDS (see infra/terraform/rds.tf), which takes its own automated
+# daily backups - nothing for this script to dump locally.
 set -euo pipefail
 
 cd "$(dirname "$0")"
-
-BACKUP_DIR="${BACKUP_DIR:-/backups}"
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
 if [ ! -f .env ]; then
     echo "ERROR: .env not found. Copy .env.example to .env and fill it in."
@@ -17,31 +14,19 @@ fi
 
 echo "=== BestChoice deployment ==="
 
-echo "1/6 Backing up the database..."
-if docker compose config --services | grep -qx db; then
-    mkdir -p "$BACKUP_DIR"
-    docker compose exec -T db pg_dump -U bestchoice bestchoice_db | gzip > "$BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
-    echo "     saved $BACKUP_DIR/bestchoice_$TIMESTAMP.sql.gz"
-else
-    # No local db service - Postgres is RDS on this server, which takes its
-    # own automated daily backups (see infra/terraform/rds.tf). Nothing to
-    # pg_dump from a container that doesn't exist.
-    echo "     skipped - no local db service (Postgres is RDS here, which backs itself up)"
-fi
-
-echo "2/6 Pulling latest code..."
+echo "1/5 Pulling latest code..."
 git pull origin main
 
 # Rebuilds both images. The frontend rebuild is required, not optional: the
 # NEXT_PUBLIC_* values are compiled into the browser bundle at build time.
-echo "3/6 Building images..."
+echo "2/5 Building images..."
 docker compose build
 
 # The backend container runs migrate and collectstatic itself on startup.
-echo "4/6 Restarting services..."
+echo "3/5 Restarting services..."
 docker compose up -d --remove-orphans
 
-echo "5/6 Health check..."
+echo "4/5 Health check..."
 # localhost, not 127.0.0.1: curl sets the Host header to whatever's in the URL,
 # and Django's ALLOWED_HOSTS only lists "localhost" - hitting the raw loopback
 # IP directly gets a 400 even though the container is perfectly healthy.
@@ -78,11 +63,8 @@ done
 # replaced by the new "latest") plus fresh build-cache layers - unbounded over
 # repeated deploys otherwise. Only reachable after a successful health check,
 # so a failed deploy leaves everything in place for debugging.
-echo "6/6 Cleaning up old images..."
+echo "5/5 Cleaning up old images..."
 docker image prune -f > /dev/null
 docker builder prune -f --filter until=72h > /dev/null
 
 echo "=== Deployment complete ==="
-
-[ -d "$BACKUP_DIR" ] && find "$BACKUP_DIR" -name "bestchoice_*.sql.gz" -mtime +30 -delete
-true
