@@ -108,6 +108,14 @@ export function useUpdateProduct() {
   });
 }
 
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/admin/products/${id}/`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'inventory'] }),
+  });
+}
+
 export function useProductImages(productId: number | null) {
   return useQuery({
     queryKey: ['staff', 'product-images', productId],

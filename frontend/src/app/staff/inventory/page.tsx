@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useCreateProduct, useInventory, useUpdateProduct } from '@/hooks/useStaff';
+import { useCreateProduct, useDeleteProduct, useInventory, useUpdateProduct } from '@/hooks/useStaff';
 import { useCategories, useBrands } from '@/hooks/useProducts';
 import {
   EmptyState,
@@ -54,6 +54,7 @@ export default function StaffInventoryPage() {
   const categoryOptions = categories ? flattenCategories(categories) : [];
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
   const saving = createProduct.isPending || updateProduct.isPending;
   const saveError = createProduct.isError
     ? firstError(createProduct.error)
@@ -84,6 +85,17 @@ export default function StaffInventoryPage() {
     setEditing(null);
     createProduct.reset();
     updateProduct.reset();
+  }
+
+  function deleteRow(row: InventoryRow) {
+    if (!confirm(`Delete "${row.name}" (${row.sku})? This removes its photos and variants too - past orders keep their own record and are not affected. This cannot be undone.`)) {
+      return;
+    }
+    deleteProduct.mutate(row.id, {
+      onSuccess: () => {
+        if (editing === row.id) setEditing(null);
+      },
+    });
   }
 
   function save(hasVariants: boolean) {
@@ -151,9 +163,21 @@ export default function StaffInventoryPage() {
               <button onClick={cancel} className="text-xs font-bold text-ink-soft hover:text-ink">
                 Cancel
               </button>
+              {typeof editing === 'number' && editingRow && (
+                <button
+                  onClick={() => deleteRow(editingRow)}
+                  disabled={deleteProduct.isPending}
+                  className="text-xs font-bold text-kumkum hover:text-kumkum-deep disabled:opacity-50"
+                >
+                  {deleteProduct.isPending ? 'Deleting…' : 'Delete product'}
+                </button>
+              )}
             </div>
           </div>
           {saveError && <p className="text-sm text-kumkum">{saveError}</p>}
+          {deleteProduct.isError && (
+            <p className="text-sm text-kumkum">Could not delete that product.</p>
+          )}
 
           {typeof editing === 'number' && (
             <Panel title="Photos">
@@ -300,6 +324,12 @@ export default function StaffInventoryPage() {
                       <td className="py-2.5 text-right whitespace-nowrap">
                         <button onClick={() => startEdit(row)} className="text-xs font-bold underline">
                           Edit
+                        </button>
+                        <button
+                          onClick={() => deleteRow(row)}
+                          className="ml-3 text-xs text-kumkum underline"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>

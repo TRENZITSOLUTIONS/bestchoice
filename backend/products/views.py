@@ -129,13 +129,23 @@ def admin_create_product(request):
     return Response(ProductListSerializer(product).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['PUT', 'PATCH'])
+@api_view(['PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAdminUser])
 def admin_update_product(request, pk):
     try:
         product = Product.objects.get(pk=pk)
     except Product.DoesNotExist:
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        # A real delete, not the "Visible to shoppers" soft-toggle that
+        # already exists - cascades to this product's images/variants/
+        # highlights/reviews/wishlist entries. Past orders are unaffected:
+        # OrderItem.product is SET_NULL and each line already carries its own
+        # product_snapshot captured at checkout time, so order history never
+        # depends on the Product row still existing.
+        product.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     serializer = AdminProductWriteSerializer(
         product, data=request.data, partial=(request.method == 'PATCH'))
