@@ -6,6 +6,7 @@ import type {
   CouponRow,
   DashboardStats,
   DeliveryRates,
+  GlobalSearchResponse,
   InventoryResponse,
   OrderListItem,
   PincodeResponse,
@@ -22,6 +23,15 @@ export function useDashboardStats(days = 7) {
   return useQuery({
     queryKey: ['staff', 'stats', days],
     queryFn: async () => (await api.get<DashboardStats>(`/admin/stats/?days=${days}`)).data,
+  });
+}
+
+export function useGlobalSearch(q: string) {
+  return useQuery({
+    queryKey: ['staff', 'search', q],
+    queryFn: async () =>
+      (await api.get<GlobalSearchResponse>(`/admin/search/?q=${encodeURIComponent(q)}`)).data,
+    enabled: q.trim().length >= 2,
   });
 }
 

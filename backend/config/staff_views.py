@@ -54,6 +54,50 @@ def _paginate(request, queryset, serializer_class, page_size=25):
     })
 
 
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def global_search(request):
+    """One search box across products and orders - every other staff page
+    has its own separate search field, so finding "was there an order for
+    this phone number" meant already knowing to be on the Orders page."""
+    q = (request.query_params.get('q') or '').strip()
+    if len(q) < 2:
+        return Response({'products': [], 'orders': []})
+
+    products = (
+        Product.objects.filter(Q(name__icontains=q) | Q(sku__icontains=q) | Q(product_id__icontains=q))
+        .select_related('category')[:6]
+    )
+    orders = (
+        Order.objects.filter(
+            Q(order_id__icontains=q) | Q(user__email__icontains=q) | Q(user__phone__icontains=q)
+        )
+        .select_related('user')
+        .order_by('-created_at')[:6]
+    )
+
+    return Response({
+        'products': [
+            {
+                'id': p.id,
+                'name': p.name,
+                'sku': p.sku,
+                'category': p.category.name if p.category else None,
+            }
+            for p in products
+        ],
+        'orders': [
+            {
+                'order_id': o.order_id,
+                'status': o.status,
+                'total': str(o.total),
+                'customer_email': o.user.email,
+            }
+            for o in orders
+        ],
+    })
+
+
 def _daily_sales_chart(paid_orders, days, since):
     """One row per day since `since`, zero-filled so the chart has no gaps -
     shared by dashboard_stats (Overview) and reports, so both pages' trend

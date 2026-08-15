@@ -13,6 +13,7 @@ from . import staff_views
 
 urlpatterns = [
     # Dashboard + reporting
+    path('search/', staff_views.global_search, name='admin-global-search'),
     path('stats/', staff_views.dashboard_stats, name='admin-stats'),
     path('reports/', staff_views.reports, name='admin-reports'),
 

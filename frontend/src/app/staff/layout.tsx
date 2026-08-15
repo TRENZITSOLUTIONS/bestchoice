@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@/hooks/useAuth';
+import { GlobalSearch } from '@/components/staff/GlobalSearch';
 
 const LINKS = [
   { href: '/staff', label: 'Overview' },
@@ -67,12 +68,15 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="admin-shell mx-auto max-w-[1400px] px-4 sm:px-7 py-7">
-      <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-6">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6">
         <h1 className="text-xl font-bold tracking-tight">Store management</h1>
         <p className="text-sm text-ink-soft">{user.email}</p>
-        <Link href="/" className="ml-auto text-sm font-bold text-kumkum-deep">
-          View storefront →
-        </Link>
+        <div className="ml-auto flex items-center gap-4">
+          <GlobalSearch />
+          <Link href="/" className="text-sm font-bold text-kumkum-deep whitespace-nowrap">
+            View storefront →
+          </Link>
+        </div>
       </header>
 
       <div className="grid lg:grid-cols-[190px_1fr] gap-7">
