@@ -324,7 +324,13 @@ export function useCreateBrand() {
   return useMutation({
     mutationFn: async (fields: Record<string, unknown>) =>
       (await api.post('/admin/brands/', fields)).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'brands'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff', 'brands'] });
+      // Also the public list (ProductOrganizationFields' typeable brand field
+      // reads useBrands(), not useStaffBrands()) - without this a brand
+      // created inline there wouldn't appear in its own datalist until reload.
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+    },
   });
 }
 

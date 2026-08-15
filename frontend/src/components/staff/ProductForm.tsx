@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useId, useState } from 'react';
 import { useCategories, useBrands } from '@/hooks/useProducts';
+import { useCreateBrand } from '@/hooks/useStaff';
 import { rupees } from '@/lib/format';
 import type { InventoryRow } from '@/lib/staff-types';
 import type { Category } from '@/lib/types';
@@ -184,7 +186,40 @@ export function ProductPricingFields({ draft, onChange }: Fields<'mrp' | 'sellin
 export function ProductOrganizationFields({ draft, onChange }: Fields<'category' | 'brand' | 'weight_g'>) {
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
+  const createBrand = useCreateBrand();
   const categoryOptions = categories ? flattenCategories(categories) : [];
+  const brandListId = useId();
+
+  // Free-typed text, not the select's committed value - lets staff type a
+  // brand that doesn't exist yet without every keystroke fighting the
+  // dropdown. Resolved to an id (existing match, or a freshly-created brand)
+  // on blur; see commitBrand below.
+  const [brandText, setBrandText] = useState('');
+  useEffect(() => {
+    const current = brands?.find((b) => String(b.id) === draft.brand);
+    setBrandText(current?.name ?? '');
+  }, [draft.brand, brands]);
+
+  function commitBrand() {
+    const name = brandText.trim();
+    if (!name) {
+      onChange({ brand: '' });
+      return;
+    }
+    const existing = brands?.find((b) => b.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      onChange({ brand: String(existing.id) });
+      setBrandText(existing.name);
+      return;
+    }
+    // No matching brand - create it on the fly. Staff shouldn't need to
+    // leave this form and go to the separate Brands page just to add a
+    // manufacturer that doesn't exist yet.
+    createBrand.mutate(
+      { name },
+      { onSuccess: (created) => onChange({ brand: String(created.id) }) }
+    );
+  }
 
   return (
     <div className="grid gap-4">
@@ -204,16 +239,20 @@ export function ProductOrganizationFields({ draft, onChange }: Fields<'category'
       </label>
       <label className="grid gap-1.5">
         <span className={fieldLabelClass}>Brand (optional)</span>
-        <select
-          value={draft.brand}
-          onChange={(e) => onChange({ brand: e.target.value })}
+        <input
+          list={brandListId}
+          value={brandText}
+          onChange={(e) => setBrandText(e.target.value)}
+          onBlur={commitBrand}
+          placeholder="Type to search, or a new name to add one"
           className={fieldInputClass}
-        >
-          <option value="">No brand</option>
+        />
+        <datalist id={brandListId}>
           {brands?.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
+            <option key={b.id} value={b.name} />
           ))}
-        </select>
+        </datalist>
+        {createBrand.isPending && <span className="text-xs text-ink-soft">Adding brand…</span>}
       </label>
       <label className="grid gap-1.5">
         <span className={fieldLabelClass}>Weight (g)</span>
