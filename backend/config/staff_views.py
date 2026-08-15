@@ -54,6 +54,30 @@ def _paginate(request, queryset, serializer_class, page_size=25):
     })
 
 
+def _daily_sales_chart(paid_orders, days, since):
+    """One row per day since `since`, zero-filled so the chart has no gaps -
+    shared by dashboard_stats (Overview) and reports, so both pages' trend
+    charts are built from the exact same query rather than two copies that
+    could quietly drift apart."""
+    by_day = {
+        row['day']: row for row in paid_orders
+        .filter(created_at__date__gte=since)
+        .annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(revenue=Sum('total'), orders=Count('id'))
+    }
+    chart = []
+    for offset in range(days):
+        day = since + timedelta(days=offset)
+        row = by_day.get(day)
+        chart.append({
+            'date': day.isoformat(),
+            'revenue': str(row['revenue'] if row else Decimal('0')),
+            'orders': row['orders'] if row else 0,
+        })
+    return chart
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def dashboard_stats(request):
@@ -71,23 +95,7 @@ def dashboard_stats(request):
     revenue_period = paid.filter(created_at__date__gte=since).aggregate(
         total=Sum('total'))['total'] or Decimal('0')
 
-    # One row per day, zero-filled, so the chart has no gaps.
-    by_day = {
-        row['day']: row for row in paid
-        .filter(created_at__date__gte=since)
-        .annotate(day=TruncDate('created_at'))
-        .values('day')
-        .annotate(revenue=Sum('total'), orders=Count('id'))
-    }
-    sales_chart = []
-    for offset in range(days):
-        day = since + timedelta(days=offset)
-        row = by_day.get(day)
-        sales_chart.append({
-            'date': day.isoformat(),
-            'revenue': str(row['revenue'] if row else Decimal('0')),
-            'orders': row['orders'] if row else 0,
-        })
+    sales_chart = _daily_sales_chart(paid, days, since)
 
     status_counts = {
         row['status']: row['n']
@@ -116,12 +124,29 @@ def dashboard_stats(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def reports(request):
-    """Top sellers, revenue by category, and delivery-type split."""
+    """Top sellers, revenue by category, delivery-type split, and the daily
+    trend behind them - this page had tables and totals but no actual chart,
+    unlike the Overview page's sparkline."""
     try:
         days = min(365, max(1, int(request.query_params.get('days', 30))))
     except ValueError:
         days = 30
     since = timezone.now().date() - timedelta(days=days - 1)
+
+    paid = Order.objects.filter(REVENUE_FILTER)
+    revenue_period = paid.filter(created_at__date__gte=since).aggregate(
+        total=Sum('total'))['total'] or Decimal('0')
+    orders_period = paid.filter(created_at__date__gte=since).count()
+
+    # The immediately preceding window of equal length, so "up/down vs last
+    # period" means something rather than just showing a raw total in
+    # isolation.
+    previous_since = since - timedelta(days=days)
+    revenue_previous = paid.filter(
+        created_at__date__gte=previous_since, created_at__date__lt=since
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0')
+
+    sales_chart = _daily_sales_chart(paid, days, since)
 
     paid_items = Q(order__payment_status='paid') & ~Q(order__status='cancelled') & Q(
         order__created_at__date__gte=since)
@@ -168,6 +193,10 @@ def reports(request):
 
     return Response({
         'period_days': days,
+        'revenue_period': str(revenue_period),
+        'revenue_previous_period': str(revenue_previous),
+        'orders_period': orders_period,
+        'sales_chart': sales_chart,
         'top_products': top_products,
         'revenue_by_category': revenue_by_category,
         'by_delivery_type': by_delivery_type,

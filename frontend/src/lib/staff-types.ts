@@ -50,6 +50,10 @@ export interface DashboardStats {
 
 export interface ReportsResponse {
   period_days: number;
+  revenue_period: string;
+  revenue_previous_period: string;
+  orders_period: number;
+  sales_chart: SalesPoint[];
   top_products: {
     product_id: number | null;
     name: string;
@@ -232,6 +236,11 @@ export interface PincodeRow {
 }
 
 export type PincodeResponse = Paginated<PincodeRow>;
+
+export interface GlobalSearchResponse {
+  products: { id: number; name: string; sku: string; category: string | null }[];
+  orders: { order_id: string; status: string; total: string; customer_email: string | null }[];
+}
 
 export interface DeliveryRates {
   tamil_nadu: {

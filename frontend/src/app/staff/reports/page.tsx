@@ -7,6 +7,7 @@ import {
   EmptyState,
   ErrorState,
   Panel,
+  Sparkbars,
   TableScroll,
   money,
 } from '@/components/staff/ui';
@@ -44,6 +45,22 @@ export default function StaffReportsPage() {
         <ErrorState />
       ) : (
         <>
+          <Panel title="Revenue">
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 mb-5">
+              <div>
+                <p className="eyebrow mb-1">This period</p>
+                <p className="font-serif text-[1.7rem] leading-none num">{money(data.revenue_period)}</p>
+              </div>
+              <p className="text-sm text-ink-soft num">{data.orders_period} paid orders</p>
+              <PeriodChange current={data.revenue_period} previous={data.revenue_previous_period} />
+            </div>
+            {data.sales_chart.some((p) => Number(p.revenue) > 0) ? (
+              <Sparkbars points={data.sales_chart} />
+            ) : (
+              <EmptyState message={`No paid orders in the last ${days} days.`} />
+            )}
+          </Panel>
+
           <Panel title="Top sellers">
             {!data.top_products.length ? (
               <EmptyState message={`No paid orders in the last ${days} days.`} />
@@ -125,5 +142,22 @@ export default function StaffReportsPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** "up/down vs the same length window right before this one" - a total in
+ * isolation doesn't say whether that's good or bad; this does. */
+function PeriodChange({ current, previous }: { current: string; previous: string }) {
+  const curr = Number(current);
+  const prev = Number(previous);
+  if (prev <= 0) {
+    return curr > 0 ? <span className="text-sm text-leaf font-bold ml-auto">New this period</span> : null;
+  }
+  const pct = Math.round(((curr - prev) / prev) * 100);
+  const up = pct >= 0;
+  return (
+    <span className={`text-sm font-bold ml-auto ${up ? 'text-leaf' : 'text-kumkum'}`}>
+      {up ? '↑' : '↓'} {Math.abs(pct)}% vs previous period
+    </span>
   );
 }
