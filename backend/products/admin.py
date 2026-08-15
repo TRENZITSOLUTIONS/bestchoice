@@ -61,12 +61,12 @@ def _parse_bool(value: str) -> bool:
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('auto_product_id', 'name', 'category', 'selling_price', 'mrp', 'total_stock', 'is_active')
+    list_display = ('product_id', 'sku', 'name', 'category', 'selling_price', 'mrp', 'total_stock', 'is_active')
     list_filter = ('is_active', 'category', 'brand')
-    search_fields = ('name', 'auto_product_id')
+    search_fields = ('name', 'product_id', 'sku')
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, ProductVariantInline, ProductHighlightInline, RelatedProductInline]
-    readonly_fields = ('auto_product_id', 'total_stock')
+    readonly_fields = ('product_id', 'sku', 'total_stock')
     actions = ['duplicate_products']
     change_list_template = 'admin/products/product/change_list.html'
 
@@ -162,7 +162,8 @@ class ProductAdmin(admin.ModelAdmin):
             highlights = list(product.highlights.all())
 
             product.pk = None
-            product.auto_product_id = ''
+            product.product_id = ''
+            product.sku = ''
             product.slug = ''
             product.name = f'{product.name} (Copy)'
             product.is_active = False
@@ -176,6 +177,7 @@ class ProductAdmin(admin.ModelAdmin):
 
             for variant in variants:
                 variant.pk = None
+                variant.variant_id = ''
                 variant.product = product
                 variant.sku = ''
                 variant.stock = 0

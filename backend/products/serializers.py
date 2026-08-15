@@ -137,7 +137,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
         fields = (
-            'id', 'color', 'size', 'sku', 'stock', 'price_override',
+            'id', 'variant_id', 'color', 'size', 'sku', 'stock', 'price_override',
             'fabric', 'fit', 'age_group', 'sleeve_type', 'occasion',
             'shade', 'volume', 'skin_type',
         )
@@ -154,11 +154,11 @@ class AdminProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductVariant
         fields = (
-            'id', 'color', 'size', 'sku', 'stock', 'price_override',
+            'id', 'variant_id', 'color', 'size', 'sku', 'stock', 'price_override',
             'fabric', 'fit', 'age_group', 'sleeve_type', 'occasion',
             'shade', 'volume', 'skin_type', 'is_active',
         )
-        read_only_fields = ('sku',)
+        read_only_fields = ('variant_id', 'sku')
 
     def validate_stock(self, value):
         if value < 0:
@@ -214,7 +214,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            'id', 'auto_product_id', 'name', 'slug', 'short_description',
+            'id', 'product_id', 'sku', 'name', 'slug', 'short_description',
             'category', 'category_slug', 'brand', 'brand_slug',
             'primary_image', 'mrp', 'selling_price',
             'discount_percent', 'has_variants', 'in_stock',
@@ -318,7 +318,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            'id', 'auto_product_id', 'name', 'slug', 'short_description',
+            'id', 'product_id', 'sku', 'name', 'slug', 'short_description',
             'description', 'category', 'brand', 'images', 'variants',
             'highlights', 'available_colors', 'available_sizes',
             'pricing', 'stock_status', 'gst_included', 'rating',

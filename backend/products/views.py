@@ -41,7 +41,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         'selling_price': ['gte', 'lte'],
         'mrp': ['gte', 'lte'],
     }
-    search_fields = ('name', 'auto_product_id', 'category__name', 'brand__name')
+    search_fields = ('name', 'product_id', 'sku', 'category__name', 'brand__name')
     ordering_fields = ('created_at', 'selling_price', 'name')
     lookup_field = 'slug'
 

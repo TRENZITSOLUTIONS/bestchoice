@@ -280,7 +280,7 @@ export default function StaffInventoryPage() {
                         <Link href={`/products/${row.slug}`} className="font-bold hover:underline">
                           {row.name}
                         </Link>
-                        <span className="block text-xs text-ink-soft num">{row.auto_product_id}</span>
+                        <span className="block text-xs text-ink-soft num">{row.sku}</span>
                       </td>
                       <td className="py-2.5 text-ink-soft">{row.category ?? '—'}</td>
                       <td className="py-2.5 num">{row.variant_count}</td>

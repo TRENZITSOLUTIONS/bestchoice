@@ -40,11 +40,17 @@ class SeedCategoriesTest(TestCase):
 
 
 class ProductIdGenerationTest(TestCase):
-    def test_mobile_accessory_gets_mac_code(self):
+    def test_mobile_accessory_gets_mob_chg_code(self):
         call_command('seed_categories')
         category = Category.objects.get(slug='chargers')
         product = Product.objects.create(name='Fast Charger', category=category, mrp=999, selling_price=699)
-        self.assertTrue(product.auto_product_id.startswith('BC-CHG-'))
+        self.assertTrue(product.sku.startswith('BC-MOB-CHG-'))
+
+    def test_product_id_is_independent_of_sku(self):
+        call_command('seed_categories')
+        category = Category.objects.get(slug='chargers')
+        product = Product.objects.create(name='Fast Charger', category=category, mrp=999, selling_price=699)
+        self.assertTrue(product.product_id.startswith('PROD-'))
 
 
 class CategorySpecificFieldsTest(TestCase):
@@ -288,12 +294,14 @@ class VariantSkuTest(TestCase):
         c = ProductVariant.objects.create(product=self.product, shade='Berry Wine', stock=5)
 
         self.assertEqual(len({a.sku, b.sku, c.sku}), 3)
-        self.assertIn('RUSTIC_RED', a.sku)
-        self.assertIn('NUDE_BEIGE', b.sku)
+        # Shade is free-typed, so it's abbreviated to a stable 3-letter code
+        # (see abbreviate() in models.py) rather than embedded verbatim.
+        self.assertIn('RUS', a.sku)
+        self.assertIn('NUD', b.sku)
 
     def test_shade_and_volume_both_appear(self):
         v = ProductVariant.objects.create(product=self.product, shade='Ivory', volume='30ml', stock=5)
-        self.assertIn('IVORY', v.sku)
+        self.assertIn('IVO', v.sku)
         self.assertIn('30ML', v.sku)
 
     def test_colour_and_size_still_work_for_clothing(self):
@@ -301,7 +309,9 @@ class VariantSkuTest(TestCase):
         shirt = Product.objects.create(name='Shirt', slug='shirt', category=shirt_cat,
                                        mrp=999, selling_price=699)
         v = ProductVariant.objects.create(product=shirt, color='Navy', size='M', stock=5)
-        self.assertTrue(v.sku.endswith('-NAVY-M'), v.sku)
+        # 'Navy' is a known colour, so it gets its table abbreviation (NVY)
+        # rather than the generic first-3-letters fallback.
+        self.assertTrue(v.sku.endswith('-NVY-M'), v.sku)
 
     def test_variant_with_no_axes_gets_a_stable_placeholder(self):
         v = ProductVariant.objects.create(product=self.product, stock=5)
@@ -317,6 +327,19 @@ class VariantSkuTest(TestCase):
         v = ProductVariant.objects.create(product=self.product, shade='Red',
                                           sku='MANUAL-SKU-1', stock=1)
         self.assertEqual(v.sku, 'MANUAL-SKU-1')
+
+    def test_variant_id_is_global_not_per_product(self):
+        """VAR-000001 etc. count across every variant of every product, not
+        reset per product - two different products' variants must not both
+        land on VAR-000001."""
+        shirt_cat = Category.objects.create(name='Shirts Global', slug='shirts-global')
+        shirt = Product.objects.create(name='Shirt', slug='shirt-global', category=shirt_cat,
+                                       mrp=999, selling_price=699)
+        a = ProductVariant.objects.create(product=self.product, shade='Red', stock=1)
+        b = ProductVariant.objects.create(product=shirt, color='Blue', size='M', stock=1)
+        self.assertTrue(a.variant_id.startswith('VAR-'))
+        self.assertTrue(b.variant_id.startswith('VAR-'))
+        self.assertNotEqual(a.variant_id, b.variant_id)
 
 
 class CategoryFilterTest(TestCase):

@@ -26,7 +26,7 @@ class Command(BaseCommand):
                 continue
 
             changed += 1
-            self.stdout.write(f'{product.auto_product_id} {product.name}: {before} -> {after}')
+            self.stdout.write(f'{product.sku} {product.name}: {before} -> {after}')
             if not dry_run:
                 product.sync_total_stock()
 

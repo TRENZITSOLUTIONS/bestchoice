@@ -164,7 +164,10 @@ export function VariantManager({ productId, categoryId }: { productId: number; c
               <tbody>
                 {variants.map((v) => (
                   <tr key={v.id} className="border-t border-line">
-                    <td className="num py-2 text-xs">{v.sku}</td>
+                    <td className="num py-2 text-xs">
+                      {v.sku}
+                      <span className="block text-ink-soft">{v.variant_id}</span>
+                    </td>
                     <td className="py-2 text-ink-soft">
                       {[v.color, v.size, v.shade, v.volume].filter(Boolean).join(' · ') || '—'}
                     </td>

@@ -127,7 +127,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 {product.rating.average} ({product.rating.count} reviews)
               </span>
             )}
-            <span>SKU: {selectedVariant?.sku ?? product.auto_product_id}</span>
+            <span>SKU: {selectedVariant?.sku ?? product.sku}</span>
           </div>
 
           <div className="flex items-baseline gap-3 mb-1">

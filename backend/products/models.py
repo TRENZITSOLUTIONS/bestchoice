@@ -22,6 +22,26 @@ CATEGORY_CODES = {
     'tempered-glass': 'TMG', 'accessories-others': 'ACO',
 }
 
+# The department (top-level category) half of a SKU - CATEGORY_CODES above
+# only ever covers the subcategory half (SHT, JNS, ...). A product filed
+# directly under a department with no subcategory chosen falls back to GEN
+# for the subcategory half, e.g. 'BC-MEN-GEN-0001'.
+DEPARTMENT_CODES = {
+    'mens-wear': 'MEN', 'womens-wear': 'WOM', 'kids-wear': 'KID',
+    'cosmetics': 'COS', 'mobile-accessories': 'MOB',
+}
+
+# Free-typed colour/shade values ("Blue", "sky blue", "Ruby Red") need a
+# stable 3-letter code for variant SKUs - this covers the common ones, and
+# anything else falls back to its own first 3 letters (see abbreviate()).
+COLOR_ABBREVIATIONS = {
+    'black': 'BLK', 'white': 'WHT', 'blue': 'BLU', 'red': 'RED', 'green': 'GRN',
+    'yellow': 'YLW', 'orange': 'ORG', 'purple': 'PRP', 'pink': 'PNK',
+    'grey': 'GRY', 'gray': 'GRY', 'brown': 'BRN', 'navy': 'NVY', 'beige': 'BEG',
+    'maroon': 'MRN', 'olive': 'OLV', 'gold': 'GLD', 'silver': 'SLV',
+    'multicolor': 'MUL', 'multicolour': 'MUL', 'cream': 'CRM',
+}
+
 FABRIC_CHOICES = [
     ('cotton', 'Cotton'), ('linen', 'Linen'), ('viscose', 'Viscose'),
     ('denim', 'Denim'), ('polyester', 'Polyester'), ('rayon', 'Rayon'),
@@ -41,14 +61,63 @@ OCCASION_CHOICES = [
 ]
 
 
-def generate_product_id(category_slug):
-    code = CATEGORY_CODES.get(category_slug, 'GEN')
-    last = Product.objects.filter(auto_product_id__startswith=f'BC-{code}-').order_by('auto_product_id').last()
-    if last:
-        num = int(last.auto_product_id.split('-')[-1]) + 1
+def department_slug_for(category):
+    """Walk up to the top-level department for any category, including a
+    department passed in directly (returns itself in that case)."""
+    if category is None:
+        return None
+    node = category
+    while node.parent_id:
+        node = node.parent
+    return node.slug
+
+
+def generate_product_id():
+    """PROD-000001 - a plain internal identifier, never shown to shoppers.
+    One global counter across every product, independent of category."""
+    last = Product.objects.order_by('-product_id').first()
+    if last and last.product_id:
+        num = int(last.product_id.split('-')[-1]) + 1
     else:
         num = 1
-    return f'BC-{code}-{num:06d}'
+    return f'PROD-{num:06d}'
+
+
+def generate_sku(category):
+    """BC-MEN-SHT-0001 - the catalogue-facing code, one counter per
+    department+subcategory pair (same scoping the old single-segment code
+    used, just with the department segment added in front)."""
+    department_slug = department_slug_for(category)
+    dept_code = DEPARTMENT_CODES.get(department_slug, 'GEN')
+    subcat_code = CATEGORY_CODES.get(category.slug, 'GEN') if category else 'GEN'
+    prefix = f'BC-{dept_code}-{subcat_code}-'
+    last = Product.objects.filter(sku__startswith=prefix).order_by('sku').last()
+    if last:
+        num = int(last.sku.split('-')[-1]) + 1
+    else:
+        num = 1
+    return f'{prefix}{num:04d}'
+
+
+def generate_variant_id():
+    """VAR-000001 - one global counter across every variant of every
+    product, not scoped per-product."""
+    last = ProductVariant.objects.order_by('-variant_id').first()
+    if last and last.variant_id:
+        num = int(last.variant_id.split('-')[-1]) + 1
+    else:
+        num = 1
+    return f'VAR-{num:06d}'
+
+
+def abbreviate(value):
+    """A stable 3-letter code for a free-typed colour/shade value - looked up
+    first, then falls back to the value's own first 3 letters so an unlisted
+    colour still gets a short, consistent code instead of breaking."""
+    if not value:
+        return ''
+    key = value.strip().lower()
+    return COLOR_ABBREVIATIONS.get(key, re.sub(r'[^A-Za-z0-9]', '', value).upper()[:3])
 
 
 class Category(models.Model):
@@ -83,7 +152,12 @@ class Brand(models.Model):
 
 
 class Product(models.Model):
-    auto_product_id = models.CharField(max_length=30, unique=True, editable=False)
+    # Two distinct identifiers, not one: product_id (PROD-000001) is a plain
+    # internal reference that's never shown to a shopper; sku (BC-MEN-SHT-0001)
+    # is the catalogue-facing code variant SKUs are built from. Both are
+    # auto-generated in save() below - never settable by staff.
+    product_id = models.CharField(max_length=20, unique=True, editable=False)
+    sku = models.CharField(max_length=30, unique=True, editable=False)
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=250, unique=True)
     short_description = models.TextField(blank=True)
@@ -121,14 +195,16 @@ class Product(models.Model):
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
-        if not self.auto_product_id:
-            self.auto_product_id = generate_product_id(self.category.slug if self.category else 'gen')
+        if not self.product_id:
+            self.product_id = generate_product_id()
+        if not self.sku:
+            self.sku = generate_sku(self.category)
         if not self.slug:
             from django.utils.text import slugify
             base = slugify(self.name)[:50]
             self.slug = base
             if Product.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
-                self.slug = f'{base}-{self.auto_product_id.lower()}'
+                self.slug = f'{base}-{self.sku.lower()}'
         super().save(*args, **kwargs)
 
     def sync_total_stock(self, force=False):
@@ -151,7 +227,7 @@ class Product(models.Model):
             self.total_stock = total
 
     def __str__(self):
-        return f'{self.auto_product_id} - {self.name}'
+        return f'{self.sku} - {self.name}'
 
 
 class ProductImage(models.Model):
@@ -203,6 +279,10 @@ class ProductImage(models.Model):
 
 
 class ProductVariant(models.Model):
+    # VAR-000001 - a plain internal reference, auto-generated in save() below.
+    # One global counter across every variant of every product (not
+    # per-product), matching product_id's scope on Product.
+    variant_id = models.CharField(max_length=20, unique=True, editable=False)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
     color = models.CharField(max_length=50, blank=True, default='')
     size = models.CharField(max_length=20, blank=True, default='')
@@ -239,9 +319,12 @@ class ProductVariant(models.Model):
         def part(value):
             return value.upper().replace(' ', '_') if value else ''
 
-        axes = [part(self.color), part(self.size), part(self.shade), part(self.volume)]
+        # Colour and shade are free-typed ("Sky Blue", "Ruby Red") so they go
+        # through abbreviate() for a stable 3-letter code (BLU, RED); size and
+        # volume are already compact (S/M/L, 30ml) and just get uppercased.
+        axes = [abbreviate(self.color), part(self.size), abbreviate(self.shade), part(self.volume)]
         suffix = '-'.join(a for a in axes if a) or 'STD'
-        base = f'{self.product.auto_product_id}-{suffix}'
+        base = f'{self.product.sku}-{suffix}'
 
         candidate, n = base, 2
         taken = ProductVariant.objects.exclude(pk=self.pk)
@@ -251,6 +334,8 @@ class ProductVariant(models.Model):
         return candidate
 
     def save(self, *args, **kwargs):
+        if not self.variant_id:
+            self.variant_id = generate_variant_id()
         if not self.sku:
             self.sku = self.build_sku()
         super().save(*args, **kwargs)

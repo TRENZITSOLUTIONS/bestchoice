@@ -91,7 +91,8 @@ export interface Refund {
 
 export interface InventoryRow {
   id: number;
-  auto_product_id: string;
+  product_id: string;
+  sku: string;
   name: string;
   slug: string;
   category: string | null;
@@ -127,6 +128,7 @@ export interface ProductImageRow {
 
 export interface VariantRow {
   id: number;
+  variant_id: string;
   color: string;
   size: string;
   sku: string;

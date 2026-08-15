@@ -164,7 +164,7 @@ def checkout(request):
                 variant=variant,
                 product_snapshot={
                     'name': cart_item.product.name,
-                    'sku': variant.sku if variant else cart_item.product.auto_product_id,
+                    'sku': variant.sku if variant else cart_item.product.sku,
                     'price': str(cart_item.price),
                 },
                 quantity=cart_item.quantity,

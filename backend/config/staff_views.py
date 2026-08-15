@@ -257,7 +257,9 @@ def inventory_list(request):
         qs = qs.filter(total_stock__lte=0)
     search = (request.query_params.get('search') or '').strip()
     if search:
-        qs = qs.filter(Q(name__icontains=search) | Q(auto_product_id__icontains=search))
+        qs = qs.filter(
+            Q(name__icontains=search) | Q(product_id__icontains=search) | Q(sku__icontains=search)
+        )
 
     category = request.query_params.get('category')
     if category:
@@ -281,7 +283,8 @@ def inventory_list(request):
     def row(product):
         return {
             'id': product.id,
-            'auto_product_id': product.auto_product_id,
+            'product_id': product.product_id,
+            'sku': product.sku,
             'name': product.name,
             'slug': product.slug,
             'category': product.category.name if product.category else None,

@@ -17,7 +17,8 @@ export interface Brand {
 
 export interface ProductListItem {
   id: number;
-  auto_product_id: string;
+  product_id: string;
+  sku: string;
   name: string;
   slug: string;
   short_description: string;
@@ -38,6 +39,7 @@ export interface ProductListItem {
 
 export interface ProductVariant {
   id: number;
+  variant_id: string;
   color: string;
   size: string;
   sku: string;
@@ -67,7 +69,8 @@ export interface ProductImage {
 
 export interface ProductDetail {
   id: number;
-  auto_product_id: string;
+  product_id: string;
+  sku: string;
   name: string;
   slug: string;
   short_description: string;
