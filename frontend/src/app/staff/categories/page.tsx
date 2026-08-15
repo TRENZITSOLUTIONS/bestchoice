@@ -55,6 +55,20 @@ function CategoriesPanel() {
   const departments = data ?? [];
   const all = flattenTree(departments);
 
+  // Collapsed by default - with 5 departments and 30+ subcategories between
+  // them, showing every subcategory of every department at once meant
+  // scrolling through the whole tree just to reach the next department.
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  function toggleExpanded(id: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function field<K extends keyof CategoryDraft>(key: K, value: CategoryDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
@@ -62,6 +76,9 @@ function CategoriesPanel() {
   function startCreate(parentId?: number) {
     setEditing('new');
     setDraft({ ...EMPTY_CATEGORY, parent: parentId ? String(parentId) : '' });
+    // So the new subcategory is actually visible the moment it's saved,
+    // instead of staff having to know to expand its department themselves.
+    if (parentId) setExpanded((prev) => new Set(prev).add(parentId));
   }
 
   function startEdit(row: CategoryRow) {
@@ -96,17 +113,35 @@ function CategoriesPanel() {
     }
   }
 
+  const departmentsWithChildren = departments.filter((d) => d.children.length > 0);
+  const allExpanded =
+    departmentsWithChildren.length > 0 && departmentsWithChildren.every((d) => expanded.has(d.id));
+
   return (
     <Panel
       title="Departments & categories"
       action={
         editing === null ? (
-          <button
-            onClick={() => startCreate()}
-            className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5"
-          >
-            + Add department
-          </button>
+          <div className="flex items-center gap-4">
+            {departmentsWithChildren.length > 0 && (
+              <button
+                onClick={() =>
+                  setExpanded(
+                    allExpanded ? new Set() : new Set(departmentsWithChildren.map((d) => d.id))
+                  )
+                }
+                className="text-xs font-bold text-ink-soft hover:text-ink"
+              >
+                {allExpanded ? 'Collapse all' : 'Expand all'}
+              </button>
+            )}
+            <button
+              onClick={() => startCreate()}
+              className="bg-kumkum hover:bg-kumkum-deep text-white text-xs font-bold px-3.5 py-1.5"
+            >
+              + Add department
+            </button>
+          </div>
         ) : undefined
       }
     >
@@ -208,25 +243,32 @@ function CategoriesPanel() {
         <EmptyState message="No departments yet." />
       ) : (
         <div className="grid gap-1">
-          {departments.map((dept) => (
-            <div key={dept.id}>
-              <CategoryRowView
-                row={dept}
-                onEdit={() => startEdit(dept)}
-                onDeactivate={() => deactivate.mutate(dept.id)}
-                onAddChild={() => startCreate(dept.id)}
-              />
-              {dept.children.map((child) => (
+          {departments.map((dept) => {
+            const isOpen = expanded.has(dept.id);
+            return (
+              <div key={dept.id}>
                 <CategoryRowView
-                  key={child.id}
-                  row={child}
-                  indent
-                  onEdit={() => startEdit(child)}
-                  onDeactivate={() => deactivate.mutate(child.id)}
+                  row={dept}
+                  childCount={dept.children.length}
+                  expanded={isOpen}
+                  onToggleExpand={dept.children.length > 0 ? () => toggleExpanded(dept.id) : undefined}
+                  onEdit={() => startEdit(dept)}
+                  onDeactivate={() => deactivate.mutate(dept.id)}
+                  onAddChild={() => startCreate(dept.id)}
                 />
-              ))}
-            </div>
-          ))}
+                {isOpen &&
+                  dept.children.map((child) => (
+                    <CategoryRowView
+                      key={child.id}
+                      row={child}
+                      indent
+                      onEdit={() => startEdit(child)}
+                      onDeactivate={() => deactivate.mutate(child.id)}
+                    />
+                  ))}
+              </div>
+            );
+          })}
         </div>
       )}
       {all.length > 0 && (
@@ -288,21 +330,46 @@ function CategoryPhotoUpload({
 function CategoryRowView({
   row,
   indent,
+  childCount,
+  expanded,
+  onToggleExpand,
   onEdit,
   onDeactivate,
   onAddChild,
 }: {
   row: CategoryRow;
   indent?: boolean;
+  childCount?: number;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
   onEdit: () => void;
   onDeactivate: () => void;
   onAddChild?: () => void;
 }) {
   return (
     <div className={`flex items-center gap-3 py-2 border-t border-line text-sm ${indent ? 'pl-6' : ''}`}>
-      <span className={indent ? 'text-ink-soft' : 'font-bold'}>{row.name}</span>
+      {onToggleExpand ? (
+        <button
+          onClick={onToggleExpand}
+          className="flex items-center gap-2 font-bold"
+          aria-expanded={expanded}
+        >
+          <span className="inline-block w-3 text-ink-faint">{expanded ? '▾' : '▸'}</span>
+          {row.name}
+        </button>
+      ) : (
+        <span className={indent ? 'text-ink-soft' : 'font-bold'}>
+          {!indent && <span className="inline-block w-3" />}
+          {row.name}
+        </span>
+      )}
       {!row.is_active && <StatusPill value="cancelled" label="Inactive" />}
       <span className="text-xs text-ink-faint num">{row.product_count} products</span>
+      {typeof childCount === 'number' && childCount > 0 && (
+        <span className="text-xs text-ink-faint num">
+          {childCount} subcategor{childCount === 1 ? 'y' : 'ies'}
+        </span>
+      )}
       <div className="ml-auto flex items-center gap-3 whitespace-nowrap">
         {onAddChild && (
           <button onClick={onAddChild} className="text-xs font-bold text-marigold-lit">
