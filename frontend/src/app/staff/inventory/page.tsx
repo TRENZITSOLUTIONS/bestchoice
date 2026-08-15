@@ -174,7 +174,7 @@ export default function StaffInventoryPage() {
               </Panel>
               {typeof editing === 'number' ? (
                 <Panel title="Variants">
-                  <VariantManager productId={editing} />
+                  <VariantManager productId={editing} categoryId={draft.category ? Number(draft.category) : null} />
                 </Panel>
               ) : (
                 <Panel title="Variants">

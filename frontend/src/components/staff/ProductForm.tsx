@@ -70,6 +70,18 @@ export function flattenCategories(categories: Category[]) {
   ]);
 }
 
+/** The department a category belongs to (itself, if it already is one) - used
+ * to decide which category-specific fields apply, e.g. in VariantManager. */
+export function departmentSlugFor(categories: Category[], categoryId: number | null): string | null {
+  if (categoryId == null) return null;
+  for (const department of categories) {
+    if (department.id === categoryId || department.children.some((c) => c.id === categoryId)) {
+      return department.slug;
+    }
+  }
+  return null;
+}
+
 /** A sentence-case field label, not the shared uppercase gold .eyebrow - that
  * treatment is for page-level meta text, not a form field staff reads dozens
  * of times a day. */

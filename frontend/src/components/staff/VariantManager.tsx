@@ -7,13 +7,41 @@ import {
   useUpdateProductVariant,
   useDeleteProductVariant,
 } from '@/hooks/useStaff';
+import { useCategories } from '@/hooks/useProducts';
 import { money } from '@/components/staff/ui';
+import { departmentSlugFor } from '@/components/staff/ProductForm';
 import type { VariantRow } from '@/lib/staff-types';
 
 const FABRIC_OPTIONS = ['cotton', 'linen', 'viscose', 'denim', 'polyester', 'rayon', 'blend', 'others'];
 const FIT_OPTIONS = ['regular', 'slim', 'oversized', 'relaxed'];
 const SLEEVE_OPTIONS = ['half_sleeve', 'full_sleeve'];
 const OCCASION_OPTIONS = ['casual', 'formal', 'party', 'ethnic'];
+
+/** Which variant axes actually apply to each department - the model has every
+ * axis on one row (see backend/products/models.py), but showing all of them
+ * on every product regardless of category is just noise: a lipstick doesn't
+ * have a Fit, a shirt doesn't have a Shade. Falls back to "show everything"
+ * when the department isn't recognised (e.g. category not chosen yet), so
+ * nothing is ever hidden by mistake. */
+const CLOTHING_DEPTS = new Set(['mens-wear', 'womens-wear', 'kids-wear']);
+
+function fieldsForDepartment(departmentSlug: string | null) {
+  if (departmentSlug === 'cosmetics') {
+    return { color: false, size: false, shade: true, volume: true, fabric: false, fit: false, ageGroup: false, sleeve: false, occasion: false, skinType: true };
+  }
+  if (departmentSlug === 'mobile-accessories') {
+    return { color: true, size: false, shade: false, volume: false, fabric: false, fit: false, ageGroup: false, sleeve: false, occasion: false, skinType: false };
+  }
+  if (departmentSlug && CLOTHING_DEPTS.has(departmentSlug)) {
+    return {
+      color: true, size: true, shade: false, volume: false,
+      fabric: true, fit: true, sleeve: true, occasion: true,
+      ageGroup: departmentSlug === 'kids-wear', skinType: false,
+    };
+  }
+  // Unrecognised/no category yet - show every axis rather than guess wrong.
+  return { color: true, size: true, shade: true, volume: true, fabric: true, fit: true, ageGroup: true, sleeve: true, occasion: true, skinType: true };
+}
 
 interface VariantDraft {
   color: string;
@@ -68,11 +96,15 @@ function firstError(err: unknown): string | undefined {
 
 const inputClass = 'border border-line bg-ivory px-2 py-1.5 text-sm outline-none focus:border-marigold';
 
-export function VariantManager({ productId }: { productId: number }) {
+export function VariantManager({ productId, categoryId }: { productId: number; categoryId: number | null }) {
   const { data: variants, isLoading } = useProductVariants(productId);
+  const { data: categories } = useCategories();
   const create = useCreateProductVariant(productId);
   const update = useUpdateProductVariant(productId);
   const remove = useDeleteProductVariant(productId);
+
+  const department = categories ? departmentSlugFor(categories, categoryId) : null;
+  const fields = fieldsForDepartment(department);
 
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<VariantDraft>(EMPTY_VARIANT);
@@ -164,91 +196,111 @@ export function VariantManager({ productId }: { productId: number }) {
       {editing !== null && (
         <div className="grid gap-2.5 border border-line p-3">
           <div className="grid gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-            <label className="grid gap-1">
-              <span className="eyebrow">Colour</span>
-              <input value={draft.color} onChange={(e) => field('color', e.target.value)} className={inputClass} />
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Size</span>
-              <input
-                value={draft.size}
-                onChange={(e) => field('size', e.target.value)}
-                placeholder="S / M / L / 32"
-                className={inputClass}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Shade</span>
-              <input
-                value={draft.shade}
-                onChange={(e) => field('shade', e.target.value)}
-                placeholder="Cosmetics"
-                className={inputClass}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Volume</span>
-              <input
-                value={draft.volume}
-                onChange={(e) => field('volume', e.target.value)}
-                placeholder="30ml"
-                className={inputClass}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Fabric</span>
-              <select value={draft.fabric} onChange={(e) => field('fabric', e.target.value)} className={inputClass}>
-                <option value="">—</option>
-                {FABRIC_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Fit</span>
-              <select value={draft.fit} onChange={(e) => field('fit', e.target.value)} className={inputClass}>
-                <option value="">—</option>
-                {FIT_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Sleeve</span>
-              <select value={draft.sleeve_type} onChange={(e) => field('sleeve_type', e.target.value)} className={inputClass}>
-                <option value="">—</option>
-                {SLEEVE_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f.replace('_', ' ')}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Occasion</span>
-              <select value={draft.occasion} onChange={(e) => field('occasion', e.target.value)} className={inputClass}>
-                <option value="">—</option>
-                {OCCASION_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Age group</span>
-              <input
-                value={draft.age_group}
-                onChange={(e) => field('age_group', e.target.value)}
-                placeholder="Kids only, e.g. 2-4Y"
-                className={inputClass}
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="eyebrow">Skin type</span>
-              <input
-                value={draft.skin_type}
-                onChange={(e) => field('skin_type', e.target.value)}
-                placeholder="Oily / Dry / All"
-                className={inputClass}
-              />
-            </label>
+            {fields.color && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Colour</span>
+                <input value={draft.color} onChange={(e) => field('color', e.target.value)} className={inputClass} />
+              </label>
+            )}
+            {fields.size && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Size</span>
+                <input
+                  value={draft.size}
+                  onChange={(e) => field('size', e.target.value)}
+                  placeholder="S / M / L / 32"
+                  className={inputClass}
+                />
+              </label>
+            )}
+            {fields.shade && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Shade</span>
+                <input
+                  value={draft.shade}
+                  onChange={(e) => field('shade', e.target.value)}
+                  placeholder="Cosmetics"
+                  className={inputClass}
+                />
+              </label>
+            )}
+            {fields.volume && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Volume</span>
+                <input
+                  value={draft.volume}
+                  onChange={(e) => field('volume', e.target.value)}
+                  placeholder="30ml"
+                  className={inputClass}
+                />
+              </label>
+            )}
+            {fields.fabric && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Fabric</span>
+                <select value={draft.fabric} onChange={(e) => field('fabric', e.target.value)} className={inputClass}>
+                  <option value="">—</option>
+                  {FABRIC_OPTIONS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {fields.fit && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Fit</span>
+                <select value={draft.fit} onChange={(e) => field('fit', e.target.value)} className={inputClass}>
+                  <option value="">—</option>
+                  {FIT_OPTIONS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {fields.sleeve && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Sleeve</span>
+                <select value={draft.sleeve_type} onChange={(e) => field('sleeve_type', e.target.value)} className={inputClass}>
+                  <option value="">—</option>
+                  {SLEEVE_OPTIONS.map((f) => (
+                    <option key={f} value={f}>{f.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {fields.occasion && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Occasion</span>
+                <select value={draft.occasion} onChange={(e) => field('occasion', e.target.value)} className={inputClass}>
+                  <option value="">—</option>
+                  {OCCASION_OPTIONS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {fields.ageGroup && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Age group</span>
+                <input
+                  value={draft.age_group}
+                  onChange={(e) => field('age_group', e.target.value)}
+                  placeholder="Kids only, e.g. 2-4Y"
+                  className={inputClass}
+                />
+              </label>
+            )}
+            {fields.skinType && (
+              <label className="grid gap-1">
+                <span className="eyebrow">Skin type</span>
+                <input
+                  value={draft.skin_type}
+                  onChange={(e) => field('skin_type', e.target.value)}
+                  placeholder="Oily / Dry / All"
+                  className={inputClass}
+                />
+              </label>
+            )}
             <label className="grid gap-1">
               <span className="eyebrow">Stock</span>
               <input
