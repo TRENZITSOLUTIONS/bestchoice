@@ -209,6 +209,11 @@ function StaffInventoryPageContent() {
               <h2 className="text-lg font-bold tracking-tight">
                 {draft.name || 'Untitled product'}
               </h2>
+              {editingRow && (
+                <p className="text-xs text-ink-soft num mt-0.5">
+                  {editingRow.product_id} · {editingRow.sku}
+                </p>
+              )}
             </div>
             <div className="ml-auto flex items-center gap-3">
               <button
@@ -450,7 +455,9 @@ function StaffInventoryPageContent() {
                         <Link href={`/products/${row.slug}`} className="font-bold hover:underline">
                           {row.name}
                         </Link>
-                        <span className="block text-xs text-ink-soft num">{row.sku}</span>
+                        <span className="block text-xs text-ink-soft num">
+                          {row.product_id} · {row.sku}
+                        </span>
                       </td>
                       <td className="py-2.5 text-ink-soft">{row.category ?? '—'}</td>
                       <td className="py-2.5 num">{row.variant_count}</td>
