@@ -9,7 +9,7 @@ import {
 } from '@/hooks/useStaff';
 import { useCategories } from '@/hooks/useProducts';
 import { money } from '@/components/staff/ui';
-import { departmentSlugFor } from '@/components/staff/ProductForm';
+import { CLOTHING_DEPARTMENT_SLUGS, departmentSlugFor } from '@/components/staff/ProductForm';
 import type { VariantRow } from '@/lib/staff-types';
 
 const FABRIC_OPTIONS = ['cotton', 'linen', 'viscose', 'denim', 'polyester', 'rayon', 'blend', 'others'];
@@ -23,8 +23,6 @@ const OCCASION_OPTIONS = ['casual', 'formal', 'party', 'ethnic'];
  * have a Fit, a shirt doesn't have a Shade. Falls back to "show everything"
  * when the department isn't recognised (e.g. category not chosen yet), so
  * nothing is ever hidden by mistake. */
-const CLOTHING_DEPTS = new Set(['mens-wear', 'womens-wear', 'kids-wear']);
-
 function fieldsForDepartment(departmentSlug: string | null) {
   if (departmentSlug === 'cosmetics') {
     return { color: false, size: false, shade: true, volume: true, fabric: false, fit: false, ageGroup: false, sleeve: false, occasion: false, skinType: true };
@@ -32,7 +30,7 @@ function fieldsForDepartment(departmentSlug: string | null) {
   if (departmentSlug === 'mobile-accessories') {
     return { color: true, size: false, shade: false, volume: false, fabric: false, fit: false, ageGroup: false, sleeve: false, occasion: false, skinType: false };
   }
-  if (departmentSlug && CLOTHING_DEPTS.has(departmentSlug)) {
+  if (departmentSlug && CLOTHING_DEPARTMENT_SLUGS.has(departmentSlug)) {
     return {
       color: true, size: true, shade: false, volume: false,
       fabric: true, fit: true, sleeve: true, occasion: true,

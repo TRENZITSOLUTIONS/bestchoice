@@ -13,11 +13,13 @@ import {
   money,
 } from '@/components/staff/ui';
 import {
+  CLOTHING_DEPARTMENT_SLUGS,
   EMPTY_PRODUCT_DRAFT,
   ProductDetailsFields,
   ProductPricingFields,
   ProductOrganizationFields,
   ProductStatusFields,
+  departmentSlugFor,
   draftFromRow,
   draftToPayload,
   flattenCategories,
@@ -122,6 +124,18 @@ export default function StaffInventoryPage() {
     : undefined;
   const hasVariants = !!editingRow && editingRow.variant_count > 0;
 
+  // Clothing is the one department where "size" is a real choice a shopper
+  // has to make before they can buy - a shirt with no size variant isn't
+  // actually purchasable in a meaningful way, even though the system allows
+  // saving it. Some clothing-department products genuinely have no size
+  // (a scarf, a bindi filed under "Others"), so this warns rather than
+  // blocking the save.
+  const department = categories && draft.category
+    ? departmentSlugFor(categories, Number(draft.category))
+    : null;
+  const needsSizeWarning =
+    !!department && CLOTHING_DEPARTMENT_SLUGS.has(department) && draft.is_active && !hasVariants;
+
   return (
     <div className="grid gap-5">
       {editing === null ? (
@@ -198,10 +212,26 @@ export default function StaffInventoryPage() {
               </Panel>
               {typeof editing === 'number' ? (
                 <Panel title="Variants">
+                  {needsSizeWarning && (
+                    <p className="text-xs text-marigold border border-marigold/40 bg-marigold/10 px-3 py-2.5 mb-3.5">
+                      <strong>No size added yet.</strong> This is a Men&apos;s/Women&apos;s/Kids&apos; Wear
+                      product marked &quot;Visible to shoppers&quot; with no variants - shoppers won&apos;t
+                      see a size option and can add it to cart without choosing one. Add at least one
+                      variant below with a size before customers should be able to buy it. (If this
+                      product genuinely has no size - e.g. a scarf or an accessory - you can ignore this.)
+                    </p>
+                  )}
                   <VariantManager productId={editing} categoryId={draft.category ? Number(draft.category) : null} />
                 </Panel>
               ) : (
                 <Panel title="Variants">
+                  {needsSizeWarning && (
+                    <p className="text-xs text-marigold border border-marigold/40 bg-marigold/10 px-3 py-2.5 mb-3.5">
+                      <strong>Heads up:</strong> this is a Men&apos;s/Women&apos;s/Kids&apos; Wear product
+                      marked &quot;Visible to shoppers&quot;. Once saved, add at least one variant with a
+                      size below - otherwise shoppers can add it to cart without ever choosing one.
+                    </p>
+                  )}
                   <p className="text-sm text-ink-soft">Save the product first to add variants.</p>
                 </Panel>
               )}

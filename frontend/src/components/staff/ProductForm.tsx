@@ -84,6 +84,11 @@ export function departmentSlugFor(categories: Category[], categoryId: number | n
   return null;
 }
 
+/** Departments where "size" is a real, expected choice a shopper has to
+ * make - shared between VariantManager (which fields to show) and the
+ * inventory page (the no-variants warning below). */
+export const CLOTHING_DEPARTMENT_SLUGS = new Set(['mens-wear', 'womens-wear', 'kids-wear']);
+
 /** A sentence-case field label, not the shared uppercase gold .eyebrow - that
  * treatment is for page-level meta text, not a form field staff reads dozens
  * of times a day. */
