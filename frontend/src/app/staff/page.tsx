@@ -28,28 +28,36 @@ export default function StaffOverviewPage() {
   return (
     <div className="grid gap-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label={`Revenue · last ${days}d`}
-          value={money(stats.revenue_period)}
-          hint={`${money(stats.revenue_total)} all time`}
-        />
-        <StatCard
-          label={`Paid orders · last ${days}d`}
-          value={stats.orders_period}
-          hint={`${stats.orders_total} all time`}
-        />
-        <StatCard
-          label="Needs action"
-          value={stats.orders_awaiting_action}
-          hint="pending, confirmed or packed"
-          tone={stats.orders_awaiting_action > 0 ? 'attention' : undefined}
-        />
-        <StatCard
-          label="Out of stock"
-          value={stats.products_out_of_stock}
-          hint={`of ${stats.products_active} active products`}
-          tone={stats.products_out_of_stock > 0 ? 'attention' : 'good'}
-        />
+        <Link href="/staff/reports" className="group block">
+          <StatCard
+            label={`Revenue · last ${days}d`}
+            value={money(stats.revenue_period)}
+            hint={`${money(stats.revenue_total)} all time - see the full breakdown →`}
+          />
+        </Link>
+        <Link href="/staff/orders?payment_status=paid" className="group block">
+          <StatCard
+            label={`Paid orders · last ${days}d`}
+            value={stats.orders_period}
+            hint={`${stats.orders_total} all time - view paid orders →`}
+          />
+        </Link>
+        <Link href="/staff/orders?awaiting_action=true" className="group block">
+          <StatCard
+            label="Needs action"
+            value={stats.orders_awaiting_action}
+            hint="pending, confirmed or packed - view these orders →"
+            tone={stats.orders_awaiting_action > 0 ? 'attention' : undefined}
+          />
+        </Link>
+        <Link href="/staff/inventory?out_of_stock=true" className="group block">
+          <StatCard
+            label="Out of stock"
+            value={stats.products_out_of_stock}
+            hint={`of ${stats.products_active} active products - view them →`}
+            tone={stats.products_out_of_stock > 0 ? 'attention' : 'good'}
+          />
+        </Link>
       </div>
 
       {(stats.refunds_pending > 0 || stats.reviews_pending > 0) && (
@@ -125,7 +133,7 @@ export default function StaffOverviewPage() {
                   {recent.results.map((o) => (
                     <tr key={o.order_id} className="border-t border-line">
                       <td className="py-2.5">
-                        <Link href="/staff/orders" className="font-bold hover:underline">
+                        <Link href={`/staff/orders/${o.order_id}`} className="font-bold hover:underline">
                           {o.order_id}
                         </Link>
                       </td>
@@ -149,9 +157,14 @@ export default function StaffOverviewPage() {
               {Object.entries(stats.orders_by_status)
                 .sort((a, b) => b[1] - a[1])
                 .map(([status, count]) => (
-                  <li key={status} className="flex items-center gap-3">
-                    <StatusPill value={status} />
-                    <span className="ml-auto num font-bold">{count}</span>
+                  <li key={status}>
+                    <Link
+                      href={`/staff/orders?status=${status}`}
+                      className="flex items-center gap-3 -mx-2 px-2 py-1 rounded hover:bg-ivory-raised"
+                    >
+                      <StatusPill value={status} />
+                      <span className="ml-auto num font-bold">{count}</span>
+                    </Link>
                   </li>
                 ))}
             </ul>

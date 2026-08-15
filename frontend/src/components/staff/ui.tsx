@@ -49,7 +49,10 @@ export function StatCard({
 }) {
   const accent = tone === 'attention' ? 'text-kumkum' : tone === 'good' ? 'text-leaf' : 'text-ink';
   return (
-    <div className="border border-line bg-card p-5">
+    // group-hover only fires when a parent has class="group" - so this picks
+    // up a hover affordance for free when wrapped in a <Link className="group">
+    // (see the Overview page), and does nothing when it isn't.
+    <div className="border border-line bg-card p-5 transition-colors group-hover:border-marigold/60 group-hover:bg-ivory-raised">
       <p className="eyebrow mb-2">{label}</p>
       <p className={`font-serif text-[1.7rem] leading-none num ${accent}`}>{value}</p>
       {hint && <p className="text-xs text-ink-faint mt-2">{hint}</p>}

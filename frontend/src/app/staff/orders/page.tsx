@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useBulkShip, useStaffOrders, useUpdateOrderStatus } from '@/hooks/useStaff';
 import {
   EmptyState,
@@ -22,8 +23,16 @@ const NEXT_STATUS: Record<string, string> = {
 
 const STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 
-export default function StaffOrdersPage() {
-  const [filters, setFilters] = useState({ status: '', payment_status: '', search: '' });
+function StaffOrdersPageContent() {
+  const searchParams = useSearchParams();
+  // Seeded from the URL so a link from Overview (e.g. the "Needs action"
+  // stat card) actually lands here pre-filtered, not on an unfiltered list.
+  const [filters, setFilters] = useState({
+    status: searchParams.get('status') ?? '',
+    payment_status: searchParams.get('payment_status') ?? '',
+    search: '',
+    awaiting_action: searchParams.get('awaiting_action') ?? '',
+  });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [provider, setProvider] = useState('');
@@ -35,7 +44,16 @@ export default function StaffOrdersPage() {
   const bulkShip = useBulkShip();
 
   function setFilter(key: keyof typeof filters, value: string) {
-    setFilters((f) => ({ ...f, [key]: value }));
+    setFilters((f) => ({
+      ...f,
+      [key]: value,
+      // Status and "needs action" are two ways of asking the same axis -
+      // picking one manually should drop the other, or a leftover
+      // awaiting_action=true from an Overview link silently empties out
+      // whatever specific status someone then picks.
+      ...(key === 'status' && value ? { awaiting_action: '' } : {}),
+      ...(key === 'awaiting_action' && value ? { status: '' } : {}),
+    }));
     setPage(1);
     setSelected([]);
   }
@@ -101,6 +119,14 @@ export default function StaffOrdersPage() {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={filters.awaiting_action === 'true'}
+            onChange={(e) => setFilter('awaiting_action', e.target.checked ? 'true' : '')}
+          />
+          Needs action only
+        </label>
       </div>
 
       {selected.length > 0 && (
@@ -257,5 +283,13 @@ export default function StaffOrdersPage() {
         )}
       </Panel>
     </div>
+  );
+}
+
+export default function StaffOrdersPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-ink-soft py-6">Loading…</p>}>
+      <StaffOrdersPageContent />
+    </Suspense>
   );
 }

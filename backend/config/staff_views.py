@@ -26,6 +26,11 @@ from reviews.models import Review
 # toward revenue.
 REVENUE_FILTER = Q(payment_status='paid') & ~Q(status='cancelled')
 
+# The statuses the Overview page's "Needs action" card counts - same list
+# order_list's awaiting_action filter uses, so clicking that number actually
+# shows the orders it counted.
+AWAITING_ACTION_STATUSES = ['pending', 'confirmed', 'packed']
+
 
 def _paginate(request, queryset, serializer_class, page_size=25):
     try:
@@ -96,7 +101,7 @@ def dashboard_stats(request):
         'orders_total': Order.objects.count(),
         'orders_period': paid.filter(created_at__date__gte=since).count(),
         'orders_awaiting_action': Order.objects.filter(
-            status__in=['pending', 'confirmed', 'packed']).count(),
+            status__in=AWAITING_ACTION_STATUSES).count(),
         'orders_by_status': status_counts,
         'refunds_pending': Refund.objects.filter(status='requested').count(),
         'reviews_pending': Review.objects.filter(is_approved=False).count(),
@@ -184,6 +189,10 @@ def order_list(request):
     delivery_type = request.query_params.get('delivery_type')
     if delivery_type:
         qs = qs.filter(delivery_type=delivery_type)
+    if request.query_params.get('awaiting_action') == 'true':
+        # Same set the Overview page's "Needs action" card counts - lets
+        # that number link straight to the orders behind it.
+        qs = qs.filter(status__in=AWAITING_ACTION_STATUSES)
     search = (request.query_params.get('search') or '').strip()
     if search:
         qs = qs.filter(
