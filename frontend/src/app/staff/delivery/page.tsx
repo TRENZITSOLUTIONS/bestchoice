@@ -37,10 +37,16 @@ function firstError(err: unknown): string | undefined {
 
 export default function StaffDeliveryPage() {
   const [search, setSearch] = useState('');
-  const { data, isLoading, isError } = useStaffPincodes(search);
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError } = useStaffPincodes(search, page);
   const { data: rates } = useDeliveryRates();
   const updateTn = useUpdateTamilNaduRate();
   const updateOutside = useUpdateOutsideStateRate();
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
 
   return (
     <div className="grid gap-6">
@@ -102,7 +108,7 @@ export default function StaffDeliveryPage() {
 
       <input
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => updateSearch(e.target.value)}
         placeholder="Pincode or city"
         className="max-w-xs border border-line bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-marigold"
       />
@@ -144,6 +150,26 @@ export default function StaffDeliveryPage() {
               </tbody>
             </table>
           </TableScroll>
+        )}
+
+        {data && data.num_pages > 1 && (
+          <div className="flex items-center gap-3 mt-4 text-sm">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="border border-line px-3 py-1.5 font-bold disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-ink-soft">Page {data.page} of {data.num_pages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(data.num_pages, p + 1))}
+              disabled={page >= data.num_pages}
+              className="border border-line px-3 py-1.5 font-bold disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         )}
 
         <p className="mt-4 text-xs text-ink-faint">

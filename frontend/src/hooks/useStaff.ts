@@ -276,11 +276,11 @@ export function useUpdateOutsideStateRate() {
   });
 }
 
-export function useStaffPincodes(search = '') {
+export function useStaffPincodes(search = '', page = 1) {
+  const params = new URLSearchParams({ page: String(page), ...(search ? { search } : {}) });
   return useQuery({
-    queryKey: ['staff', 'pincodes', search],
-    queryFn: async () =>
-      (await api.get<PincodeResponse>(`/admin/pincodes/${search ? `?search=${search}` : ''}`)).data,
+    queryKey: ['staff', 'pincodes', search, page],
+    queryFn: async () => (await api.get<PincodeResponse>(`/admin/pincodes/?${params}`)).data,
   });
 }
 
