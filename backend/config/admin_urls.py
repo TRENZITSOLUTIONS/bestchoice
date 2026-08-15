@@ -2,7 +2,7 @@ from django.urls import path
 
 from orders.views import admin_update_order_status, admin_update_refund_status
 from products.views import (
-    admin_create_product, admin_update_product,
+    admin_create_product, admin_update_product, admin_product_bulk_action,
     admin_product_images, admin_product_image_detail,
     admin_product_variants, admin_product_variant_detail,
     admin_category_collection, admin_category_detail, admin_category_image,
@@ -29,6 +29,7 @@ urlpatterns = [
     # Catalogue
     path('inventory/', staff_views.inventory_list, name='admin-inventory'),
     path('products/', admin_create_product, name='admin-product-create'),
+    path('products/bulk-action/', admin_product_bulk_action, name='admin-product-bulk-action'),
     path('products/<int:pk>/', admin_update_product, name='admin-product-update'),
     path('products/<int:product_id>/images/', admin_product_images, name='admin-product-images'),
     path('products/<int:product_id>/images/<int:image_id>/', admin_product_image_detail, name='admin-product-image-detail'),

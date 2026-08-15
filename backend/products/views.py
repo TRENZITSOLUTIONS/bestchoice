@@ -154,6 +154,39 @@ def admin_update_product(request, pk):
     return Response({'updated': list(serializer.validated_data.keys()), 'name': product.name})
 
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_product_bulk_action(request):
+    """Activate, deactivate, or delete several products in one go - the
+    inventory table previously only had per-row actions, so changing a
+    dozen products meant a dozen separate edits."""
+    ids = request.data.get('ids') or []
+    action = request.data.get('action')
+    if not isinstance(ids, list) or not ids:
+        return Response({'error': 'ids must be a non-empty list'}, status=status.HTTP_400_BAD_REQUEST)
+    if action not in ('activate', 'deactivate', 'delete'):
+        return Response(
+            {'error': "action must be one of 'activate', 'deactivate', 'delete'"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    qs = Product.objects.filter(pk__in=ids)
+    found_ids = set(qs.values_list('pk', flat=True))
+    missing = [pk for pk in ids if pk not in found_ids]
+
+    if action == 'activate':
+        qs.update(is_active=True)
+    elif action == 'deactivate':
+        qs.update(is_active=False)
+    else:
+        # Same real delete as the single-product endpoint - see the DELETE
+        # branch of admin_update_product for what it cascades to and why
+        # that's safe for order history.
+        qs.delete()
+
+    return Response({'updated': len(found_ids), 'missing': missing})
+
+
 def _get_product_or_404(pk):
     try:
         return Product.objects.get(pk=pk)

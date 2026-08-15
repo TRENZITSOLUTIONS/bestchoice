@@ -3,7 +3,13 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCreateProduct, useDeleteProduct, useInventory, useUpdateProduct } from '@/hooks/useStaff';
+import {
+  useBulkProductAction,
+  useCreateProduct,
+  useDeleteProduct,
+  useInventory,
+  useUpdateProduct,
+} from '@/hooks/useStaff';
 import { useCategories, useBrands } from '@/hooks/useProducts';
 import {
   EmptyState,
@@ -45,13 +51,21 @@ function firstError(err: unknown): string | undefined {
 
 function StaffInventoryPageContent() {
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState({ search: '', category: '', brand: '', status: '' });
-  // Seeded from the URL so the Overview page's "Out of stock" stat card
-  // links straight to this already filtered, not to the unfiltered list.
+  // Seeded from the URL so the Overview page's "Out of stock" stat card and
+  // the header's global search both land here already filtered, not on the
+  // unfiltered list.
+  const [filters, setFilters] = useState({
+    search: searchParams.get('search') ?? '',
+    category: '',
+    brand: '',
+    status: '',
+  });
   const [outOnly, setOutOnly] = useState(searchParams.get('out_of_stock') === 'true');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_PRODUCT_DRAFT);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [bulkMessage, setBulkMessage] = useState('');
 
   const { data, isLoading, isError } = useInventory({
     ...filters,
@@ -64,6 +78,7 @@ function StaffInventoryPageContent() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+  const bulkAction = useBulkProductAction();
   const saving = createProduct.isPending || updateProduct.isPending;
   const saveError = createProduct.isError
     ? firstError(createProduct.error)
@@ -78,6 +93,28 @@ function StaffInventoryPageContent() {
   function setFilter(key: keyof typeof filters, value: string) {
     setFilters((f) => ({ ...f, [key]: value }));
     setPage(1);
+    setSelected([]);
+  }
+
+  function handleBulkAction(action: 'activate' | 'deactivate' | 'delete') {
+    if (action === 'delete') {
+      const ok = confirm(
+        `Delete ${selected.length} product${selected.length === 1 ? '' : 's'}? This removes their photos and variants too - past orders keep their own record and are not affected. This cannot be undone.`
+      );
+      if (!ok) return;
+    }
+    setBulkMessage('');
+    bulkAction.mutate(
+      { ids: selected, action },
+      {
+        onSuccess: (res) => {
+          const verb = action === 'delete' ? 'Deleted' : action === 'activate' ? 'Made visible' : 'Hidden';
+          setBulkMessage(`${verb} ${res.updated} product${res.updated === 1 ? '' : 's'}.`);
+          setSelected([]);
+        },
+        onError: () => setBulkMessage('Could not update those products.'),
+      }
+    );
   }
 
   function startCreate() {
@@ -316,6 +353,7 @@ function StaffInventoryPageContent() {
             onChange={(e) => {
               setOutOnly(e.target.checked);
               setPage(1);
+              setSelected([]);
             }}
           />
           Out of stock only
@@ -326,6 +364,40 @@ function StaffInventoryPageContent() {
           </span>
         )}
       </div>
+
+      {selected.length > 0 && (
+        <div className="border border-kumkum/30 bg-kumkum/5 p-4 flex flex-wrap items-center gap-3">
+          <span className="text-sm font-bold">{selected.length} selected</span>
+          <button
+            onClick={() => handleBulkAction('activate')}
+            disabled={bulkAction.isPending}
+            className="border border-line px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+          >
+            Make visible
+          </button>
+          <button
+            onClick={() => handleBulkAction('deactivate')}
+            disabled={bulkAction.isPending}
+            className="border border-line px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+          >
+            Hide
+          </button>
+          <button
+            onClick={() => handleBulkAction('delete')}
+            disabled={bulkAction.isPending}
+            className="border border-kumkum/40 text-kumkum px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => setSelected([])}
+            className="ml-auto text-xs font-bold text-ink-soft hover:text-ink"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+      {bulkMessage && <p className="text-sm text-leaf">{bulkMessage}</p>}
 
       <Panel title={`Inventory${data ? ` · ${data.count}` : ''}`}>
         {isLoading ? (
@@ -340,6 +412,16 @@ function StaffInventoryPageContent() {
               <table className="w-full text-sm min-w-[800px]">
                 <thead>
                   <tr className="text-left text-ink-soft">
+                    <th className="pb-2 w-8">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all products on this page"
+                        checked={data.results.every((r) => selected.includes(r.id))}
+                        onChange={(e) =>
+                          setSelected(e.target.checked ? data.results.map((r) => r.id) : [])
+                        }
+                      />
+                    </th>
                     <th className="font-medium pb-2">Product</th>
                     <th className="font-medium pb-2">Category</th>
                     <th className="font-medium pb-2">Variants</th>
@@ -352,6 +434,18 @@ function StaffInventoryPageContent() {
                 <tbody>
                   {data.results.map((row) => (
                     <tr key={row.id} className={`border-t border-line ${editing === row.id ? 'bg-ivory-raised' : ''}`}>
+                      <td className="py-2.5">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${row.name}`}
+                          checked={selected.includes(row.id)}
+                          onChange={(e) =>
+                            setSelected((s) =>
+                              e.target.checked ? [...s, row.id] : s.filter((id) => id !== row.id)
+                            )
+                          }
+                        />
+                      </td>
                       <td className="py-2.5">
                         <Link href={`/products/${row.slug}`} className="font-bold hover:underline">
                           {row.name}

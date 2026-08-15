@@ -125,6 +125,15 @@ export function useDeleteProduct() {
   });
 }
 
+export function useBulkProductAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { ids: number[]; action: 'activate' | 'deactivate' | 'delete' }) =>
+      (await api.post<{ updated: number; missing: number[] }>('/admin/products/bulk-action/', payload)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'inventory'] }),
+  });
+}
+
 export function useProductImages(productId: number | null) {
   return useQuery({
     queryKey: ['staff', 'product-images', productId],
