@@ -2,7 +2,8 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { useStaffOrderDetail, useUpdateOrderStatus } from '@/hooks/useStaff';
+import { useRouter } from 'next/navigation';
+import { useDeleteOrder, useStaffOrderDetail, useUpdateOrderStatus } from '@/hooks/useStaff';
 import { ErrorState, Panel, StatusPill, money, shortDate } from '@/components/staff/ui';
 
 const NEXT_STATUS: Record<string, string> = {
@@ -14,8 +15,19 @@ const NEXT_STATUS: Record<string, string> = {
 
 export default function StaffOrderDetailPage({ params }: { params: Promise<{ order_id: string }> }) {
   const { order_id } = use(params);
+  const router = useRouter();
   const { data: order, isLoading, isError } = useStaffOrderDetail(order_id);
   const updateStatus = useUpdateOrderStatus();
+  const deleteOrder = useDeleteOrder();
+
+  function handleDelete() {
+    if (!order) return;
+    const ok = confirm(
+      `Delete order ${order.order_id}? This removes its items, status history, refund records and coupon usage too - the customer's loyalty points balance is not affected. This cannot be undone.`
+    );
+    if (!ok) return;
+    deleteOrder.mutate(order.order_id, { onSuccess: () => router.push('/staff/orders') });
+  }
 
   const next = order ? NEXT_STATUS[order.status] : undefined;
   const address = order?.shipping_address;
@@ -53,7 +65,15 @@ export default function StaffOrderDetailPage({ params }: { params: Promise<{ ord
                 {updateStatus.isPending ? 'Updating…' : `Mark ${next}`}
               </button>
             )}
+            <button
+              onClick={handleDelete}
+              disabled={deleteOrder.isPending}
+              className={`${next ? '' : 'ml-auto'} text-xs font-bold text-kumkum hover:text-kumkum-deep disabled:opacity-50`}
+            >
+              {deleteOrder.isPending ? 'Deleting…' : 'Delete order'}
+            </button>
           </div>
+          {deleteOrder.isError && <p className="text-sm text-kumkum">Could not delete that order.</p>}
 
           <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
             <div className="grid gap-5 min-w-0">

@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useBulkShip, useStaffOrders, useUpdateOrderStatus } from '@/hooks/useStaff';
+import { useBulkShip, useDeleteOrder, useStaffOrders, useUpdateOrderStatus } from '@/hooks/useStaff';
 import {
   EmptyState,
   ErrorState,
@@ -42,6 +42,17 @@ function StaffOrdersPageContent() {
   const { data, isLoading, isError } = useStaffOrders({ ...filters, page: String(page) });
   const updateStatus = useUpdateOrderStatus();
   const bulkShip = useBulkShip();
+  const deleteOrder = useDeleteOrder();
+
+  function handleDelete(orderId: string) {
+    const ok = confirm(
+      `Delete order ${orderId}? This removes its items, status history, refund records and coupon usage too - the customer's loyalty points balance is not affected. This cannot be undone.`
+    );
+    if (!ok) return;
+    deleteOrder.mutate(orderId, {
+      onSuccess: () => setSelected((s) => s.filter((id) => id !== orderId)),
+    });
+  }
 
   function setFilter(key: keyof typeof filters, value: string) {
     setFilters((f) => ({
@@ -240,18 +251,25 @@ function StaffOrdersPageContent() {
                         <td className="py-2.5 text-right num font-bold whitespace-nowrap">
                           {money(o.total)}
                         </td>
-                        <td className="py-2.5 text-right">
+                        <td className="py-2.5 text-right whitespace-nowrap">
                           {next && (
                             <button
                               onClick={() =>
                                 updateStatus.mutate({ orderId: o.order_id, status: next })
                               }
                               disabled={updateStatus.isPending}
-                              className="text-xs font-bold underline whitespace-nowrap disabled:opacity-50"
+                              className="text-xs font-bold underline disabled:opacity-50"
                             >
                               Mark {next}
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDelete(o.order_id)}
+                            disabled={deleteOrder.isPending}
+                            className="ml-3 text-xs text-kumkum underline disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     );

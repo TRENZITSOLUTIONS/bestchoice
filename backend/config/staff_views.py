@@ -277,7 +277,7 @@ def order_list(request):
     return _paginate(request, qs, OrderListSerializer)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'DELETE'])
 @permission_classes([IsAdminUser])
 def order_detail(request, order_id):
     """The list view only has room for a summary row - this is what a click
@@ -291,6 +291,16 @@ def order_detail(request, order_id):
         )
     except Order.DoesNotExist:
         return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        # Unlike a product, an order carries real financial/audit trail with
+        # it - items, status history, refunds and coupon usage are all
+        # CASCADE and go with it. LoyaltyTransaction.order is SET_NULL,
+        # so a customer's points ledger (and balance) is untouched; that
+        # transaction just survives with no order to point back to.
+        order.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     return Response(StaffOrderDetailSerializer(order).data)
 
 

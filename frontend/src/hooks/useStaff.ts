@@ -61,6 +61,14 @@ export function useStaffOrderDetail(orderId: string) {
   });
 }
 
+export function useDeleteOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => (await api.delete(`/admin/orders/${orderId}/`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'orders'] }),
+  });
+}
+
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
   return useMutation({
