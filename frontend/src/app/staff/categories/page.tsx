@@ -157,26 +157,33 @@ function CategoriesPanel() {
               />
             </label>
           </div>
-          <div className="grid gap-1.5">
-            <span className={fieldLabelClass}>Department thumbnail photo (optional)</span>
-            {typeof editing === 'number' ? (
-              <CategoryPhotoUpload
-                image={draft.image}
-                uploading={uploadImage.isPending}
-                onUpload={(file) =>
-                  uploadImage.mutate(
-                    { id: editing, file },
-                    { onSuccess: (updated) => field('image', updated.image) }
-                  )
-                }
-              />
-            ) : (
-              <p className="text-xs text-ink-faint">Save this department first, then you can upload a thumbnail photo for it.</p>
-            )}
-            <p className="text-xs text-ink-faint">
-              Shown as the background photo on this department&apos;s tile on the home page.
-            </p>
-          </div>
+          {!draft.parent && (
+            // Only departments (no parent) get a thumbnail - the home page
+            // mosaic only ever fetches top-level categories, so a photo
+            // uploaded for a subcategory like Shirts would never actually
+            // be shown anywhere. Hidden here rather than left to silently
+            // do nothing.
+            <div className="grid gap-1.5">
+              <span className={fieldLabelClass}>Department thumbnail photo (optional)</span>
+              {typeof editing === 'number' ? (
+                <CategoryPhotoUpload
+                  image={draft.image}
+                  uploading={uploadImage.isPending}
+                  onUpload={(file) =>
+                    uploadImage.mutate(
+                      { id: editing, file },
+                      { onSuccess: (updated) => field('image', updated.image) }
+                    )
+                  }
+                />
+              ) : (
+                <p className="text-xs text-ink-faint">Save this department first, then you can upload a thumbnail photo for it.</p>
+              )}
+              <p className="text-xs text-ink-faint">
+                Shown as the background photo on this department&apos;s tile on the home page.
+              </p>
+            </div>
+          )}
           {error && <p className="text-sm text-kumkum">{error}</p>}
           <div className="flex items-center gap-3">
             <button
