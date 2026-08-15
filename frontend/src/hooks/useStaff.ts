@@ -14,6 +14,7 @@ import type {
   Refund,
   ReportsResponse,
   ReviewQueueResponse,
+  StaffOrderDetail,
   VariantRow,
 } from '@/lib/staff-types';
 
@@ -39,6 +40,14 @@ export function useStaffOrders(filters: Record<string, string> = {}) {
     queryKey: ['staff', 'orders', filters],
     queryFn: async () =>
       (await api.get<Paginated<OrderListItem>>(`/admin/orders/?${params}`)).data,
+  });
+}
+
+export function useStaffOrderDetail(orderId: string) {
+  return useQuery({
+    queryKey: ['staff', 'orders', orderId],
+    queryFn: async () => (await api.get<StaffOrderDetail>(`/admin/orders/${orderId}/`)).data,
+    enabled: !!orderId,
   });
 }
 

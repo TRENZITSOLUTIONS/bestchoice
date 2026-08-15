@@ -89,6 +89,43 @@ export interface Refund {
   created_at: string;
 }
 
+export interface StaffOrderItem {
+  id: number;
+  product: number | null;
+  variant: number | null;
+  product_snapshot: { name: string; sku: string; price: string };
+  quantity: number;
+  price: string;
+}
+
+export interface StaffOrderStatusHistoryEntry {
+  status: string;
+  note: string;
+  created_at: string;
+}
+
+export interface StaffOrderDetail {
+  order_id: string;
+  status: string;
+  payment_status: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  items: StaffOrderItem[];
+  subtotal: string;
+  discount: string;
+  total: string;
+  delivery_charge: string;
+  shipping_address: Record<string, string>;
+  delivery_type: string;
+  estimated_delivery: string | null;
+  tracking: { provider: string; tracking_id: string; url: string } | null;
+  refunds: { id: number; amount: string; reason: string; status: string; created_at: string }[];
+  status_history: StaffOrderStatusHistoryEntry[];
+  notes: string;
+  created_at: string;
+}
+
 export interface InventoryRow {
   id: number;
   product_id: string;

@@ -71,6 +71,25 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
         fields = ('status', 'note', 'created_at')
 
 
+class StaffOrderDetailSerializer(OrderDetailSerializer):
+    """Same as the customer-facing detail view, plus who placed it - a
+    customer viewing their own order already knows that; staff triaging
+    someone else's order need it front and centre."""
+    customer_name = serializers.SerializerMethodField()
+    customer_email = serializers.EmailField(source='user.email', read_only=True)
+    customer_phone = serializers.CharField(source='user.phone', read_only=True)
+    status_history = OrderStatusHistorySerializer(many=True, read_only=True)
+
+    class Meta(OrderDetailSerializer.Meta):
+        fields = OrderDetailSerializer.Meta.fields + (
+            'customer_name', 'customer_email', 'customer_phone', 'status_history',
+        )
+
+    def get_customer_name(self, obj):
+        full_name = f'{obj.user.first_name} {obj.user.last_name}'.strip()
+        return full_name or obj.user.email or obj.user.phone or ''
+
+
 class OrderTrackingSerializer(serializers.ModelSerializer):
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
     estimated_delivery = serializers.DateField(format='%d %b %Y', allow_null=True)

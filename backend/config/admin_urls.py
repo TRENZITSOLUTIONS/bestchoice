@@ -19,6 +19,7 @@ urlpatterns = [
     # Orders
     path('orders/', staff_views.order_list, name='admin-order-list'),
     path('orders/bulk-ship/', staff_views.bulk_mark_shipped, name='admin-bulk-ship'),
+    path('orders/<str:order_id>/', staff_views.order_detail, name='admin-order-detail'),
     path('orders/<str:order_id>/status/', admin_update_order_status, name='admin-order-status'),
 
     # Refunds

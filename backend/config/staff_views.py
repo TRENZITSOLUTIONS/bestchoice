@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from coupons.models import Coupon
 from delivery.models import DeliveryPincode
 from orders.models import Order, OrderStatusHistory, Refund
-from orders.serializers import OrderListSerializer, StaffRefundSerializer
+from orders.serializers import OrderListSerializer, StaffOrderDetailSerializer, StaffRefundSerializer
 from products.models import Product
 from reviews.models import Review
 
@@ -193,6 +193,23 @@ def order_list(request):
         )
 
     return _paginate(request, qs, OrderListSerializer)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def order_detail(request, order_id):
+    """The list view only has room for a summary row - this is what a click
+    on that row actually opens: every item, the shipping address, notes,
+    tracking, refunds and status history, plus who placed it."""
+    try:
+        order = (
+            Order.objects.select_related('user')
+            .prefetch_related('items', 'refunds', 'status_history')
+            .get(order_id=order_id)
+        )
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(StaffOrderDetailSerializer(order).data)
 
 
 @api_view(['POST'])

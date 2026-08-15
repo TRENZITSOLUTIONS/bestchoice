@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useBulkShip, useStaffOrders, useUpdateOrderStatus } from '@/hooks/useStaff';
 import {
   EmptyState,
@@ -196,7 +197,11 @@ export default function StaffOrdersPage() {
                             }
                           />
                         </td>
-                        <td className="py-2.5 font-bold whitespace-nowrap">{o.order_id}</td>
+                        <td className="py-2.5 font-bold whitespace-nowrap">
+                          <Link href={`/staff/orders/${o.order_id}`} className="hover:underline">
+                            {o.order_id}
+                          </Link>
+                        </td>
                         <td className="py-2.5 text-ink-soft whitespace-nowrap">
                           {shortDate(o.created_at)}
                         </td>
