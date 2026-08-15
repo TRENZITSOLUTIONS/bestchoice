@@ -263,6 +263,10 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
             'name', 'category', 'brand', 'mrp', 'selling_price', 'total_stock',
             'is_active', 'hide_if_out_of_stock', 'weight_g',
             'short_description', 'description',
+            # Category-specific - blank/null for whichever department a given
+            # product isn't in, same as everywhere else these fields appear.
+            'expiry_date', 'batch_number', 'ingredients', 'usage_instructions',
+            'care_instructions', 'compatible_devices', 'warranty',
         )
         # DRF infers `required` from the model field's null/blank, which for a
         # nullable-but-mandatory FK like category isn't what we want here, and

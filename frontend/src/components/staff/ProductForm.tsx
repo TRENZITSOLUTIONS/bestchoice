@@ -18,6 +18,16 @@ export interface ProductDraft {
   short_description: string;
   description: string;
   is_active: boolean;
+  // Cosmetics-specific
+  expiry_date: string;
+  batch_number: string;
+  ingredients: string;
+  usage_instructions: string;
+  // Clothing-specific (Men's / Women's / Kids' Wear)
+  care_instructions: string;
+  // Mobile Accessories-specific
+  compatible_devices: string;
+  warranty: string;
 }
 
 export const EMPTY_PRODUCT_DRAFT: ProductDraft = {
@@ -31,6 +41,13 @@ export const EMPTY_PRODUCT_DRAFT: ProductDraft = {
   short_description: '',
   description: '',
   is_active: true,
+  expiry_date: '',
+  batch_number: '',
+  ingredients: '',
+  usage_instructions: '',
+  care_instructions: '',
+  compatible_devices: '',
+  warranty: '',
 };
 
 export function draftFromRow(row: InventoryRow): ProductDraft {
@@ -45,6 +62,13 @@ export function draftFromRow(row: InventoryRow): ProductDraft {
     short_description: row.short_description,
     description: row.description,
     is_active: row.is_active,
+    expiry_date: row.expiry_date ?? '',
+    batch_number: row.batch_number,
+    ingredients: row.ingredients,
+    usage_instructions: row.usage_instructions,
+    care_instructions: row.care_instructions,
+    compatible_devices: row.compatible_devices,
+    warranty: row.warranty,
   };
 }
 
@@ -61,6 +85,16 @@ export function draftToPayload(draft: ProductDraft) {
     short_description: draft.short_description,
     description: draft.description,
     is_active: draft.is_active,
+    // Sent regardless of the product's own category - harmless for a
+    // department where they don't apply (they're just blank), and simpler
+    // than trying to strip them client-side.
+    expiry_date: draft.expiry_date || null,
+    batch_number: draft.batch_number,
+    ingredients: draft.ingredients,
+    usage_instructions: draft.usage_instructions,
+    care_instructions: draft.care_instructions,
+    compatible_devices: draft.compatible_devices,
+    warranty: draft.warranty,
   };
 }
 
@@ -267,6 +301,108 @@ export function ProductOrganizationFields({ draft, onChange }: Fields<'category'
           value={draft.weight_g}
           onChange={(e) => onChange({ weight_g: e.target.value })}
           className={`${fieldInputClass} num`}
+        />
+      </label>
+    </div>
+  );
+}
+
+export function ProductCosmeticsFields({
+  draft,
+  onChange,
+}: Fields<'expiry_date' | 'batch_number' | 'ingredients' | 'usage_instructions'>) {
+  return (
+    <div className="grid gap-4">
+      <p className="text-xs text-ink-soft -mt-1">
+        Only shown for Cosmetics products - it won&apos;t appear on the form for Clothing or
+        Mobile Accessories, since none of this applies to them.
+      </p>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Expiry date</span>
+        <input
+          type="date"
+          value={draft.expiry_date}
+          onChange={(e) => onChange({ expiry_date: e.target.value })}
+          className={fieldInputClass}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Batch number</span>
+        <input
+          value={draft.batch_number}
+          onChange={(e) => onChange({ batch_number: e.target.value })}
+          className={fieldInputClass}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Ingredients</span>
+        <textarea
+          rows={3}
+          value={draft.ingredients}
+          onChange={(e) => onChange({ ingredients: e.target.value })}
+          className={fieldInputClass}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Usage instructions</span>
+        <textarea
+          rows={3}
+          value={draft.usage_instructions}
+          onChange={(e) => onChange({ usage_instructions: e.target.value })}
+          className={fieldInputClass}
+        />
+      </label>
+    </div>
+  );
+}
+
+export function ProductClothingFields({ draft, onChange }: Fields<'care_instructions'>) {
+  return (
+    <div className="grid gap-2">
+      <p className="text-xs text-ink-soft">
+        Only shown for Men&apos;s/Women&apos;s/Kids&apos; Wear products - Cosmetics and Mobile
+        Accessories don&apos;t get this field.
+      </p>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Care instructions</span>
+        <textarea
+          rows={3}
+          value={draft.care_instructions}
+          onChange={(e) => onChange({ care_instructions: e.target.value })}
+          placeholder="e.g. Machine wash cold, do not bleach, tumble dry low"
+          className={fieldInputClass}
+        />
+      </label>
+    </div>
+  );
+}
+
+export function ProductMobileAccessoryFields({
+  draft,
+  onChange,
+}: Fields<'compatible_devices' | 'warranty'>) {
+  return (
+    <div className="grid gap-4">
+      <p className="text-xs text-ink-soft -mt-1">
+        Only shown for Mobile Accessories products - Clothing and Cosmetics don&apos;t get these.
+      </p>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Compatible devices</span>
+        <textarea
+          rows={2}
+          value={draft.compatible_devices}
+          onChange={(e) => onChange({ compatible_devices: e.target.value })}
+          placeholder="Comma-separated, e.g. iPhone 15, iPhone 14, iPhone 13"
+          className={fieldInputClass}
+        />
+      </label>
+      <label className="grid gap-1.5">
+        <span className={fieldLabelClass}>Warranty (optional)</span>
+        <input
+          value={draft.warranty}
+          onChange={(e) => onChange({ warranty: e.target.value })}
+          placeholder='e.g. "6 months"'
+          className={fieldInputClass}
         />
       </label>
     </div>

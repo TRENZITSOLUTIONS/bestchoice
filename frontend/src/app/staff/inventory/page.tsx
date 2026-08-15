@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useCreateProduct, useDeleteProduct, useInventory, useUpdateProduct } from '@/hooks/useStaff';
 import { useCategories, useBrands } from '@/hooks/useProducts';
 import {
@@ -19,6 +20,9 @@ import {
   ProductPricingFields,
   ProductOrganizationFields,
   ProductStatusFields,
+  ProductCosmeticsFields,
+  ProductClothingFields,
+  ProductMobileAccessoryFields,
   departmentSlugFor,
   draftFromRow,
   draftToPayload,
@@ -39,9 +43,12 @@ function firstError(err: unknown): string | undefined {
   return `${field}: ${Array.isArray(msg) ? msg.join(' ') : String(msg)}`;
 }
 
-export default function StaffInventoryPage() {
+function StaffInventoryPageContent() {
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState({ search: '', category: '', brand: '', status: '' });
-  const [outOnly, setOutOnly] = useState(false);
+  // Seeded from the URL so the Overview page's "Out of stock" stat card
+  // links straight to this already filtered, not to the unfiltered list.
+  const [outOnly, setOutOnly] = useState(searchParams.get('out_of_stock') === 'true');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_PRODUCT_DRAFT);
@@ -210,6 +217,21 @@ export default function StaffInventoryPage() {
               <Panel title="Details">
                 <ProductDetailsFields draft={draft} onChange={patchDraft} />
               </Panel>
+              {department === 'cosmetics' && (
+                <Panel title="Cosmetics details">
+                  <ProductCosmeticsFields draft={draft} onChange={patchDraft} />
+                </Panel>
+              )}
+              {department && CLOTHING_DEPARTMENT_SLUGS.has(department) && (
+                <Panel title="Clothing details">
+                  <ProductClothingFields draft={draft} onChange={patchDraft} />
+                </Panel>
+              )}
+              {department === 'mobile-accessories' && (
+                <Panel title="Mobile accessory details">
+                  <ProductMobileAccessoryFields draft={draft} onChange={patchDraft} />
+                </Panel>
+              )}
               {typeof editing === 'number' ? (
                 <Panel title="Variants">
                   {needsSizeWarning && (
@@ -391,5 +413,13 @@ export default function StaffInventoryPage() {
         )}
       </Panel>
     </div>
+  );
+}
+
+export default function StaffInventoryPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-ink-soft py-6">Loading…</p>}>
+      <StaffInventoryPageContent />
+    </Suspense>
   );
 }

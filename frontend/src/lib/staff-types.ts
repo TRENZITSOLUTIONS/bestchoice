@@ -143,6 +143,13 @@ export interface InventoryRow {
   short_description: string;
   description: string;
   is_active: boolean;
+  expiry_date: string | null;
+  batch_number: string;
+  ingredients: string;
+  usage_instructions: string;
+  care_instructions: string;
+  compatible_devices: string;
+  warranty: string;
   variant_count: number;
   stock_state: 'out' | 'low' | 'ok';
 }

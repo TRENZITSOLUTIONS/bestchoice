@@ -315,6 +315,13 @@ def inventory_list(request):
             'short_description': product.short_description,
             'description': product.description,
             'is_active': product.is_active,
+            'expiry_date': product.expiry_date,
+            'batch_number': product.batch_number,
+            'ingredients': product.ingredients,
+            'usage_instructions': product.usage_instructions,
+            'care_instructions': product.care_instructions,
+            'compatible_devices': product.compatible_devices,
+            'warranty': product.warranty,
             'variant_count': product.variants.count(),
             'stock_state': (
                 'out' if product.total_stock <= 0
