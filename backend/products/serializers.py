@@ -393,10 +393,24 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             curated_ids.add(r.related_product_id)
             serializer = RelatedProductSerializer(r.related_product)
             results[r.relation_type].append(serializer.data)
-        same_category = Product.objects.filter(
-            is_active=True, category=obj.category
-        ).exclude(id=obj.id).exclude(id__in=curated_ids)[:8]
-        serialized = RelatedProductSerializer(same_category, many=True).data
+
+        # A capped working set, not the whole category - fine for a store
+        # this size, and avoids loading every product just to re-sort 8 of them.
+        same_category = list(
+            Product.objects.filter(is_active=True, category=obj.category)
+            .exclude(id=obj.id).exclude(id__in=curated_ids)
+            .prefetch_related('variants')[:50]
+        )
+
+        # Viewing a black pant should surface other black items first, not an
+        # arbitrary same-category mix that happens to include every colour.
+        my_colors = {v.color for v in obj.variants.all() if v.color and v.is_active}
+        if my_colors:
+            def shares_color(p):
+                return any(v.color in my_colors for v in p.variants.all() if v.is_active)
+            same_category.sort(key=lambda p: not shares_color(p))
+
+        serialized = RelatedProductSerializer(same_category[:8], many=True).data
         results['similar'].extend(serialized)
         return results
 

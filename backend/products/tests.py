@@ -408,3 +408,38 @@ class PageSizeTest(TestCase):
     def test_oversized_request_is_clamped(self):
         res = self.client.get('/api/products/?page_size=100000')
         self.assertLessEqual(len(res.data['results']), 500)
+
+
+class SimilarProductsColorMatchTest(TestCase):
+    """Viewing a black pant should surface other black items first in
+    'similar' - not an arbitrary same-category mix that ignores colour."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.cat = Category.objects.create(name='Trousers Test', slug='trousers-test')
+        self.black_pant = Product.objects.create(
+            name='Black Pant', slug='black-pant', category=self.cat, mrp=999, selling_price=799)
+        ProductVariant.objects.create(product=self.black_pant, color='Black', size='M', stock=5)
+
+        self.other_black = Product.objects.create(
+            name='Other Black Pant', slug='other-black-pant', category=self.cat, mrp=999, selling_price=799)
+        ProductVariant.objects.create(product=self.other_black, color='Black', size='L', stock=5)
+
+        self.blue_pant = Product.objects.create(
+            name='Blue Pant', slug='blue-pant', category=self.cat, mrp=999, selling_price=799)
+        ProductVariant.objects.create(product=self.blue_pant, color='Blue', size='M', stock=5)
+
+    def test_same_color_products_come_first(self):
+        res = self.client.get('/api/products/black-pant/')
+        names = [p['name'] for p in res.data['related']['similar']]
+        self.assertIn('Other Black Pant', names)
+        self.assertIn('Blue Pant', names)
+        self.assertLess(names.index('Other Black Pant'), names.index('Blue Pant'))
+
+    def test_product_with_no_color_falls_back_to_original_order(self):
+        # No variants at all - nothing to match on, shouldn't error.
+        no_color = Product.objects.create(
+            name='No Color Product', slug='no-color-product', category=self.cat, mrp=999, selling_price=799)
+        res = self.client.get('/api/products/no-color-product/')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data['related']['similar']), 3)
