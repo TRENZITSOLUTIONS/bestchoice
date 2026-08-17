@@ -11,20 +11,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class RefundSerializer(serializers.ModelSerializer):
     class Meta:
         model = Refund
-        fields = ('id', 'amount', 'reason', 'status', 'created_at')
+        fields = ('id', 'amount', 'reason', 'status', 'item_received', 'created_at')
 
 
 class StaffRefundSerializer(RefundSerializer):
-    """Refunds as staff need them - with the order they belong to.
-
-    The base serializer omits it because a customer requesting or viewing
-    their own refund already has that context; staff triaging a queue of
-    refunds from every customer do not.
+    """Refunds as staff need them - with the order they belong to, plus the
+    back-office detail (when the item was confirmed received, the actual
+    Razorpay refund id) a customer viewing their own refund doesn't need.
     """
     order_id = serializers.CharField(source='order.order_id', read_only=True)
 
     class Meta(RefundSerializer.Meta):
-        fields = RefundSerializer.Meta.fields + ('order_id',)
+        fields = RefundSerializer.Meta.fields + ('order_id', 'item_received_at', 'razorpay_refund_id')
 
 
 class OrderListSerializer(serializers.ModelSerializer):

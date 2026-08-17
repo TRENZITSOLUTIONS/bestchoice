@@ -255,6 +255,21 @@ def order_detail(request, order_id):
     return Response(serializer.data)
 
 
+def _restock_order_items(order):
+    """Put an order's items back into sellable stock - variant.stock for a
+    variant, product.total_stock for a product that has none (this used to
+    only handle the variant case, silently never restocking a plain
+    single-SKU product). No-ops for a line whose product/variant has since
+    been deleted - there's nothing left to restock."""
+    for item in order.items.select_related('product', 'variant').all():
+        if item.variant:
+            item.variant.stock += item.quantity
+            item.variant.save(update_fields=['stock'])
+        elif item.product:
+            item.product.total_stock += item.quantity
+            item.product.save(update_fields=['total_stock'])
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cancel_order(request, order_id):
@@ -267,10 +282,7 @@ def cancel_order(request, order_id):
         return Response({'error': 'Order cannot be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
 
     with transaction.atomic():
-        for item in order.items.select_related('variant').all():
-            if item.variant:
-                item.variant.stock += item.quantity
-                item.variant.save()
+        _restock_order_items(order)
 
         # Hand the coupon use back - the customer never got the goods.
         if order.coupon_id:
@@ -350,6 +362,28 @@ def request_refund(request, order_id):
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
+def admin_mark_refund_received(request, refund_id):
+    """Staff confirming the returned item is physically back - there's no
+    courier integration behind this, just a person saying so. Restocks the
+    order's items immediately (same mechanism cancel_order uses) and is the
+    only thing that unlocks approval below."""
+    try:
+        refund = Refund.objects.select_related('order').get(pk=refund_id)
+    except Refund.DoesNotExist:
+        return Response({'error': 'Refund not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not refund.item_received:
+        with transaction.atomic():
+            _restock_order_items(refund.order)
+            refund.item_received = True
+            refund.item_received_at = timezone.now()
+            refund.save(update_fields=['item_received', 'item_received_at'])
+
+    return Response(RefundSerializer(refund).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
 def admin_update_refund_status(request, refund_id):
     try:
         refund = Refund.objects.select_related('order', 'order__user').get(pk=refund_id)
@@ -361,26 +395,53 @@ def admin_update_refund_status(request, refund_id):
         return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
 
     already_finalized = refund.status in ('approved', 'processed')
+    warning = None
+
     if new_status in ('approved', 'processed') and not already_finalized:
+        # The one hard gate: no money moves until the item is confirmed back.
+        if not refund.item_received:
+            return Response(
+                {'error': 'Mark the item as received before approving this refund.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         order = refund.order
 
         if order.payment_status == 'paid' and order.razorpay_payment_id:
             try:
-                client.payment.refund(order.razorpay_payment_id, {
+                result = client.payment.refund(order.razorpay_payment_id, {
                     'amount': int(refund.amount * 100),
                 })
+                refund.razorpay_refund_id = result.get('id', '')
+                order.payment_status = 'refunded'
+                order.save(update_fields=['payment_status'])
             except Exception:
-                pass  # Refund will be processed manually via Razorpay dashboard
-            order.payment_status = 'refunded'
-            order.save()
+                # Money didn't actually move - the order must not claim
+                # otherwise. Surfaced to staff instead of swallowed, since
+                # this used to mark payment_status='refunded' unconditionally
+                # even when this call failed.
+                warning = (
+                    'Razorpay refund failed - process this one manually via the '
+                    'Razorpay dashboard. The order still shows as paid.'
+                )
 
+        # Give back what this order used - same reversal cancel_order already
+        # does, just triggered by approval here instead of cancellation.
+        if order.coupon_id:
+            release_usage(order.coupon, order.user, order)
+        if order.loyalty_points_used > 0:
+            restore_used_points(order.user, order.loyalty_points_used, order=order,
+                                description=f'Points refunded for {order.order_id}')
         # Rewards program excludes refunded orders - claw back whatever points remain
         if order.loyalty_points_earned > 0:
             reverse_earned_points(order.user, order, description=f'Refunded {order.order_id}')
 
     refund.status = new_status
     refund.save()
-    return Response(RefundSerializer(refund).data)
+    response_data = RefundSerializer(refund).data
+    if warning:
+        response_data['warning'] = warning
+    return Response(response_data)
 
 
 @api_view(['POST'])

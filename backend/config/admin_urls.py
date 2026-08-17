@@ -1,6 +1,6 @@
 from django.urls import path
 
-from orders.views import admin_update_order_status, admin_update_refund_status
+from orders.views import admin_update_order_status, admin_update_refund_status, admin_mark_refund_received
 from products.views import (
     admin_create_product, admin_update_product, admin_product_bulk_action,
     admin_product_images, admin_product_image_detail,
@@ -26,6 +26,7 @@ urlpatterns = [
     # Refunds
     path('refunds/', staff_views.refund_list, name='admin-refund-list'),
     path('refunds/<int:refund_id>/status/', admin_update_refund_status, name='admin-refund-status'),
+    path('refunds/<int:refund_id>/receive/', admin_mark_refund_received, name='admin-refund-receive'),
 
     # Catalogue
     path('inventory/', staff_views.inventory_list, name='admin-inventory'),

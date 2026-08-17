@@ -111,6 +111,11 @@ class Refund(models.Model):
     reason = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='requested')
     razorpay_refund_id = models.CharField(max_length=100, null=True, blank=True)
+    # Staff-confirmed, not system-verified - there's no courier integration
+    # behind this, just a person saying "yes, it's physically back." Approval
+    # (the step that actually moves money) is blocked until this is true.
+    item_received = models.BooleanField(default=False)
+    item_received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

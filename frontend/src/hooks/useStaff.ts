@@ -102,7 +102,16 @@ export function useUpdateRefundStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ refundId, status }: { refundId: number; status: string }) =>
-      (await api.post(`/admin/refunds/${refundId}/status/`, { status })).data,
+      (await api.post<Refund & { warning?: string }>(`/admin/refunds/${refundId}/status/`, { status })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff'] }),
+  });
+}
+
+export function useMarkRefundReceived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (refundId: number) =>
+      (await api.post<Refund>(`/admin/refunds/${refundId}/receive/`, {})).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff'] }),
   });
 }

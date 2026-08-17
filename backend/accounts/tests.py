@@ -710,6 +710,15 @@ class RefundTest(BaseTestCase):
         finally:
             self.auth(self.user)
 
+    def mark_received(self, refund_id):
+        """Staff confirming the returned item is physically back - the one
+        thing that unlocks approval."""
+        self.auth(self.staff)
+        try:
+            return self.client.post(f'/api/admin/refunds/{refund_id}/receive/', {}, format='json')
+        finally:
+            self.auth(self.user)
+
     def test_request_refund_does_not_reverse_points_yet(self):
         self.request_refund()
         self.user.refresh_from_db()
@@ -723,12 +732,38 @@ class RefundTest(BaseTestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 10)
 
+    def test_approving_refund_before_item_received_is_blocked(self):
+        """The hard gate: no money moves, and nothing gets reversed, until
+        staff have confirmed the item is physically back."""
+        refund_id = self.request_refund().data['id']
+        res = self.set_refund_status(refund_id, 'approved')
+        self.assertEqual(res.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.loyalty_points, 10)
+
     def test_approving_refund_reverses_points(self):
         refund_id = self.request_refund().data['id']
+        self.mark_received(refund_id)
         res = self.set_refund_status(refund_id, 'approved')
         self.assertEqual(res.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.loyalty_points, 0)
+
+    def test_marking_received_restocks_the_item(self):
+        from products.models import Category, Product, ProductVariant
+        cat = Category.objects.create(name='Refund Test', slug='refund-test')
+        product = Product.objects.create(name='Refund Test Shirt', category=cat, mrp=999, selling_price=799)
+        variant = ProductVariant.objects.create(product=product, color='Blue', size='M', stock=5)
+        from orders.models import OrderItem
+        OrderItem.objects.create(
+            order=self.order, product=product, variant=variant,
+            product_snapshot={'name': product.name, 'sku': variant.sku, 'price': '799'},
+            quantity=2, price=799,
+        )
+        refund_id = self.request_refund().data['id']
+        self.mark_received(refund_id)
+        variant.refresh_from_db()
+        self.assertEqual(variant.stock, 7)
 
     def test_rejecting_refund_does_not_reverse_points(self):
         refund_id = self.request_refund().data['id']
@@ -739,6 +774,7 @@ class RefundTest(BaseTestCase):
 
     def test_approving_refund_twice_does_not_double_reverse(self):
         refund_id = self.request_refund().data['id']
+        self.mark_received(refund_id)
         self.set_refund_status(refund_id, 'approved')
         self.set_refund_status(refund_id, 'processed')
         self.user.refresh_from_db()

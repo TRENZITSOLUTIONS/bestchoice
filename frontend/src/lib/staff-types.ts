@@ -90,6 +90,9 @@ export interface Refund {
   amount: string;
   reason: string;
   status: string;
+  item_received: boolean;
+  item_received_at: string | null;
+  razorpay_refund_id: string | null;
   created_at: string;
 }
 
@@ -124,7 +127,14 @@ export interface StaffOrderDetail {
   delivery_type: string;
   estimated_delivery: string | null;
   tracking: { provider: string; tracking_id: string; url: string } | null;
-  refunds: { id: number; amount: string; reason: string; status: string; created_at: string }[];
+  refunds: {
+    id: number;
+    amount: string;
+    reason: string;
+    status: string;
+    item_received: boolean;
+    created_at: string;
+  }[];
   status_history: StaffOrderStatusHistoryEntry[];
   notes: string;
   created_at: string;

@@ -148,6 +148,9 @@ export default function StaffOrderDetailPage({ params }: { params: Promise<{ ord
                         <div className="flex items-center gap-2">
                           <StatusPill value={r.status} />
                           <span className="font-bold num">{money(r.amount)}</span>
+                          <span className={`text-xs font-bold ${r.item_received ? 'text-leaf' : 'text-ink-soft'}`}>
+                            {r.item_received ? 'Item received' : 'Item not received yet'}
+                          </span>
                         </div>
                         <p className="text-ink-soft text-xs mt-1">{r.reason}</p>
                       </div>
