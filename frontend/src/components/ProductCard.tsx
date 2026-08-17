@@ -1,14 +1,37 @@
 'use client';
 
 import Link from 'next/link';
-import { useAddToWishlist } from '@/hooks/useWishlist';
+import { useRouter } from 'next/navigation';
+import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from '@/hooks/useWishlist';
+import { useAuthStore } from '@/store/auth';
 import { CategoryGlyph, GLYPH_WASH, glyphFor } from '@/components/CategoryGlyph';
 import { rupees } from '@/lib/format';
 import type { ProductListItem } from '@/lib/types';
 
 export function ProductCard({ product, span2 = false }: { product: ProductListItem; span2?: boolean }) {
+  const router = useRouter();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  // Shared queryKey across every card on the page - react-query dedupes this
+  // to one network request, not one per card.
+  const { data: wishlist } = useWishlist();
   const addToWishlist = useAddToWishlist();
+  const removeFromWishlist = useRemoveFromWishlist();
+  const isWishlisted = !!wishlist?.some((w) => w.product === product.id);
+  const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
   const glyph = glyphFor(product.category, product.name);
+
+  function toggleWishlist(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      router.push('/auth/login');
+      return;
+    }
+    if (isWishlisted) {
+      removeFromWishlist.mutate(product.id);
+    } else {
+      addToWishlist.mutate(product.id);
+    }
+  }
 
   return (
     <div className={`group ${span2 ? 'sm:col-span-2' : ''}`}>
@@ -59,14 +82,15 @@ export function ProductCard({ product, span2 = false }: { product: ProductListIt
 
         <button
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            addToWishlist.mutate(product.id);
-          }}
-          aria-label={`Add ${product.name} to wishlist`}
-          className="absolute top-2.5 right-3 z-10 text-ink/55 hover:text-marigold-lit text-base leading-none transition-colors"
+          onClick={toggleWishlist}
+          disabled={wishlistPending}
+          aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+          aria-pressed={isWishlisted}
+          className={`absolute top-2.5 right-3 z-10 text-base leading-none transition-colors disabled:opacity-50 ${
+            isWishlisted ? 'text-kumkum' : 'text-ink/55 hover:text-marigold-lit'
+          }`}
         >
-          ♡
+          {isWishlisted ? '♥' : '♡'}
         </button>
       </Link>
 

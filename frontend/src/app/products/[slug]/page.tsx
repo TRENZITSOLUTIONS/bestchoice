@@ -3,9 +3,10 @@
 import { use, useMemo, useState } from 'react';
 import { useProduct } from '@/hooks/useProducts';
 import { useAddToCart } from '@/hooks/useCart';
-import { useAddToWishlist } from '@/hooks/useWishlist';
+import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from '@/hooks/useWishlist';
 import { useReviews, useWriteReview } from '@/hooks/useReviews';
 import { useDeliveryCheck } from '@/hooks/useDelivery';
+import { sortSizes, swatchFor } from '@/lib/productOptions';
 import { useAuthStore } from '@/store/auth';
 import { ProductCard } from '@/components/ProductCard';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
@@ -17,7 +18,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const { data: product, isLoading } = useProduct(slug);
   const { data: reviewsData } = useReviews(slug);
   const addToCart = useAddToCart();
+  const { data: wishlist } = useWishlist();
   const addToWishlist = useAddToWishlist();
+  const removeFromWishlist = useRemoveFromWishlist();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const router = useRouter();
 
@@ -29,7 +32,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [showReviewForm, setShowReviewForm] = useState(false);
 
   const colors = useMemo(() => [...new Set(product?.variants.map((v) => v.color).filter(Boolean))], [product]);
-  const sizes = useMemo(() => [...new Set(product?.variants.map((v) => v.size).filter(Boolean))], [product]);
+  const sizes = useMemo(
+    () => sortSizes([...new Set(product?.variants.map((v) => v.size).filter(Boolean))]),
+    [product]
+  );
   const shades = useMemo(() => [...new Set(product?.variants.map((v) => v.shade).filter(Boolean))], [product]);
 
   const selectedVariant = useMemo(() => {
@@ -77,6 +83,21 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       navigator.share({ title: product!.name, url: productUrl }).catch(() => {});
     } else {
       navigator.clipboard.writeText(productUrl);
+    }
+  }
+
+  const isWishlisted = !!wishlist?.some((w) => w.product === product.id);
+  const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
+
+  function toggleWishlist() {
+    if (!isAuthenticated) {
+      router.push('/auth/login');
+      return;
+    }
+    if (isWishlisted) {
+      removeFromWishlist.mutate(product!.id);
+    } else {
+      addToWishlist.mutate(product!.id);
     }
   }
 
@@ -153,10 +174,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   <button
                     key={c}
                     onClick={() => setColor(c)}
-                    className={`px-3 py-1.5 rounded border text-sm ${
-                      (color ?? colors[0]) === c ? 'border-kumkum bg-kumkum text-white' : 'border-line'
+                    title={c}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded border text-sm ${
+                      (color ?? colors[0]) === c ? 'border-kumkum ring-1 ring-kumkum' : 'border-line'
                     }`}
                   >
+                    <span
+                      aria-hidden
+                      className="inline-block w-4 h-4 rounded-full border border-black/15 flex-shrink-0"
+                      style={{ background: swatchFor(c) }}
+                    />
                     {c}
                   </button>
                 ))}
@@ -172,10 +199,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   <button
                     key={s}
                     onClick={() => setShade(s)}
-                    className={`px-3 py-1.5 rounded border text-sm ${
-                      (shade ?? shades[0]) === s ? 'border-kumkum bg-kumkum text-white' : 'border-line'
+                    title={s}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded border text-sm ${
+                      (shade ?? shades[0]) === s ? 'border-kumkum ring-1 ring-kumkum' : 'border-line'
                     }`}
                   >
+                    <span
+                      aria-hidden
+                      className="inline-block w-4 h-4 rounded-full border border-black/15 flex-shrink-0"
+                      style={{ background: swatchFor(s) }}
+                    />
                     {s}
                   </button>
                 ))}
@@ -220,11 +253,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               Buy Now
             </button>
             <button
-              onClick={() => addToWishlist.mutate(product.id)}
-              aria-label="Add to wishlist"
-              className="w-12 h-12 border border-line rounded flex-shrink-0"
+              onClick={toggleWishlist}
+              disabled={wishlistPending}
+              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              aria-pressed={isWishlisted}
+              className={`w-12 h-12 border rounded flex-shrink-0 text-lg disabled:opacity-50 ${
+                isWishlisted ? 'border-kumkum text-kumkum' : 'border-line'
+              }`}
             >
-              ♡
+              {isWishlisted ? '♥' : '♡'}
             </button>
             <button onClick={handleShare} aria-label="Share" className="w-12 h-12 border border-line rounded flex-shrink-0">
               ⤴
