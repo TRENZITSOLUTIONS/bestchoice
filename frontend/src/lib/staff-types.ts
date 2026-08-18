@@ -84,6 +84,13 @@ export interface OrderListItem {
   created_at: string;
 }
 
+export interface RefundAttachment {
+  id: number;
+  kind: 'photo' | 'video';
+  file: string;
+  created_at: string;
+}
+
 export interface Refund {
   id: number;
   order_id: string;
@@ -93,6 +100,7 @@ export interface Refund {
   item_received: boolean;
   item_received_at: string | null;
   razorpay_refund_id: string | null;
+  attachments: RefundAttachment[];
   created_at: string;
 }
 
@@ -133,6 +141,7 @@ export interface StaffOrderDetail {
     reason: string;
     status: string;
     item_received: boolean;
+    attachments: RefundAttachment[];
     created_at: string;
   }[];
   status_history: StaffOrderStatusHistoryEntry[];

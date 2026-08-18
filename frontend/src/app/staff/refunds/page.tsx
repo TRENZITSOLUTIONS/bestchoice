@@ -11,6 +11,7 @@ import {
   money,
   shortDate,
 } from '@/components/staff/ui';
+import { RefundProof } from '@/components/staff/RefundProof';
 
 export default function StaffRefundsPage() {
   const [filter, setFilter] = useState('requested');
@@ -88,6 +89,7 @@ export default function StaffRefundsPage() {
                   <th className="font-medium pb-2">Requested</th>
                   <th className="font-medium pb-2">Order</th>
                   <th className="font-medium pb-2">Reason</th>
+                  <th className="font-medium pb-2 pl-2">Proof</th>
                   <th className="font-medium pb-2 text-right pr-4">Amount</th>
                   <th className="font-medium pb-2 pl-2">Status</th>
                   <th className="font-medium pb-2 pl-2">Item</th>
@@ -102,6 +104,7 @@ export default function StaffRefundsPage() {
                     </td>
                     <td className="py-3 font-bold whitespace-nowrap">{r.order_id}</td>
                     <td className="py-3 max-w-[260px]">{r.reason}</td>
+                    <td className="py-3 pl-2"><RefundProof attachments={r.attachments} /></td>
                     <td className="py-3 text-right pr-4 num font-bold whitespace-nowrap">
                       {money(r.amount)}
                     </td>

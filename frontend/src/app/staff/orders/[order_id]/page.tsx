@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDeleteOrder, useStaffOrderDetail, useUpdateOrderStatus } from '@/hooks/useStaff';
 import { ErrorState, Panel, StatusPill, money, shortDate } from '@/components/staff/ui';
+import { RefundProof } from '@/components/staff/RefundProof';
 
 const NEXT_STATUS: Record<string, string> = {
   pending: 'confirmed',
@@ -159,6 +160,9 @@ export default function StaffOrderDetailPage({ params }: { params: Promise<{ ord
                           </span>
                         </div>
                         <p className="text-ink-soft text-xs mt-1">{r.reason}</p>
+                        <div className="mt-2">
+                          <RefundProof attachments={r.attachments} />
+                        </div>
                       </div>
                     ))}
                   </div>

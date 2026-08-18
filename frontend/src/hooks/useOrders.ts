@@ -78,8 +78,22 @@ export function useCancelOrder() {
 export function useRequestRefund() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
-      const res = await api.post(`/orders/${orderId}/refund/`, { reason });
+    mutationFn: async ({
+      orderId,
+      reason,
+      photos,
+      video,
+    }: {
+      orderId: string;
+      reason: string;
+      photos?: File[];
+      video?: File | null;
+    }) => {
+      const body = new FormData();
+      body.append('reason', reason);
+      (photos ?? []).forEach((photo) => body.append('photos', photo));
+      if (video) body.append('video', video);
+      const res = await api.post(`/orders/${orderId}/refund/`, body);
       return res.data;
     },
     onSuccess: (_, { orderId }) => {

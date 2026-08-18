@@ -161,11 +161,19 @@ export interface OrderItemDetail {
   price: string;
 }
 
+export interface RefundAttachment {
+  id: number;
+  kind: 'photo' | 'video';
+  file: string;
+  created_at: string;
+}
+
 export interface Refund {
   id: number;
   amount: string;
   reason: string;
   status: 'requested' | 'approved' | 'rejected' | 'processed';
+  attachments: RefundAttachment[];
   created_at: string;
 }
 
