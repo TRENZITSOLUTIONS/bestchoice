@@ -7,6 +7,7 @@ import {
   useUpdateCategory,
   useDeactivateCategory,
   useUploadCategoryImage,
+  useRemoveCategoryImage,
   useStaffBrands,
   useCreateBrand,
   useUpdateBrand,
@@ -46,6 +47,7 @@ function CategoriesPanel() {
   const update = useUpdateCategory();
   const deactivate = useDeactivateCategory();
   const uploadImage = useUploadCategoryImage();
+  const removeImage = useRemoveCategoryImage();
 
   const [editing, setEditing] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<CategoryDraft>(EMPTY_CATEGORY);
@@ -204,11 +206,17 @@ function CategoriesPanel() {
                 <CategoryPhotoUpload
                   image={draft.image}
                   uploading={uploadImage.isPending}
+                  removing={removeImage.isPending}
                   onUpload={(file) =>
                     uploadImage.mutate(
                       { id: editing, file },
                       { onSuccess: (updated) => field('image', updated.image) }
                     )
+                  }
+                  onRemove={() =>
+                    removeImage.mutate(editing, {
+                      onSuccess: (updated) => field('image', updated.image),
+                    })
                   }
                 />
               ) : (
@@ -284,11 +292,15 @@ function CategoriesPanel() {
 function CategoryPhotoUpload({
   image,
   uploading,
+  removing,
   onUpload,
+  onRemove,
 }: {
   image: string;
   uploading: boolean;
+  removing: boolean;
   onUpload: (file: File) => void;
+  onRemove: () => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -304,14 +316,28 @@ function CategoryPhotoUpload({
       ) : (
         <div className="h-16 w-24 border border-line bg-ivory-raised" />
       )}
-      <button
-        type="button"
-        onClick={() => fileInput.current?.click()}
-        disabled={uploading}
-        className="text-xs font-bold text-marigold-lit disabled:opacity-50"
-      >
-        {uploading ? 'Uploading…' : image ? 'Change thumbnail' : '+ Upload thumbnail'}
-      </button>
+      <div className="flex flex-col items-start gap-1">
+        <button
+          type="button"
+          onClick={() => fileInput.current?.click()}
+          disabled={uploading || removing}
+          className="text-xs font-bold text-marigold-lit disabled:opacity-50"
+        >
+          {uploading ? 'Uploading…' : image ? 'Change thumbnail' : '+ Upload thumbnail'}
+        </button>
+        {image && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Remove this department thumbnail?')) onRemove();
+            }}
+            disabled={uploading || removing}
+            className="text-xs font-bold text-kumkum disabled:opacity-50"
+          >
+            {removing ? 'Removing…' : 'Remove thumbnail'}
+          </button>
+        )}
+      </div>
       <input
         ref={fileInput}
         type="file"

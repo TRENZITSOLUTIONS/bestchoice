@@ -317,10 +317,10 @@ def admin_category_detail(request, pk):
     return Response(AdminCategorySerializer(category).data)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'DELETE'])
 @permission_classes([IsAdminUser])
 def admin_category_image(request, pk):
-    """Upload a real photo for a department/category tile.
+    """Upload or remove a real photo for a department/category tile.
 
     Category.image is a plain URLField rather than an ImageField - it always
     supported pasting a URL, so this stores the upload itself (compressed,
@@ -332,6 +332,14 @@ def admin_category_image(request, pk):
         category = Category.objects.get(pk=pk)
     except Category.DoesNotExist:
         return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        # Just clears the field - doesn't bother deleting the file out of
+        # storage, same tradeoff as the rest of this app's image handling
+        # (nothing here has ever cleaned up orphaned S3 objects).
+        category.image = ''
+        category.save(update_fields=['image'])
+        return Response(AdminCategorySerializer(category).data)
 
     file_obj = request.FILES.get('image')
     if not file_obj:

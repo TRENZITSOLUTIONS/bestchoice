@@ -443,3 +443,46 @@ class SimilarProductsColorMatchTest(TestCase):
         res = self.client.get('/api/products/no-color-product/')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data['related']['similar']), 3)
+
+
+class AdminCategoryImageRemovalTest(TestCase):
+    """The category thumbnail uploader could only ever upload/replace an
+    image, never clear one back out - staff had no way to remove a
+    department photo short of pasting over it with a blank URL via Django
+    Admin. This covers the DELETE the frontend's Remove button now calls."""
+
+    def setUp(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        self.staff = User.objects.create_user(
+            email='catimg@bestchoice.in', username='catimg-staff',
+            password='staffpass123', is_staff=True,
+        )
+        self.customer = User.objects.create_user(
+            email='shopper@example.com', username='catimg-shopper', password='shopperpass123',
+        )
+        self.category = Category.objects.create(
+            name='Uploads Test', slug='uploads-test', image='https://example.com/old-thumb.jpg',
+        )
+        self.client = APIClient()
+        self.url = f'/api/admin/categories/{self.category.id}/image/'
+
+    def auth(self, user):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+    def test_staff_can_remove_category_image(self):
+        self.auth(self.staff)
+        res = self.client.delete(self.url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['image'], '')
+        self.category.refresh_from_db()
+        self.assertEqual(self.category.image, '')
+
+    def test_non_staff_cannot_remove_category_image(self):
+        self.auth(self.customer)
+        res = self.client.delete(self.url)
+        self.assertEqual(res.status_code, 403)
+        self.category.refresh_from_db()
+        self.assertEqual(self.category.image, 'https://example.com/old-thumb.jpg')

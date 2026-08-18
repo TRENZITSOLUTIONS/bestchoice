@@ -365,6 +365,14 @@ export function useUploadCategoryImage() {
   });
 }
 
+export function useRemoveCategoryImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete<CategoryRow>(`/admin/categories/${id}/image/`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff', 'categories'] }),
+  });
+}
+
 export function useStaffBrands() {
   return useQuery({
     queryKey: ['staff', 'brands'],
