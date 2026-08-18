@@ -38,7 +38,11 @@ server {
     ssl_session_cache shared:SSL:10m;
 
     # Product images can be large; Razorpay webhooks are small but chatty.
-    client_max_body_size 25M;
+    # Refund requests can carry a video (up to 50MB) plus any number of
+    # photos (10MB each) in one multipart request, so this needs headroom
+    # beyond a single product photo - the app itself still enforces the
+    # per-file limits, this is just the outer backstop.
+    client_max_body_size 120M;
 
     # Next.js immutable build assets.
     location /_next/static {

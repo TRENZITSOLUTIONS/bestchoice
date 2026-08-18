@@ -121,3 +121,18 @@ class Refund(models.Model):
 
     def __str__(self):
         return f'Refund {self.id} - {self.order.order_id}'
+
+
+class RefundAttachment(models.Model):
+    """Evidence a customer attaches when requesting a refund - photos of a
+    damaged/wrong item, or a short video. Uploaded once, at request time,
+    alongside the reason text; there's no later edit flow."""
+    KIND_CHOICES = [('photo', 'Photo'), ('video', 'Video')]
+
+    refund = models.ForeignKey(Refund, on_delete=models.CASCADE, related_name='attachments')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    file = models.FileField(upload_to='refund_proofs/%Y/%m/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.kind} for Refund {self.refund_id}'

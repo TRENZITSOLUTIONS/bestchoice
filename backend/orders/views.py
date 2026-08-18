@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta
 
-from .models import Order, OrderItem, Refund, Refund, OrderStatusHistory
+from .models import Order, OrderItem, Refund, RefundAttachment, OrderStatusHistory
 from .serializers import (
     OrderListSerializer, OrderDetailSerializer,
     CheckoutSerializer, RefundSerializer, OrderTrackingSerializer,
@@ -340,6 +340,14 @@ def order_tracking(request, order_id):
     return Response(serializer.data)
 
 
+# No hard cap on how many photos a customer attaches - "as many as they
+# want" - but each file is still bounded so one huge upload can't tie up a
+# worker or fill storage, and the total request is bounded by nginx's
+# client_max_body_size as the outer backstop.
+MAX_PHOTO_SIZE = 10 * 1024 * 1024   # 10MB - generous for a phone camera photo
+MAX_VIDEO_SIZE = 50 * 1024 * 1024   # 50MB - a short clip, not a movie
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def request_refund(request, order_id):
@@ -351,12 +359,42 @@ def request_refund(request, order_id):
     if order.status != 'delivered':
         return Response({'error': 'Only delivered orders can be refunded'}, status=status.HTTP_400_BAD_REQUEST)
 
+    videos = request.FILES.getlist('video')
+    if len(videos) > 1:
+        return Response({'video': ['Only one video can be attached.']}, status=status.HTTP_400_BAD_REQUEST)
+    video = videos[0] if videos else None
+    if video:
+        if video.size > MAX_VIDEO_SIZE:
+            return Response({'video': ['Video must be under 50MB.']}, status=status.HTTP_400_BAD_REQUEST)
+        if not (video.content_type or '').startswith('video/'):
+            return Response({'video': ['That file is not a video.']}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Compressed up front (same pipeline as product/category photos) so
+    # validation - "is this actually a real image?" - and the eventual
+    # stored size are handled in one pass, before anything is written to
+    # the database.
+    from products.utils.image_utils import compress_original
+
+    compressed_photos = []
+    for photo in request.FILES.getlist('photos'):
+        if photo.size > MAX_PHOTO_SIZE:
+            return Response({'photos': [f'{photo.name} is larger than 10MB.']}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            compressed_photos.append(compress_original(photo, photo.name))
+        except Exception:
+            return Response({'photos': [f'{photo.name} is not a valid image.']}, status=status.HTTP_400_BAD_REQUEST)
+
     refund = Refund.objects.create(
         order=order,
         amount=order.total,
         reason=request.data.get('reason', ''),
         status='requested',
     )
+    for compressed in compressed_photos:
+        RefundAttachment.objects.create(refund=refund, kind='photo', file=compressed)
+    if video:
+        RefundAttachment.objects.create(refund=refund, kind='video', file=video)
+
     return Response(RefundSerializer(refund).data, status=status.HTTP_201_CREATED)
 
 

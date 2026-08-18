@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, Refund, OrderStatusHistory
+from .models import Order, OrderItem, Refund, RefundAttachment, OrderStatusHistory
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -8,10 +8,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RefundAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RefundAttachment
+        fields = ('id', 'kind', 'file', 'created_at')
+
+
 class RefundSerializer(serializers.ModelSerializer):
+    attachments = RefundAttachmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = Refund
-        fields = ('id', 'amount', 'reason', 'status', 'item_received', 'created_at')
+        fields = ('id', 'amount', 'reason', 'status', 'item_received', 'attachments', 'created_at')
 
 
 class StaffRefundSerializer(RefundSerializer):
