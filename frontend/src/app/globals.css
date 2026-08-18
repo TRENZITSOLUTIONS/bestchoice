@@ -163,3 +163,27 @@ body::before {
   background: var(--kumkum);
   color: #fff;
 }
+
+/* Printable invoice: isolates .invoice-print-area from the rest of the page
+   (site header/footer, staff dashboard chrome, action buttons) so printing
+   an invoice page only prints the invoice itself, regardless of whatever
+   layout wraps it. .no-print hides controls (the Print button) that should
+   never appear on paper. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .invoice-print-area,
+  .invoice-print-area * {
+    visibility: visible;
+  }
+  .invoice-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

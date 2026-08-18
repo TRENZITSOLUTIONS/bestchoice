@@ -138,6 +138,7 @@ export interface StaffOrderDetail {
   status_history: StaffOrderStatusHistoryEntry[];
   notes: string;
   created_at: string;
+  razorpay_payment_id: string | null;
 }
 
 export interface InventoryRow {

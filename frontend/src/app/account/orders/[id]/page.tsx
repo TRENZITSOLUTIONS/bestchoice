@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
+import Link from 'next/link';
 import { useOrder, useOrderTracking, useCancelOrder, useRequestRefund } from '@/hooks/useOrders';
 import { AccountNav } from '@/components/account/AccountNav';
 
@@ -30,6 +31,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-xs text-ink-soft mt-0.5">Payment: {order.payment_status}</p>
             </div>
             <div className="flex gap-2">
+              <Link
+                href={`/account/orders/${order.order_id}/invoice`}
+                className="border border-line rounded px-4 py-2 text-sm font-semibold"
+              >
+                Print Invoice
+              </Link>
               {CANCELLABLE_STATUSES.has(order.status) && (
                 <button
                   onClick={() => cancelOrder.mutate(order.order_id)}

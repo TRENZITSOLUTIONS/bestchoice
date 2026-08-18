@@ -185,6 +185,12 @@ export interface OrderDetail {
   refunds: Refund[];
   notes: string;
   created_at: string;
+  // Present on the customer's own order too (not just the staff view) so
+  // the invoice has a "Bill To" and payment reference to print.
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  razorpay_payment_id: string | null;
 }
 
 export interface OrderStatusHistoryEntry {

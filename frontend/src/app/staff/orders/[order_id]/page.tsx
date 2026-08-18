@@ -56,6 +56,12 @@ export default function StaffOrderDetailPage({ params }: { params: Promise<{ ord
               <StatusPill value={order.status} />
               <StatusPill value={order.payment_status} />
             </div>
+            <Link
+              href={`/staff/orders/${order.order_id}/invoice`}
+              className="text-xs font-bold text-ink-soft hover:text-ink border border-line px-4 py-2"
+            >
+              Print Invoice
+            </Link>
             {next && (
               <button
                 onClick={() => updateStatus.mutate({ orderId: order.order_id, status: next })}

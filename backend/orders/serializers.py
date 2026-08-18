@@ -43,6 +43,12 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     refunds = RefundSerializer(many=True, read_only=True)
     tracking = serializers.SerializerMethodField()
+    # Also needed for the printable invoice (both the customer's own copy
+    # and the staff copy) - a "Bill To" section and a payment reference
+    # need these even on the customer-facing endpoint.
+    customer_name = serializers.SerializerMethodField()
+    customer_email = serializers.EmailField(source='user.email', read_only=True)
+    customer_phone = serializers.CharField(source='user.phone', read_only=True)
 
     class Meta:
         model = Order
@@ -51,6 +57,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'subtotal', 'discount', 'total', 'delivery_charge',
             'shipping_address', 'delivery_type', 'estimated_delivery',
             'tracking', 'refunds', 'notes', 'created_at',
+            'customer_name', 'customer_email', 'customer_phone',
+            'razorpay_payment_id',
         )
 
     def get_tracking(self, obj):
@@ -62,6 +70,10 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def get_customer_name(self, obj):
+        full_name = f'{obj.user.first_name} {obj.user.last_name}'.strip()
+        return full_name or obj.user.email or obj.user.phone or ''
+
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,22 +82,13 @@ class OrderStatusHistorySerializer(serializers.ModelSerializer):
 
 
 class StaffOrderDetailSerializer(OrderDetailSerializer):
-    """Same as the customer-facing detail view, plus who placed it - a
-    customer viewing their own order already knows that; staff triaging
-    someone else's order need it front and centre."""
-    customer_name = serializers.SerializerMethodField()
-    customer_email = serializers.EmailField(source='user.email', read_only=True)
-    customer_phone = serializers.CharField(source='user.phone', read_only=True)
+    """Same as the customer-facing detail view (which already carries
+    customer_name/email/phone for the invoice), plus the full status-change
+    audit trail staff need that a customer's own view doesn't surface."""
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
 
     class Meta(OrderDetailSerializer.Meta):
-        fields = OrderDetailSerializer.Meta.fields + (
-            'customer_name', 'customer_email', 'customer_phone', 'status_history',
-        )
-
-    def get_customer_name(self, obj):
-        full_name = f'{obj.user.first_name} {obj.user.last_name}'.strip()
-        return full_name or obj.user.email or obj.user.phone or ''
+        fields = OrderDetailSerializer.Meta.fields + ('status_history',)
 
 
 class OrderTrackingSerializer(serializers.ModelSerializer):
